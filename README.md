@@ -33,6 +33,12 @@ TURN_USER=...
 TURN_PASS=...
 ```
 
+## Rooms, friends and invites
+
+- **Rooms list:** every open table shows in the lobby. Public rooms can be joined with one tap; private rooms need the code, or the host's OK when someone taps "Ask to join".
+- **Invite:** inside a room, Invite shows the code, copies the link, opens the phone's share menu (WhatsApp, Messages, contacts) and lists your friends with an Invite button.
+- **Friends:** each device has a private key; its public id is derived from it, so nothing needs storing on the server. Share your friend link once and you're friends. Friend lists live on each device; the server only tracks who is online and at which table.
+
 ## Standing rooms
 
 A host can keep a room open until they close it. Each player's device keeps a sealed (signed) copy of the room, so if the server restarts or the free plan sleeps, the first player back restores it with everyone's chips. Set `ROOM_SECRET` (any long random string; Render's "Generate" button works) so copies stay valid across deploys; without it the server falls back to Render's service id.

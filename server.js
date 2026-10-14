@@ -157,11 +157,12 @@ function broadcast(table) {
   if (table.closed) return;
   if (table.idsChanged) { table.idsChanged = false; for (const p of table.players) if (p.conn) send(p.conn, { type: 'rtc_reset' }); }
   const rq = [...(table.requests || new Map()).values()].map(r => ({ id: r.id, name: r.name, av: r.av, ret: r.ret >= 0 ? 1 : 0, chips: r.chips }));
+  const ids = table.players.map(p => (p.conn && p.conn.me) || null);
   for (const p of table.players) {
     const c = p.conn; if (!c || c.readyState !== 1) continue;
     const fresh = table.fxq.filter(e => e.n > (c.lastFx || 0));
     if (fresh.length) c.lastFx = fresh[fresh.length - 1].n;
-    send(c, { type: 'state', st: table.snapshot(p.id), fx: fresh, rq: p.id === table.hostId ? rq : undefined });
+    send(c, { type: 'state', st: table.snapshot(p.id), fx: fresh, rq: p.id === table.hostId ? rq : undefined, ids });
   }
   listDirty = true;
   if (table.humansPresent() === 0 && !table.persistent) unregister(table);

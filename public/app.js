@@ -10,7 +10,7 @@ const fmt=n=>(+n||0).toLocaleString('en-GB');
 
 let S=null, ME=-1, WS=null, CONNECTED=false, HOST=false;
 let rendered=new Set(), lastCount=0, lastME=null, lastSig='';
-let cfg={fill:true,side:true,series:false,tie:'playoff',keep:false};
+let cfg={fill:true,side:true,series:false,tie:'playoff',keep:false,pub:false};
 const LOG=[];
 
 // ---------- helpers ----------
@@ -35,7 +35,7 @@ const AV_COLORS=['#b8862c','#8e44ad','#c0392b','#2980b9','#d35400','#16a085','#2
 function avStyle(av,initial){av=av||{kind:'initial',color:'#b8862c'};if(av.kind==='photo')return{style:`background-image:url(${av.data});background-color:#222`,text:''};if(av.kind==='emoji')return{style:`background:#2b1f25`,text:av.emoji};return{style:`background:${av.color||'#b8862c'}`,text:initial}}
 function applyAv(el,av,initial){const a=avStyle(av,initial);el.style.cssText+=';'+a.style;el.textContent=a.text}
 function publicAv(){return AV.kind==='photo'?{kind:'initial',color:'#b8862c'}:AV}
-function saveAv(){try{localStorage.setItem('tete.av',JSON.stringify(AV))}catch{}refreshAv();hello()}
+function saveAv(){try{localStorage.setItem('tete.av',JSON.stringify(AV))}catch{}refreshAv();hello();if(typeof sendMe==='function')sendMe()}
 function refreshAv(){const ini=(($('#f-name').value||'?').trim()[0]||'?').toUpperCase();applyAv($('#av-lobby'),AV,ini);applyAv($('#av-prev'),AV,ini);
   if(S&&ME>=0)renderSeats(true);
   $('#av-opts').innerHTML=AV_COLORS.map(c=>`<div class="avopt ${AV.kind==='initial'&&AV.color===c?'on':''}" data-color="${c}" style="background:${c}">${ini}</div>`).join('')+AV_EMOJI.map(e=>`<div class="avopt ${AV.kind==='emoji'&&AV.emoji===e?'on':''}" data-emoji="${e}" style="background:#2b1f25">${e}</div>`).join('');
@@ -43,7 +43,7 @@ function refreshAv(){const ini=(($('#f-name').value||'?').trim()[0]||'?').toUppe
 function openAv(){refreshAv();openModal('#m-av')}
 $('#btn-av').onclick=openAv;$('#av-lobby').onclick=openAv;
 $('#av-clear').onclick=()=>{AV={kind:'initial',color:'#b8862c'};saveAv()};
-$('#f-name').addEventListener('input',()=>{refreshAv();try{localStorage.setItem('tete.name',$('#f-name').value)}catch{}});
+$('#f-name').addEventListener('input',()=>{refreshAv();try{localStorage.setItem('tete.name',$('#f-name').value)}catch{}if(typeof sendMe==='function')sendMe()});
 $('#av-file').onchange=()=>{const f=$('#av-file').files[0];if(!f)return;const img=new Image();const fr=new FileReader();fr.onload=()=>{img.onload=()=>{const c=document.createElement('canvas');const s=160;c.width=c.height=s;const x=c.getContext('2d');const m=Math.min(img.width,img.height);x.drawImage(img,(img.width-m)/2,(img.height-m)/2,m,m,0,0,s,s);AV={kind:'photo',data:c.toDataURL('image/jpeg',.82)};saveAv();toast('Photo set')};img.src=fr.result};fr.readAsDataURL(f)};
 refreshAv();
 const myName=()=>(($('#f-name').value||'').trim().slice(0,14));
@@ -64,8 +64,8 @@ function connect(){
   if(WS&&WS.readyState<=1){try{WS.onclose=null;WS.close()}catch{}}
   const proto=location.protocol==='https:'?'wss':'ws';
   WS=new WebSocket(`${proto}://${location.host}`);
-  WS.onopen=()=>{CONNECTED=true;setStatus('ok','Connected. Host a table or join with a code.');$('#conn').style.display='';$('#conn').textContent='live';if(!LOCALT&&CURRENT&&SEATS[CURRENT]){const s=SEATS[CURRENT];WS.send(JSON.stringify({type:'resume',code:CURRENT,token:s.token,seal:s.seal}))}};
-  WS.onclose=function(){if(WS!==this&&WS&&WS.readyState<=1)return;CONNECTED=false;if(navigator.onLine===false)setStatus('warn','Offline. Practice vs the computer works; hosting and joining need a connection.');else setStatus('warn','Connection lost. Reconnecting…');$('#conn').textContent='reconnecting…';setTimeout(connect,1500)};
+  WS.onopen=()=>{CONNECTED=true;identify();setStatus('ok','Connected. Host a table or join with a code.');renderRooms();$('#conn').style.display='';$('#conn').textContent='live';if(!LOCALT&&CURRENT&&SEATS[CURRENT]){const s=SEATS[CURRENT];WS.send(JSON.stringify({type:'resume',code:CURRENT,token:s.token,seal:s.seal}))}};
+  WS.onclose=function(){if(WS!==this&&WS&&WS.readyState<=1)return;CONNECTED=false;PRES_READY=false;hideReqbar();if(navigator.onLine===false)setStatus('warn','Offline. Practice vs the computer works; hosting and joining need a connection.');else setStatus('warn','Connection lost. Reconnecting…');$('#conn').textContent='reconnecting…';setTimeout(connect,1500)};
   WS.onerror=()=>{};
   WS.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch{return}onMessage(m)};
 }
@@ -79,16 +79,24 @@ try{CURRENT=localStorage.getItem('tete.current')}catch{}
 for(const k of Object.keys(SEATS)){const s=SEATS[k];if(!s||!s.token||(!s.keep&&Date.now()-(s.t||0)>6*3600e3))delete SEATS[k]}
 function saveSeats(){try{localStorage.setItem('tete.seats',JSON.stringify(SEATS))}catch{}}
 function setCurrent(c){CURRENT=c;try{c?localStorage.setItem('tete.current',c):localStorage.removeItem('tete.current')}catch{}}
-function backToLobby(){rtcLeaveAll();S=null;ME=-1;$('#game').classList.remove('on');$('#lobby').classList.add('on');$('#btn-join').disabled=false;$('#join-note').textContent='Enter the code the host sent you.'}
+function backToLobby(){rtcLeaveAll();S=null;ME=-1;IDS=[];REQS=[];$('#reqs').innerHTML='';setTimeout(()=>{renderRooms();renderFriends()},0);$('#game').classList.remove('on');$('#lobby').classList.add('on');$('#btn-join').disabled=false;$('#join-note').textContent='Enter the code the host sent you.'}
 function onMessage(m){
-  if(m.type==='joined'){ME=m.id;if(m.token&&m.code!=='PRACTICE'){SEATS[m.code]=Object.assign({},SEATS[m.code],{token:m.token,rid:m.rid,keep:!!m.keep,t:Date.now()});saveSeats();setCurrent(m.code)}if(!S||$('#lobby').classList.contains('on')){S={code:m.code,players:[],sideBets:[],board:[],participants:[]};enterGame()}if(m.resumed)toast('Back at your seat');return}
-  if(m.type==='gone'){if(m.code&&SEATS[m.code]){delete SEATS[m.code];saveSeats()}if(!m.code||CURRENT===m.code)setCurrent(null);if(!LOCALT){toast(m.msg,3500);if($('#game').classList.contains('on'))backToLobby()}return}
-  if(m.type==='seal'){const s=SEATS[m.code];if(s){s.seal=m.seal;s.rid=m.rid;s.keep=true;saveSeats()}return}
+  if(m.type==='joined'){hideReqbar();PENDING_JOIN=null;ME=m.id;if(m.token&&m.code!=='PRACTICE'){SEATS[m.code]=Object.assign({},SEATS[m.code],{token:m.token,rid:m.rid,keep:!!m.keep,t:Date.now()});saveSeats();setCurrent(m.code)}if(!S||$('#lobby').classList.contains('on')){S={code:m.code,players:[],sideBets:[],board:[],participants:[]};enterGame()}if(m.resumed)toast('Back at your seat');return}
+  if(m.type==='gone'){if(PENDING_JOIN&&m.code===PENDING_JOIN.code){const pj=PENDING_JOIN;PENDING_JOIN=null;if(SEATS[m.code]){delete SEATS[m.code];saveSeats()}send(pj.msg);return}if(m.code&&SEATS[m.code]){delete SEATS[m.code];saveSeats()}if(!m.code||CURRENT===m.code)setCurrent(null);if(!LOCALT){toast(m.msg,3500);if($('#game').classList.contains('on'))backToLobby()}return}
+  if(m.type==='seal'){const s=SEATS[m.code];if(s){s.seal=m.seal;s.rid=m.rid;s.keep=true;if(S&&S.tableName)s.name=S.tableName;saveSeats()}return}
+  if(m.type==='you'){MYID=m.id;try{localStorage.setItem('tete.myid',m.id)}catch{}handlePendingFriend();return}
+  if(m.type==='rooms'){ROOMS=m.list||[];renderRooms();return}
+  if(m.type==='presence'){onPresence(m.list||[]);return}
+  if(m.type==='friend_added'){if(m.id&&!FRIENDS[m.id]&&m.id!==MYID){FRIENDS[m.id]={name:m.name||'Friend',av:m.av||null,added:Date.now(),seen:Date.now()};saveFriends();sendMe();toast(`${m.name||'Someone'} added you as a friend`,3000);renderFriends()}return}
+  if(m.type==='requested'){showReqbar(m.ret?`Asked ${esc(m.host||'the host')} to give you back your seat at <b>${esc(m.room)}</b>…`:`Asked to join <b>${esc(m.room)}</b>. Waiting for ${esc(m.host||'the host')}${m.hostHere?'':' (not at the table right now; your request will wait)'}…`);return}
+  if(m.type==='request_cancelled'){hideReqbar();return}
+  if(m.type==='declined'){hideReqbar();toast(m.msg,3500);return}
+  if(m.type==='invited'){showInvited(m);return}
   if(m.type==='logs'){LOG.length=0;(m.items||[]).forEach(e=>logLocal(e.t,e.cls||''));return}
   if(m.type==='toast'){toast(m.msg,3000);return}
   if(m.type==='rtc_reset'){for(const [,c] of PC)c.pc.close();PC.clear();LEVELS.clear();lastSig='';return}
-  if(m.type==='error'){toast(m.msg,3500);$('#btn-join').disabled=false;$('#join-note').textContent=m.msg;return}
-  if(m.type==='state'){applyState(m.st,m.fx||[]);return}
+  if(m.type==='error'){hideReqbar();PENDING_JOIN=null;toast(m.msg,3500);$('#btn-join').disabled=false;$('#join-note').textContent=m.msg;return}
+  if(m.type==='state'){if(m.ids)IDS=m.ids;applyState(m.st,m.fx||[]);REQS=m.rq||[];renderReqs();renderInviteBadge();return}
   if(m.type==='peer'){if(m.event==='joined')rtcOnPeerJoined(m.id);else rtcOnPeerLeft(m.id);return}
   if(m.type==='rtc'){rtcOnSignal(m.from,m.data);return}
 }
@@ -97,7 +105,7 @@ function enterGame(){
   $('#wait').hidden=false;$('#wait-code').textContent=S.code||'…';avUI();
 }
 $('#btn-start').onclick=()=>{if(!needName())return;if(!CONNECTED){toast(navigator.onLine?'Not connected to the server yet':'You are offline. You can still practise against the computer.',3000);return}
-  const cfgT={seats:+$('#f-seats').value,buyIn:+$('#f-buyin').value,wager:+$('#f-wager').value,tableName:$('#f-table').value||(myName()+"'s table"),timer:+$('#f-timer').value,fill:cfg.fill,side:cfg.side,series:cfg.series,tie:cfg.tie,keep:cfg.keep};
+  const cfgT={seats:+$('#f-seats').value,buyIn:+$('#f-buyin').value,wager:+$('#f-wager').value,tableName:$('#f-table').value||(myName()+"'s table"),timer:+$('#f-timer').value,fill:cfg.fill,side:cfg.side,series:cfg.series,tie:cfg.tie,keep:cfg.keep,pub:cfg.pub};
   HOST=true;send({type:'host',cfg:cfgT,name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam})};
 $('#btn-solo').onclick=()=>{if(!needName())return;
   const cfgT={seats:+$('#f-seats').value,buyIn:+$('#f-buyin').value,wager:+$('#f-wager').value,tableName:'Practice table',timer:+$('#f-timer').value,fill:true,side:cfg.side,series:cfg.series,tie:cfg.tie};
@@ -106,7 +114,7 @@ $('#btn-join').onclick=()=>{const code=($('#f-join').value||'').trim().toLowerCa
   if(!needName())return;
   if(!/^tete-[a-z0-9]{4}$/.test(code)){toast('Enter a code like TETE-AB12');return}
   if(!CONNECTED){toast(navigator.onLine?'Not connected to the server yet':'You are offline. Playing with friends needs a connection.',3000);return}
-  HOST=false;$('#btn-join').disabled=true;$('#join-note').textContent='Joining…';send({type:'join',code,name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam})};
+  HOST=false;$('#btn-join').disabled=true;$('#join-note').textContent='Joining…';const msg={type:'join',code,name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam};const CODE=code.toUpperCase();if(SEATS[CODE]){PENDING_JOIN={code:CODE,msg};setCurrent(CODE);send({type:'resume',code:CODE,token:SEATS[CODE].token,seal:SEATS[CODE].seal})}else send(msg)};
 $('#btn-leave').onclick=()=>{const code=S&&S.code;if(LOCALT)stopLocal();else send({type:'leave'});if(code&&SEATS[code]&&!SEATS[code].keep){delete SEATS[code];saveSeats()}setCurrent(null);backToLobby()};
 $('#fill-on').onclick=()=>{cfg.fill=true;$('#fill-on').classList.add('on');$('#fill-off').classList.remove('on')};
 $('#fill-off').onclick=()=>{cfg.fill=false;$('#fill-off').classList.add('on');$('#fill-on').classList.remove('on')};
@@ -117,11 +125,124 @@ $('#sr-off').onclick=()=>{cfg.series=false;$('#sr-off').classList.add('on');$('#
 $('#tie-split').onclick=()=>{cfg.tie='split';$('#tie-split').classList.add('on');$('#tie-playoff').classList.remove('on')};
 $('#keep-on').onclick=()=>{cfg.keep=true;$('#keep-on').classList.add('on');$('#keep-off').classList.remove('on')};
 $('#keep-off').onclick=()=>{cfg.keep=false;$('#keep-off').classList.add('on');$('#keep-on').classList.remove('on')};
+$('#pub-on').onclick=()=>{cfg.pub=true;$('#pub-on').classList.add('on');$('#pub-off').classList.remove('on')};
+$('#pub-off').onclick=()=>{cfg.pub=false;$('#pub-off').classList.add('on');$('#pub-on').classList.remove('on')};
 $('#tie-playoff').onclick=()=>{cfg.tie='playoff';$('#tie-playoff').classList.add('on');$('#tie-split').classList.remove('on')};
 $('#btn-rules').onclick=()=>openModal('#m-rules');
 $('#btn-rules2').onclick=()=>openModal('#m-rules');
 // code in URL: ?t=TETE-XXXX pre-fills join
 try{const u=new URL(location.href);const t=u.searchParams.get('t');if(t)$('#f-join').value=t.toUpperCase()}catch{}
+
+
+// ---------- identity, friends, rooms list, invites ----------
+let SECRET=null,MYID=null,FRIENDS={},ROOMS=[],REQS=[],IDS=[],PENDING_FRIEND=null,FEDIT=false,PRES_READY=false,PENDING_JOIN=null;
+const PRES={};
+try{SECRET=localStorage.getItem('tete.secret');MYID=localStorage.getItem('tete.myid')}catch{}
+if(!SECRET||!/^[0-9a-f]{64}$/.test(SECRET)){const a=new Uint8Array(32);crypto.getRandomValues(a);SECRET=[...a].map(b=>b.toString(16).padStart(2,'0')).join('');try{localStorage.setItem('tete.secret',SECRET)}catch{}}
+try{FRIENDS=JSON.parse(localStorage.getItem('tete.friends')||'{}')||{}}catch{FRIENDS={}}
+function saveFriends(){try{localStorage.setItem('tete.friends',JSON.stringify(FRIENDS))}catch{}}
+function identify(){send({type:'id',secret:SECRET,name:myName(),av:publicAv(),friends:Object.keys(FRIENDS)})}
+let meT=null;function sendMe(){clearTimeout(meT);meT=setTimeout(()=>send({type:'me',name:myName(),av:publicAv(),friends:Object.keys(FRIENDS)}),400)}
+const ICON={lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',open:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg>',home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/></svg>'};
+function avHTML(av,name,cls='fav'){const a=avStyle(av,(name||'?')[0].toUpperCase());return`<div class="${cls}" style="${a.style}">${esc(a.text)}`}
+function ago(t){if(!t)return'';const m=Math.round((Date.now()-t)/60000);if(m<2)return'just now';if(m<60)return m+' min ago';const hh=Math.round(m/60);if(hh<24)return hh+'h ago';return Math.round(hh/24)+'d ago'}
+function copyText(text,okMsg){const done=()=>toast(okMsg||'Copied');try{navigator.clipboard.writeText(text).then(done,()=>toast(text,5000))}catch{toast(text,5000)}}
+function shareOrCopy(data,okMsg){if(navigator.share){navigator.share(data).catch(e=>{if(e&&e.name!=='AbortError')copyText(data.url,okMsg)})}else copyText(data.url,okMsg)}
+function friendLink(){return`${location.origin}/?f=${MYID}&n=${encodeURIComponent(myName()||'A friend')}`}
+function shareFriendLink(){if(!MYID){toast('Connecting… try again in a moment');return}if(!myName()){needName();return}shareOrCopy({title:'Tete 21',text:`Add me as a friend on Tete 21 so we can play together.`,url:friendLink()},'Friend link copied. Paste it to a friend')}
+function tableLink(){return`${location.origin}/?t=${S.code}`}
+function friendsAt(rid){return Object.keys(FRIENDS).filter(id=>PRES[id]&&PRES[id].on&&PRES[id].room&&PRES[id].room.rid===rid).map(id=>FRIENDS[id].name||'A friend')}
+function myCodeForRid(rid){for(const [code,s] of Object.entries(SEATS))if(s.rid===rid)return code;return null}
+function returnTo(code){const s=SEATS[code];if(!s)return;if(!CONNECTED){toast('Not connected yet',2500);return}setCurrent(code);send({type:'resume',code,token:s.token,seal:s.seal})}
+function askRoom(rid){if(!needName())return;if(!CONNECTED){toast('Not connected yet',2500);return}HOST=false;send({type:'request',rid,name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam})}
+function nameList(a){return a.length<=1?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1]}
+
+function renderRooms(){
+  const box=$('#rooms');if(!box)return;
+  if(!CONNECTED&&!ROOMS.length){box.innerHTML=`<p class="empty">${navigator.onLine===false?'Rooms show here when you are online.':'Connecting to the room list…'}</p>`;$('#rooms-count').textContent='';return}
+  const rows=[];const listed=new Set(ROOMS.map(r=>r.rid));
+  // standing rooms I have a seat in but the server is not showing (it was asleep): Return restores them
+  for(const [code,s] of Object.entries(SEATS)){if(!s.keep||!s.rid||listed.has(s.rid))continue;rows.push({rid:s.rid,name:s.name||'Your room',asleep:1,keep:1,mine:code,host:'',seated:0,here:0,seats:0,wager:0,started:0,hand:0,pub:0})}
+  for(const r of ROOMS){const code=myCodeForRid(r.rid);rows.push(Object.assign({},r,{mine:code}))}
+  const score=r=>(r.mine?100:0)+friendsAt(r.rid).length*10+(r.pub?3:0)+Math.min(r.here,5);
+  rows.sort((a,b)=>score(b)-score(a));
+  $('#rooms-count').textContent=ROOMS.length?`${ROOMS.length} open`:'none open';
+  if(!rows.length){box.innerHTML='<p class="empty">No rooms open right now. Host one below, or practise against the computer.</p>';return}
+  box.innerHTML=rows.map((r,i)=>{
+    const fr=friendsAt(r.rid);const full=!r.mine&&r.seats&&r.seated>=r.seats;
+    const status=r.asleep?'Asleep. Return to wake it':`${r.host?esc(r.host)+"'s room · ":''}${r.seated} of ${r.seats} seated${r.here?` · ${r.here} here`:''} · ${fmt(r.wager)} a hand · ${r.started?'Hand '+r.hand:'Waiting to start'}`;
+    const btn=r.mine?`<button class="btn btn-gold" data-ret="${esc(r.mine)}">Return</button>`:full?`<button class="btn btn-dark" disabled>Full</button>`:r.pub?`<button class="btn btn-gold" data-ask="${esc(r.rid)}">Join</button>`:`<button class="btn btn-ghost" data-ask="${esc(r.rid)}">Ask to join</button>`;
+    return`<div class="rrow ${r.mine?'mine':''} ${r.asleep?'asleep':''}" style="animation-delay:${i*.04}s"><div class="rico">${r.mine?ICON.home:r.pub?ICON.open:ICON.lock}${r.here?'<span class="live"></span>':''}</div><div style="min-width:0"><div class="rname"><span class="t">${esc(r.name)}</span>${r.mine?'<span class="tag you">Your seat</span>':''}${r.keep?'<span class="tag">Always open</span>':''}${r.pub?'<span class="tag pub">Public</span>':''}</div><div class="rmeta">${status}</div>${fr.length?`<div class="rfr">${esc(nameList(fr))} ${fr.length>1?'are':'is'} here</div>`:''}${r.pub&&r.members&&r.members.length&&!fr.length?`<div class="rmeta">${esc(r.members.join(', '))}</div>`:''}</div>${btn}</div>`}).join('');
+  $$('#rooms [data-ret]').forEach(b=>b.onclick=()=>returnTo(b.dataset.ret));
+  $$('#rooms [data-ask]').forEach(b=>b.onclick=()=>askRoom(b.dataset.ask));
+}
+function friendRows(ctx){
+  const ids=Object.keys(FRIENDS);
+  const st=id=>{const p=PRES[id]||{};const f=FRIENDS[id];if(p.on&&p.room)return{k:'play',t:`At ${p.room.name}`,o:2};if(p.on)return{k:'on',t:'Online',o:3};return{k:'',t:f.seen?`Last seen ${ago(f.seen)}`:'Offline',o:0}};
+  ids.sort((a,b)=>st(b).o-st(a).o||(FRIENDS[a].name||'').localeCompare(FRIENDS[b].name||''));
+  return ids.map((id,i)=>{const f=FRIENDS[id],s=st(id),p=PRES[id]||{};let btn='';
+    if(ctx==='invite'){const here=S&&IDS.includes(id);btn=here?'<span class="fstat on">At this table</span>':p.on?`<button class="btn btn-gold" data-inv="${id}">Invite</button>`:'<span class="fstat">Offline</span>'}
+    else if(FEDIT)btn=`<button class="btn btn-dark" data-rm="${id}">Remove</button>`;
+    else if(p.on&&p.room){const mine=myCodeForRid(p.room.rid);btn=mine?`<button class="btn btn-gold" data-ret="${esc(mine)}">Return</button>`:`<button class="btn ${p.room.pub?'btn-gold':'btn-ghost'}" data-ask="${esc(p.room.rid)}">${p.room.pub?'Join':'Ask to join'}</button>`}
+    return`<div class="frow" style="animation-delay:${i*.04}s">${avHTML(f.av,f.name)}<span class="dot ${s.k}"></span></div><div style="min-width:0"><div class="fname">${esc(f.name||'Friend')}</div><div class="fstat ${s.k}">${esc(s.t)}</div></div>${btn}</div>`}).join('');
+}
+function renderFriends(){
+  const box=$('#friends');if(!box)return;const n=Object.keys(FRIENDS).length;
+  const on=Object.keys(FRIENDS).filter(id=>PRES[id]&&PRES[id].on).length;
+  $('#friends-count').textContent=n?(on?`${on} online`:`${n}`):'';$('#friends-edit').hidden=!n;$('#friends-edit').textContent=FEDIT?'Done':'Edit';
+  box.innerHTML=n?friendRows('lobby'):'<p class="empty">Add friends to see when they are online and invite them to your table. Share your friend link: they tap it once and you are friends.</p>';
+  $$('#friends [data-ask]').forEach(b=>b.onclick=()=>askRoom(b.dataset.ask));
+  $$('#friends [data-ret]').forEach(b=>b.onclick=()=>returnTo(b.dataset.ret));
+  $$('#friends [data-rm]').forEach(b=>b.onclick=()=>{const id=b.dataset.rm;const nm=FRIENDS[id]&&FRIENDS[id].name;delete FRIENDS[id];saveFriends();send({type:'friend_remove',id});toast(`Removed ${nm||'friend'}`);renderFriends()});
+  renderInviteBadge();
+}
+function renderInviteBadge(){const b=$('#invite-badge');if(!b)return;const n=Object.keys(FRIENDS).filter(id=>PRES[id]&&PRES[id].on&&!IDS.includes(id)).length;b.hidden=!n||!!LOCALT;b.textContent=n}
+function openInvite(){if(!S||LOCALT)return;$('#inv-room').textContent=S.tableName||'your table';$('#inv-code').textContent=S.code;renderInvite();openModal('#m-invite')}
+function renderInvite(){const box=$('#inv-friends');const n=Object.keys(FRIENDS).length;
+  box.innerHTML=n?friendRows('invite'):'<p class="empty">No friends yet. Share your friend link below, or use Share invite to send the table to anyone.</p>';
+  $$('#inv-friends [data-inv]').forEach(b=>b.onclick=()=>{send({type:'invite',to:b.dataset.inv});b.textContent='Invited';b.classList.add('sent');b.disabled=true})}
+$('#btn-invite').onclick=openInvite;
+$('#inv-code').onclick=()=>copyText(S.code,'Code copied');
+$('#inv-copy').onclick=()=>copyText(tableLink(),'Link copied. Paste it into WhatsApp or a message');
+$('#inv-share').onclick=()=>shareOrCopy({title:'Tete 21',text:`Join me for Tete 21 at ${S.tableName}. Tap the link, or enter code ${S.code}.`,url:tableLink()},'Link copied. Paste it into WhatsApp or a message');
+$('#inv-friendlink').onclick=shareFriendLink;$('#btn-friendlink').onclick=shareFriendLink;
+$('#friends-edit').onclick=()=>{FEDIT=!FEDIT;renderFriends()};
+$('#reqbar-cancel').onclick=()=>{send({type:'request_cancel'});hideReqbar()};
+function showReqbar(t){$('#reqbar-text').innerHTML=t;$('#reqbar').hidden=false}
+function hideReqbar(){$('#reqbar').hidden=true}
+function renderReqs(){const box=$('#reqs');if(!box)return;if(!HOST||LOCALT){box.innerHTML='';return}
+  const known=new Set($$('#reqs .reqcard').map(e=>e.dataset.id));let fresh=false;
+  box.innerHTML=REQS.map(r=>{if(!known.has(r.id))fresh=true;return`<div class="reqcard" data-id="${esc(r.id)}" style="${known.has(r.id)?'animation:none':''}">${avHTML(r.av,r.name)}</div><div class="rt"><b>${esc(r.name)}</b> ${r.ret?`wants their seat back<br><small>${fmt(r.chips)} chips waiting</small>`:'wants to join<br><small>'+(S&&S.started?'Sits in from the next hand':'Joins the waiting room')+'</small>'}</div><button class="btn btn-gold" data-yes="${esc(r.id)}">Let in</button><button class="btn btn-ghost" data-no="${esc(r.id)}">Not now</button></div>`}).join('');
+  $$('#reqs [data-yes]').forEach(b=>b.onclick=()=>{send({type:'admit',id:b.dataset.yes,yes:true});b.closest('.reqcard').remove()});
+  $$('#reqs [data-no]').forEach(b=>b.onclick=()=>{send({type:'admit',id:b.dataset.no,yes:false});b.closest('.reqcard').remove()});
+  if(fresh&&navigator.vibrate)try{navigator.vibrate([60,40,60])}catch{}
+}
+let INVITE=null;
+function showInvited(m){INVITE=m;const f=m.from||{};const a=avStyle(f.av,(f.name||'?')[0].toUpperCase());const el=$('#invd-av');el.style.cssText=a.style;el.textContent=a.text;
+  $('#invd-title').textContent=`${f.name||'A friend'} invites you`;
+  $('#invd-body').innerHTML=`to <b>${esc(m.room.name)}</b>${m.room.host?` · ${esc(m.room.host)}'s room`:''}<br>${m.room.seated} of ${m.room.seats} seated · ${fmt(m.room.wager)} a hand${S&&!LOCALT?'<br><small>You will leave your current table.</small>':''}`;
+  openModal('#m-invited');if(navigator.vibrate)try{navigator.vibrate([80,50,80])}catch{}}
+$('#invd-yes').onclick=()=>{closeModal('#m-invited');if(!INVITE)return;if(!needName())return;if(LOCALT){stopLocal();backToLobby()}send({type:'accept_invite',token:INVITE.token,name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam});INVITE=null};
+$('#invd-no').onclick=()=>{closeModal('#m-invited');INVITE=null};
+function askAddFriend(id,name){const a=avStyle(null,(name||'?')[0].toUpperCase());const el=$('#af-av');el.style.cssText=a.style;el.textContent=a.text;$('#af-title').textContent=`Add ${name||'this player'} as a friend?`;
+  $('#af-yes').onclick=()=>{closeModal('#m-addfriend');addFriend(id,name,null)};$('#af-no').onclick=()=>closeModal('#m-addfriend');openModal('#m-addfriend')}
+function addFriend(id,name,av){if(!id||id===MYID)return;FRIENDS[id]=Object.assign({},FRIENDS[id],{name:name||(FRIENDS[id]&&FRIENDS[id].name)||'Friend',av:av||(FRIENDS[id]&&FRIENDS[id].av)||null,added:Date.now()});saveFriends();send({type:'friend_add',id});sendMe();toast(`${name||'Friend'} added`);renderFriends();if(S)renderSeats()}
+function openPlayer(pid){const p=S&&S.players[pid];if(!p||p.isBot||pid===ME)return;const id=IDS[pid];const a=avStyle(p.av,p.name[0].toUpperCase());const el=$('#pl-av');el.style.cssText=a.style;el.textContent=a.text;
+  $('#pl-name').textContent=p.name;$('#pl-body').textContent=`${fmt(p.chips)} chips${p.away?' · away':''}`;
+  const isF=id&&FRIENDS[id];$('#pl-actions').innerHTML=(!id?'<span class="note">Not on this table right now</span>':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-gold" id="pl-add">Add as a friend</button>')+'<button class="btn btn-ghost" data-close>Close</button>';
+  const add=$('#pl-add');if(add)add.onclick=()=>{closeModal('#m-player');addFriend(id,p.name,p.av)};
+  $$('#pl-actions [data-close]').forEach(b=>b.onclick=()=>closeModal('#m-player'));openModal('#m-player')}
+function onPresence(list){const first=!PRES_READY;PRES_READY=true;const lobby=$('#lobby').classList.contains('on');
+  for(const p of list){const was=PRES[p.id];PRES[p.id]={on:!!p.on,room:p.room||null};const f=FRIENDS[p.id];if(!f)continue;
+    if(p.on){f.seen=Date.now();if(p.name)f.name=p.name;if(p.av!==undefined)f.av=p.av;if(!first&&lobby&&(!was||!was.on))toast(`${f.name||'A friend'} is online`,2200)}
+    else if(was&&was.on){f.seen=Date.now()}}
+  saveFriends();renderFriends();renderRooms();if($('#m-invite').classList.contains('on'))renderInvite()}
+// friend link (?f=id&n=name) and table link (?t=CODE)
+try{const u=new URL(location.href);const f=u.searchParams.get('f');if(f&&/^[0-9a-f]{16}$/.test(f))PENDING_FRIEND={id:f,name:(u.searchParams.get('n')||'').slice(0,20)};
+  if(f){u.searchParams.delete('f');u.searchParams.delete('n');history.replaceState(null,'',u.pathname+(u.search?u.search:''))}
+  if(u.searchParams.get('t')){setTimeout(()=>{const pj=$('#p-join');if(pj){pj.scrollIntoView({behavior:'smooth',block:'center'});pj.classList.add('flash')}if(!myName())$('#f-name').focus()},500)}}catch{}
+function handlePendingFriend(){if(!PENDING_FRIEND||!MYID)return;const pf=PENDING_FRIEND;PENDING_FRIEND=null;if(pf.id===MYID){toast('That is your own friend link. Send it to a friend');return}if(FRIENDS[pf.id]){toast(`You and ${FRIENDS[pf.id].name||'they'} are already friends`);return}askAddFriend(pf.id,pf.name)}
+setInterval(()=>{if($('#lobby').classList.contains('on'))renderFriends()},60000);
 
 // ---------- state ----------
 function applyState(o,fx){
@@ -134,6 +255,8 @@ function applyState(o,fx){
   $('#t-name').textContent=S.tableName;$('#t-wager').textContent=S.wager;$('#t-decks').textContent=`${S.decks} deck${S.decks>1?'s':''} · ${36*S.decks} cards`;
   if(!S.started)showWait();else $('#wait').hidden=true;
   $('#btn-leave').textContent=S.keep?'Step away':'Leave table';
+  if(SEATS[S.code]&&S.tableName&&SEATS[S.code].name!==S.tableName){SEATS[S.code].name=S.tableName;saveSeats()}
+  $('#btn-invite').hidden=!!LOCALT;
   $('#btn-close').hidden=!(S.keep&&HOST);$('#btn-close').onclick=()=>{if(!$('#btn-close').dataset.arm){$('#btn-close').dataset.arm='1';$('#btn-close').textContent='Tap again to close for everyone';setTimeout(()=>{delete $('#btn-close').dataset.arm;$('#btn-close').textContent='Close room'},4000);return}send({type:'close'})};
   renderAll();
   for(const e of fx)runFx(e);
@@ -145,9 +268,9 @@ function showWait(){
   $('#wait-players').innerHTML=S.players.filter(p=>!p.gone).map(p=>`<span class="wp"><i style="background:${p.isBot?p.color:((p.av&&p.av.color)||'#2b1f25')}"></i>${esc(p.name)}${p.id===ME?' (you)':''}${p.id===S.hostId?' · host':''}${p.isBot?' · computer':''}</span>`).join('');
   const humans=S.players.filter(p=>!p.isBot&&!p.gone).length;
   if(HOST){$('#wait-note').textContent=`${S.keep?'This room stays open until you close it; everyone keeps their chips. ':''}Send the code (or the link) to your friends. ${humans>1?humans+' people seated.':'Waiting for friends…'}`;
-    $('#wait-actions').innerHTML=`<button class="btn btn-ghost" id="btn-copy2">Copy link</button><button class="btn btn-gold" id="btn-go">Start the game</button>`;
-    $('#btn-go').onclick=()=>act({type:'start'});$('#btn-copy2').onclick=async()=>{const link=`${location.origin}${location.pathname}?t=${S.code}`;try{await navigator.clipboard.writeText(link);toast('Link copied — paste it into WhatsApp')}catch{toast('Link: '+link,4000)}};
-  }else{$('#wait-note').textContent='Waiting for the host to start the game…';$('#wait-actions').innerHTML=''}
+    $('#wait-actions').innerHTML=`<button class="btn btn-ghost" id="btn-inv2">Invite</button><button class="btn btn-gold" id="btn-go">Start the game</button>`;
+    $('#btn-go').onclick=()=>act({type:'start'});$('#btn-inv2').onclick=openInvite;
+  }else{const hp=S.players[S.hostId];const hostAway=!hp||hp.away||hp.gone;$('#wait-note').textContent=hostAway?'The host is not here right now. Anyone seated can start.':'Waiting for the host to start the game…';$('#wait-actions').innerHTML=`<button class="btn btn-ghost" id="btn-inv2">Invite</button>${hostAway?'<button class="btn btn-gold" id="btn-go">Start the game</button>':''}`;$('#btn-inv2').onclick=openInvite;const g=$('#btn-go');if(g)g.onclick=()=>act({type:'start'})}
   msg(HOST?'Your table is open. Start when everyone is seated.':'Seated. Waiting for the host to deal.');actions('');
 }
 function runFx(e){
@@ -178,11 +301,12 @@ function renderSeats(fresh){
   if(fresh||lastCount!==n||lastME!==ME){lastCount=n;lastME=ME;const L=seatLayout(n);const D=$('.dealer');D.style.left=L.dealer.left+'%';D.style.top=L.dealer.top+'%';D.style.right='auto';D.style.transform=`translate(${L.dealer.tx}%,${L.dealer.ty}%)`;root.innerHTML=S.players.map((p,i)=>{const pos=L.seat((i-meIdx+n)%n);const a=p.isBot?{style:`background:${p.color}`,text:p.name[0].toUpperCase()}:(p.id===ME?avStyle(AV,p.name[0].toUpperCase()):avStyle(p.av,p.name[0].toUpperCase()));
     return`<div class="seat" id="seat-${p.id}" data-side="${pos.side}" style="left:${pos.left}%;top:${pos.top}%;transform:translate(${pos.tx}%,${pos.ty}%);animation:seatin .6s ${i*.08}s both"><div class="av" style="${a.style}" ${p.id===ME?'title="Change your avatar"':''}>${a.text}<div class="vid"><video autoplay playsinline ${p.id===ME?'muted':''}></video></div><span class="rec"></span><span class="mic"></span><div class="ring" hidden></div><div class="tleft" hidden></div></div><div class="nm"></div><div class="chips"><span class="chip s c25"></span><span class="num"></span></div><div class="mini"></div><div class="tot"></div></div>`}).join('');
     if(ME>=0){const me=$('#seat-'+ME+' .av');if(me)me.onclick=openAv}
+    S.players.forEach(p=>{if(p.isBot||p.id===ME)return;const el=$('#seat-'+p.id);if(!el)return;el.classList.add('human');el.querySelector('.av').onclick=()=>openPlayer(p.id)});
     rtcAttachAll();
   }
   S.players.forEach(p=>{
     const el=$('#seat-'+p.id);if(!el)return;el.querySelector('.nm').textContent=p.name+(p.gone?' · left':p.away?' · reconnecting':'');el.querySelector('.chips .num').textContent=fmt(p.chips);
-    el.classList.toggle('turn',S.turn===p.id);el.classList.toggle('sitout',p.sitout||p.gone||p.away||(S.started&&!S.participants.includes(p.id)));
+    el.classList.toggle('friend',!p.isBot&&p.id!==ME&&!!IDS[p.id]&&!!FRIENDS[IDS[p.id]]);el.classList.toggle('turn',S.turn===p.id);el.classList.toggle('sitout',p.sitout||p.gone||p.away||(S.started&&!S.participants.includes(p.id)));
     const mic=p.id===ME?AVS.mic:p.mic,cam=p.id===ME?AVS.cam:p.cam;el.classList.toggle('video',!!cam&&!p.isBot);el.classList.toggle('mic-on',!!mic);el.classList.toggle('mic-off',!mic);
     let btn=el.querySelector('.btn-d');if(S.dealer===p.id&&S.started){if(!btn){btn=document.createElement('div');btn.className='btn-d';btn.textContent='D';el.querySelector('.av').appendChild(btn)}}else if(btn)btn.remove();
     const mini=el.querySelector('.mini');
@@ -382,7 +506,8 @@ document.addEventListener('pointerdown',()=>{if(ACTX&&ACTX.state==='suspended')A
 if(location.search.includes('demo'))window.__fx=runFx;
 setInterval(()=>{if(!LOCALT&&S&&$('#game').classList.contains('on')&&navigator.onLine!==false)fetch('/health',{cache:'no-store'}).catch(()=>{})},240000);
 window.addEventListener('online',()=>{if(!CONNECTED)connect();else setStatus('ok','Connected. Host a table or join with a code.')});
-window.addEventListener('offline',()=>setStatus('warn','Offline. Practice vs the computer works; hosting and joining need a connection.'));
+window.addEventListener('offline',()=>{setStatus('warn','Offline. Practice vs the computer works; hosting and joining need a connection.');renderRooms()});
+renderRooms();renderFriends();
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 let INSTALL=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();INSTALL=e;const b=$('#btn-install');if(b){b.hidden=false;b.onclick=()=>{INSTALL.prompt();INSTALL=null;b.hidden=true}}});
 connect();
