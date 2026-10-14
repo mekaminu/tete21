@@ -20,7 +20,8 @@
   play(root0);
 
   function play(root) {
-  playing = true; mark('play');
+  playing = true; mark('play'); window.__introT0 = performance.now();
+  const SLOW = window.__introSlow || 1; // recording the intro as a video plays it in slow motion
   try { document.fonts && document.fonts.load('700 64px Cinzel'); } catch {}
 
   const SND = (n, d, arg) => { try { window.TeteSound && window.TeteSound.play(n, { delay: d, arg }); } catch {} };
@@ -54,7 +55,7 @@
   title.style.top = Math.round(H / 2 + pivotY - wordH / 2) + 'px';
 
   let exiting = false, finished = false; const timers = [];
-  const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+  const later = (fn, ms) => timers.push(setTimeout(fn, ms * SLOW));
   function finish() { if (finished) return; finished = true; playing = false; timers.forEach(clearTimeout); root.remove(); mark('done'); }
   function skipNow() {
     if (exiting) return; exiting = true; timers.forEach(clearTimeout); mark('exit');
@@ -171,8 +172,8 @@
   [0, 1, 2, 3].forEach(j => SND('stamp', (t.word + j * 115 + 186) / 1000));
   SND('flip', (t.a + 150) / 1000); SND('flip', (t.ten + 150) / 1000); SND('sting', (t.n21 + 200) / 1000);
 
-  // 8. fly through into the lobby
-  later(() => {
+  // 8. fly through into the lobby (a recording can hold on the title instead)
+  if (!window.__introHold) later(() => {
     if (exiting) return; exiting = true; mark('exit'); SND('whoosh');
     $('.skip').remove(); root.style.cursor = 'default';
     cards.forEach((el, i) => {

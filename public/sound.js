@@ -4,16 +4,19 @@
   let ctx = null, master = null, verb = null, muted = false, vol = 0.7, noiseBuf = null;
   try { muted = localStorage.getItem('tete.mute') === '1'; const v = parseFloat(localStorage.getItem('tete.vol')); if (!isNaN(v)) vol = v; } catch {}
 
+  // master volume and a small room, so chimes and fanfares ring
+  function graph(c) {
+    const m = c.createGain(); m.gain.value = muted ? 0 : vol; m.connect(c.destination);
+    const v = c.createConvolver();
+    const len = Math.floor(c.sampleRate * 1.4), ir = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+    v.buffer = ir; const vg = c.createGain(); vg.gain.value = 0.22; v.connect(vg); vg.connect(m);
+    return { m, v };
+  }
   function ensure() {
     if (ctx) return ctx;
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
-    ctx = new AC();
-    master = ctx.createGain(); master.gain.value = muted ? 0 : vol; master.connect(ctx.destination);
-    // a small room so chimes and fanfares ring
-    verb = ctx.createConvolver();
-    const len = Math.floor(ctx.sampleRate * 1.4), ir = ctx.createBuffer(2, len, ctx.sampleRate);
-    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
-    verb.buffer = ir; const vg = ctx.createGain(); vg.gain.value = 0.22; verb.connect(vg); vg.connect(master);
+    ctx = new AC(); const g = graph(ctx); master = g.m; verb = g.v;
     return ctx;
   }
   function noise() {
@@ -104,5 +107,13 @@
   ['pointerdown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, unlock, { passive: true }));
   function setMuted(m) { muted = !!m; try { localStorage.setItem('tete.mute', muted ? '1' : '0'); } catch {} if (master) master.gain.value = muted ? 0 : vol; }
   function setVolume(v) { vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('tete.vol', String(vol)); } catch {} if (master && !muted) master.gain.value = vol; }
-  window.TeteSound = { play, setMuted, setVolume, unlock, get muted() { return muted; }, get volume() { return vol; } };
+  // render a list of [name, seconds, arg] to an audio buffer (used to give the intro video its soundtrack)
+  async function renderOffline(list, seconds, rate = 44100) {
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OAC) return null;
+    const saved = [ctx, master, verb, noiseBuf], wasMuted = muted;
+    ctx = new OAC(2, Math.ceil(seconds * rate), rate); noiseBuf = null; muted = false; const g = graph(ctx); master = g.m; master.gain.value = 0.9; verb = g.v;
+    try { for (const [name, at, arg] of list) { const fn = SOUNDS[name]; if (fn) fn(at, arg); } return await ctx.startRendering(); }
+    finally { [ctx, master, verb, noiseBuf] = saved; muted = wasMuted; }
+  }
+  window.TeteSound = { play, setMuted, setVolume, unlock, renderOffline, get muted() { return muted; }, get volume() { return vol; } };
 })();

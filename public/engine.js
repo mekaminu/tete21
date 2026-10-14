@@ -32,7 +32,7 @@ class Table {
     this.players = [];
     this.buyIn = Math.min(1e7, Math.max(50, Math.round(+cfg.buyIn) || 1000));
     this.wager = Math.min(this.buyIn, Math.max(5, +cfg.wager || 50));
-    this.tableName = cleanName(cfg.tableName).slice(0, 24) || 'Table';
+    this.tableName = String(cfg.tableName || '').replace(/[^\p{L}\p{N} '._&-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 24) || 'Table';
     this.timer = [0, 15, 20, 30].includes(+cfg.timer) ? +cfg.timer : 20;
     this.seats = Math.min(8, Math.max(2, +cfg.seats || 4));
     this.decks = this.seats > 6 ? 2 : 1;
@@ -55,7 +55,7 @@ class Table {
   sync() { this.lastActivity = Date.now(); if (this._syncT) return; this._syncT = setTimeout(() => { this._syncT = null; this.send(this); }, 40); }
 
   // ----- people -----
-  addHuman(conn, name, av, mic, cam) {
+  addHuman(conn, name, av, mic, cam, uid) {
     name = cleanName(name) || 'Guest';
     let p = null;
     if (!this.started) {
@@ -66,12 +66,12 @@ class Table {
     } else {
       const bi = this.players.findIndex(x => x.isBot);
       const gi = this.players.findIndex(x => x.gone && !x.isBot);
-      if (gi >= 0) { p = this.mkPlayer(gi, name, false); p.chips = this.players[gi].chips; p.color = this.players[gi].color; p.sitout = true; p.joinedMid = true; this.players[gi] = p; this.log(`${esc(name)} sits in from the next hand`, 'hi'); }
+      if (gi >= 0) { p = this.mkPlayer(gi, name, false); p.color = this.players[gi].color; p.sitout = true; p.joinedMid = true; this.players[gi] = p; this.log(`${esc(name)} sits in from the next hand`, 'hi'); }
       else if (bi >= 0) { const bot = this.players[bi]; p = this.mkPlayer(bot.id, name, false); p.color = bot.color; p.sitout = true; p.joinedMid = true; this.players[bi] = p; this.log(`${esc(name)} takes ${esc(bot.name)}'s seat from the next hand`, 'hi'); }
       else if (this.players.length < this.seats) { p = this.mkPlayer(this.players.length, name, false); p.sitout = true; p.joinedMid = true; this.players.push(p); this.log(`${esc(name)} joined; sits in from the next hand`, 'hi'); }
       else return { error: 'The table is full.' };
     }
-    p.conn = conn; p.av = cleanAv(av); p.mic = !!mic; p.cam = !!cam; p.token = newToken();
+    p.conn = conn; p.av = cleanAv(av); p.mic = !!mic; p.cam = !!cam; p.token = newToken(); p.uid = (typeof uid === 'string' && /^[0-9a-f]{16}$/.test(uid)) ? uid : null;
     this.sync(); if (this.onSave) this.onSave();
     return { id: p.id, token: p.token };
   }
@@ -101,6 +101,7 @@ class Table {
   removeHuman(id) {
     const p = this.players[id]; if (!p || p.gone) return;
     clearTimeout(p.awayT); p.gone = true; p.away = false; p.conn = null; this.log(`${esc(p.name)} left the table`);
+    if (this.handStart && this.handStart.has(p)) { const start = this.handStart.get(p); this.handStart.delete(p); if (this.onLeave) try { this.onLeave(p, p.chips - start); } catch (e) { console.error('leave hook', e); } }
     if (this.pend && this.pend.pid === p.id) this.pend.done(null);
     if (id === this.hostId && !this.persistent) { const h = this.players.find(x => !x.isBot && !x.gone); if (h) { this.hostId = h.id; this.log(`${esc(h.name)} is now the host`, 'hi'); } }
     if (!this.started) this.compact();
@@ -132,12 +133,12 @@ class Table {
   toJSON(hashFn) {
     const S = this;
     return { code: S.code, cfg: { buyIn: S.buyIn, wager: S.wager, tableName: S.tableName, timer: S.timer, seats: S.seats, fill: S.fill, side: S.side, series: S.series, tie: S.tieSplit ? 'split' : 'playoff', keep: true, pub: S.pub, rid: S.rid }, pot: S.pot, handNo: S.handNo, dealer: S.dealer, hostId: S.hostId, createdAt: S.createdAt,
-      players: S.players.filter(p => !p.isBot && !p.gone).map(p => ({ id: p.id, name: p.name, chips: p.chips, av: p.av, color: p.color, tokenHash: p.tokenHash || (p.token && hashFn ? hashFn(p.token) : null) })) };
+      players: S.players.filter(p => !p.isBot && !p.gone).map(p => ({ id: p.id, name: p.name, chips: p.chips, av: p.av, color: p.color, uid: p.uid || null, tokenHash: p.tokenHash || (p.token && hashFn ? hashFn(p.token) : null) })) };
   }
   static fromJSON(o, send) {
     const t = new Table(o.code, o.cfg, send); t.pot = o.pot || 0; t.handNo = o.handNo || 0; t.createdAt = o.createdAt || Date.now(); t.persistent = true;
     // compact ids so seats are contiguous; everyone is away until they resume
-    o.players.forEach((q, i) => { const p = t.mkPlayer(i, cleanName(q.name) || 'Guest', false); p.chips = Math.max(0, Math.floor(+q.chips || 0)); p.av = cleanAv(q.av); p.token = null; p.tokenHash = typeof q.tokenHash === 'string' ? q.tokenHash : null; p.away = true; p.oldId = q.id; t.players.push(p); });
+    o.players.forEach((q, i) => { const p = t.mkPlayer(i, cleanName(q.name) || 'Guest', false); p.chips = Math.max(0, Math.floor(+q.chips || 0)); p.av = cleanAv(q.av); p.token = null; p.tokenHash = typeof q.tokenHash === 'string' ? q.tokenHash : null; p.uid = typeof q.uid === 'string' && /^[0-9a-f]{16}$/.test(q.uid) ? q.uid : null; p.away = true; p.oldId = q.id; t.players.push(p); });
     const host = t.players.find(p => p.oldId === o.hostId); t.hostId = host ? host.id : 0; t.dealer = t.players.length - 1;
     return t;
   }
@@ -170,7 +171,7 @@ class Table {
       case 'drop': case 'take': case 'stay': case 'adasi': if (P && P.pid === pid && P.kinds.includes(a.type)) P.done(a); break;
       case 'deal': case 'next': if (pid === this.hostId && P && P.kinds.includes(a.type)) P.done(a); break;
       case 'rejoin': p.sitout = false; p.satOutByTimer = false; p.strikes = 0; this.log(`${esc(p.name)} rejoins`); break;
-      case 'rebuy': if (p.chips < this.wager) { p.chips += this.buyIn; p.sitout = false; this.log(`${esc(p.name)} rebuys ${fmt(this.buyIn)}`, 'hi'); if (this.onSave) this.onSave(); } break;
+      case 'rebuy': if (p.chips < this.wager) { if (this.canBuy && !this.canBuy(p, this.buyIn)) { this.fx({ k: 'toast', pid, t: 'Not enough free chips in your balance to rebuy. Spin the daily wheel in your profile.', ms: 4000 }); break; } p.chips += this.buyIn; p.sitout = false; this.log(`${esc(p.name)} rebuys ${fmt(this.buyIn)}`, 'hi'); if (this.onSave) this.onSave(); } break;
       case 'sb': this.proposeSB(pid, a); break;
       case 'sb_ans': this.answerSB(pid, a); break;
       case 'rebuy_all': if (pid === this.hostId && P && P.kinds.includes('rebuy_all')) P.done(a); break;
@@ -203,10 +204,11 @@ class Table {
     if (participants.length < 2) {
       S.busy = false; S.phase = 6; S.msgHost = 'Not enough players with chips for a hand. Rebuy, or wait for someone to join.'; S.sync();
       await S.waitFor(S.hostId, ['rebuy_all', 'next'], 0);
-      S.players.forEach(p => { if (!p.gone) { p.chips = Math.max(p.chips, S.buyIn); p.sitout = false; p.satOutByTimer = false; } });
+      S.players.forEach(p => { if (p.gone) return; const need = Math.max(0, S.buyIn - p.chips); if (need && S.canBuy && !S.canBuy(p, need)) return; p.chips = Math.max(p.chips, S.buyIn); p.sitout = false; p.satOutByTimer = false; });
       return S.playHand(S.players.map(p => p.id));
     }
     if (redeal) { /* same dealer, pot stays */ } else if (S.tiebreak) S.tiebreak = false; else S.dealer = S.nextOf(S.dealer, participants);
+    if (!redeal || !S.handStart) S.handStart = new Map(S.players.filter(p => !p.isBot && !p.gone).map(p => [p, p.chips]));
     S.deck = makeDeck(S.decks); S.turn = -1; S.sideBets = S.sideBets.filter(b => b.status !== 'pending').slice(-8);
     // 0 wager
     S.setPhase(0);
@@ -262,17 +264,17 @@ class Table {
     // 6 reveal
     S.setPhase(6); S.players.forEach(p => (p.revealed = true)); S.sync(); await sleep(600);
     const live = participants.map(id => S.players[id]).filter(p => S.total(p) <= 21);
-    let next;
+    let next, winners = [];
     if (!live.length) { S.msgHost = 'Everyone is bust. The pot stays on the table for the next hand.'; S.log('All players bust — pot carries over', 'hi'); S.sync(); await sleep(1500); next = S.players.map(p => p.id); }
     else {
       const best = Math.max(...live.map(p => S.total(p))); const tied = live.filter(p => S.total(p) === best);
       if (tied.length === 1) {
-        const w = tied[0]; S.fx({ k: 'banner', t: `${w.name} takes ${fmt(S.pot)}` }); S.fx({ k: 'win', pid: w.id });
+        const w = tied[0]; winners = [w]; S.fx({ k: 'banner', t: `${w.name} takes ${fmt(S.pot)}` }); S.fx({ k: 'win', pid: w.id });
         S.msgHost = `<b>${esc(w.name)}</b> wins the pot with ${best}.`; S.log(`${esc(w.name)} wins ${fmt(S.pot)} with ${best}`, 'win');
         S.fx({ k: 'chip', from: 'pot', to: w.id, cls: 'c100', n2: Math.min(6, Math.ceil(S.pot / S.wager)) }); await sleep(700); w.chips += S.pot; S.pot = 0; S.sync(); await sleep(300);
         next = S.players.map(p => p.id);
       } else if (S.tieSplit) {
-        const names = tied.map(p => p.name).join(' & '); const share = Math.floor(S.pot / tied.length); const rem = S.pot - share * tied.length;
+        winners = tied; const names = tied.map(p => p.name).join(' & '); const share = Math.floor(S.pot / tied.length); const rem = S.pot - share * tied.length;
         S.fx({ k: 'banner', t: `TIE — ${names} share ${fmt(S.pot)}` }); tied.forEach(w => S.fx({ k: 'win', pid: w.id }));
         S.msgHost = `<b>${esc(names)}</b> tie on ${best} and share the pot${rem ? ` (${fmt(rem)} stays on the table)` : ''}.`; S.log(`Tie on ${best}: ${esc(names)} share ${fmt(S.pot)}`, 'win');
         for (const w of tied) S.fx({ k: 'chip', from: 'pot', to: w.id, cls: 'c100', n2: Math.min(6, Math.ceil(share / S.wager)) });
@@ -281,6 +283,7 @@ class Table {
       } else { S.tiebreak = true; const names = tied.map(p => p.name).join(' and '); S.fx({ k: 'banner', t: 'TIE!' }); S.msgHost = `${esc(names)} tie on ${best}. They top up and go again.`; S.log(`Tie on ${best}: ${esc(names)} play off`, 'hi'); S.sync(); await sleep(1800); next = tied.map(p => p.id); }
     }
     await S.settleSideBets('reveal');
+    S.endHand(winners, false);
     S.busy = false; S.next = next; S.msgHost = ''; S.sync(); if (S.onSave) S.onSave();
     await S.waitFor(S.hostId, ['next'], 12000);
     return S.playHand(next);
@@ -300,10 +303,20 @@ class Table {
     for (const w of winners) { S.fx({ k: 'chip', from: 'pot', to: w.id, cls: 'c100', n2: Math.min(6, Math.ceil(share / S.wager)) }); }
     await sleep(700); for (const w of winners) w.chips += share; S.pot = rem;
     S.sideBets.forEach(b => { if (b.status === 'pending' || b.status === 'open') b.status = 'declined'; });
+    S.endHand(winners, true);
     S.msgHost = winners.length > 1 ? `<b>${esc(names)}</b> both hold Adasi and share the pot${rem ? ` (${fmt(rem)} stays on the table)` : ''}.` : `<b>${esc(p.name)}</b> wins by Adasi.`; S.busy = false; S.next = S.players.map(x => x.id); S.sync();
     await S.waitFor(S.hostId, ['next'], 12000);
     return S.playHand(S.next);
   }
+  // the hand is over: tell the host app who won and lost what (play chips move to accounts here)
+  endHand(winners, adasi) {
+    const S = this, start = S.handStart; S.handStart = null; if (!start || S.closed) return;
+    const res = [];
+    for (const [p, c0] of start) { if (p.isBot) continue; const played = S.participants.includes(p.id) && S.players[p.id] === p, won = winners.includes(p); res.push({ p, delta: p.chips - c0, played, won, adasi: !!adasi && won, total: played && !adasi ? S.total(p) : null }); }
+    if (S.onHandEnd) try { S.onHandEnd(res); } catch (e) { console.error('hand end hook', e); }
+  }
+  // the table is closing in the middle of a hand: give everyone back what they put in this hand
+  abandon() { const start = this.handStart; this.handStart = null; if (start) for (const [p, c0] of start) p.chips = c0; this.closed = true; if (this.pend) this.pend.done(null); }
   strike(p) { if (p.away) return; p.strikes++; if (p.strikes >= 3) { p.sitout = true; p.satOutByTimer = true; this.fx({ k: 'toast', pid: p.id, t: 'Three timeouts in a row — you are sat out. Tap "Rejoin" to come back.', ms: 4000 }); this.log(`${esc(p.name)} is sat out (timed out 3 times)`); } else this.fx({ k: 'toast', pid: p.id, t: `Time's up — the game acted for you (${p.strikes}/3)`, ms: 2600 }); }
   async humanDrop(p) {
     const S = this; const ms = S.timer ? S.timer * 1000 : 0; S.deadline = ms ? Date.now() + ms : 0; S.sync(); const end = Date.now() + ms;

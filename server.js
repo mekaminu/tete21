@@ -1,6 +1,7 @@
 'use strict';
 // Tete 21 server: serves the game, runs the tables, lists rooms, handles join requests,
-// friends' online status and invites, and introduces players to each other for voice/video.
+// accounts (balance, friends, history), friends' online status and invites,
+// and introduces players to each other for voice/video.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -8,13 +9,14 @@ const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 const { Table, cleanName, cleanAv } = require('./public/engine');
 const store = require('./store');
+const accounts = require('./accounts');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
 const tables = new Map();   // code -> Table
 const byRid = new Map();    // public room id -> Table (used by the rooms list, never reveals the code)
 const closedCodes = new Set();
-const online = new Map();   // player id -> { socks:Set<ws>, name, av, friends:Set<id> }
+const online = new Map();   // player id (account id, or device id for guests) -> { socks:Set<ws>, name, av, friends:Set<id>, acct }
 const invites = new Map();  // invite token -> { rid, to, exp }
 let listDirty = true, lastListJSON = '';
 
@@ -23,10 +25,11 @@ const seatHash = t => sha('seat:' + t);
 const rand = n => crypto.randomBytes(n).toString('base64url');
 const send = (ws, m) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); };
 const isId = x => typeof x === 'string' && /^[0-9a-f]{16}$/.test(x);
+const fmt = n => (+n || 0).toLocaleString('en-GB');
 
 // ---------- sealed copies of standing rooms ----------
-// The free host forgets its disk when it sleeps, so every player's device keeps a signed copy of
-// each standing room it sits in. The first player back hands it in and the room is restored.
+// Standing rooms are saved in the database. As a second line of defence every player's device
+// also keeps a signed copy, so the first player back can restore a room the server forgot.
 const SECRET = process.env.ROOM_SECRET || (process.env.RENDER_SERVICE_ID ? 'svc:' + process.env.RENDER_SERVICE_ID : '') || rand(32);
 if (!process.env.ROOM_SECRET) console.log(process.env.RENDER_SERVICE_ID ? 'Sealing rooms with the service id (set ROOM_SECRET for a private key)' : 'No ROOM_SECRET set: sealed rooms will not survive a restart');
 const sign = data => crypto.createHmac('sha256', SECRET).update(data).digest('base64url');
@@ -48,21 +51,26 @@ function saveRoom(t) {
     persistAll();
   }, 600);
 }
+let kvT = null;
 function persistAll() {
   const rooms = {};
   for (const [c, t] of tables) if (t.persistent && !t.closed) rooms[c] = { ver: t.sealVer || 0, room: t.toJSON(seatHash) };
-  store.save({ rooms, closed: [...closedCodes].slice(-500) });
+  const all = { rooms, closed: [...closedCodes].slice(-500) };
+  store.save(all);
+  if (accounts.isReady()) { clearTimeout(kvT); kvT = setTimeout(() => accounts.kvSet('rooms', all).catch(e => console.error('rooms save:', e.message)), 800); }
 }
 function register(t) {
   tables.set(t.code, t); byRid.set(t.rid, t);
   t.requests = t.requests || new Map();
   if (t.persistent) t.onSave = () => saveRoom(t);
+  hookTable(t);
   listDirty = true;
 }
 function unregister(t) {
-  t.closed = true; tables.delete(t.code); byRid.delete(t.rid);
+  t.abandon(); tables.delete(t.code); byRid.delete(t.rid);
   for (const r of (t.requests || new Map()).values()) { r.ws.request = null; send(r.ws, { type: 'declined', msg: 'That room has closed.' }); }
   if (t.requests) t.requests.clear();
+  for (const p of t.players) if (p.uid) setTimeout(() => pushAccount(p.uid), 50);
   listDirty = true;
 }
 function restoreFromSeal(o) {
@@ -82,6 +90,31 @@ function restoreFromSeal(o) {
     t.requests = old.requests; old.closed = true; byRid.delete(old.rid);
   }
   register(t); t.sync(); return t;
+}
+
+// ---------- accounts at the tables ----------
+// your balance backs the chips in front of you; each hand's result lands on it when the hand ends
+function inPlay(uid) { const out = []; if (!uid) return out; for (const [, t] of tables) { if (t.closed) continue; for (const p of t.players) if (p.uid === uid && !p.gone && !p.isBot) out.push({ rid: t.rid, code: t.code.toUpperCase(), name: t.tableName, chips: p.chips, keep: t.persistent ? 1 : 0, here: p.conn ? 1 : 0 }); } return out; }
+const inPlayTotal = uid => inPlay(uid).reduce((a, x) => a + x.chips, 0);
+function freeChips(uid) { const u = accounts.cached(uid); return u ? u.balance - inPlayTotal(uid) : 0; }
+function sitError(ws, t) {
+  if (!ws.uid) return '';
+  const u = accounts.cached(ws.uid); if (!u) return 'Your account is still loading. Try again in a moment.';
+  const free = freeChips(ws.uid);
+  return free >= t.buyIn ? '' : `You need ${fmt(t.buyIn)} free chips to sit at this table and you have ${fmt(Math.max(0, free))}. Spin the daily wheel in your profile, or pick a table with a smaller buy-in.`;
+}
+function hookTable(t) {
+  t.canBuy = (p, amount) => !p.uid || freeChips(p.uid) >= amount;
+  t.onHandEnd = res => { for (const r of res) if (r.p.uid) { accounts.settle(r.p.uid, { delta: r.delta, played: r.played, won: r.won, adasi: r.adasi, total: r.total, table: t.tableName }); pushAccount(r.p.uid); } };
+  t.onLeave = (p, delta) => { if (p.uid && delta) { accounts.settle(p.uid, { delta, played: true, won: false, table: t.tableName }); setTimeout(() => pushAccount(p.uid), 50); } };
+}
+// balance and stats after something changed (no database reads, so it is quick)
+function pushAccount(uid) { const u = accounts.cached(uid), o = online.get(uid); if (!u || !o) return; const m = { type: 'account_lite', user: accounts.pub(u), inPlay: inPlay(uid), bonus: accounts.bonusInfo(u) }; for (const s of o.socks) send(s, m); }
+async function sendAccount(ws) { if (!ws.uid) return; try { const u = await accounts.get(ws.uid); if (u) send(ws, await accounts.payload(u, ws.tz, inPlay(u.id))); } catch (e) { console.error('account payload:', e.message); } }
+function notify(uid, m) { const o = online.get(uid); if (o) for (const s of o.socks) send(s, m); }
+async function pushFriends(uid) {
+  const o = online.get(uid); if (!o || !o.acct) return;
+  try { const fd = await accounts.friendData(uid); o.friends = new Set(fd.friends.map(f => f.id)); for (const s of o.socks) { send(s, Object.assign({ type: 'friends' }, fd)); sendPresence(s); } } catch (e) { console.error('friends:', e.message); }
 }
 
 // ---------- room list ----------
@@ -109,6 +142,35 @@ function dropPresence(ws) {
   o.socks.delete(ws); if (!o.socks.size) { online.delete(id); presenceChanged(id); }
 }
 function cleanFriends(list, self) { return new Set((Array.isArray(list) ? list : []).filter(x => isId(x) && x !== self).slice(0, 300)); }
+// a guest: identified by a key kept on their device; friends live on the device
+function becomeDevice(ws) {
+  const id = ws.dev; if (!id) return;
+  if (ws.me && ws.me !== id) dropPresence(ws);
+  ws.me = id; ws.uid = null;
+  let o = online.get(id); const wasOn = !!(o && o.socks.size);
+  if (!o) { o = { socks: new Set(), name: '', av: null, friends: new Set(), acct: false }; online.set(id, o); }
+  o.socks.add(ws); o.name = ws.devName || o.name; o.av = ws.devAv || o.av; o.friends = cleanFriends(ws.devFriends, id);
+  send(ws, { type: 'you', id });
+  sendPresence(ws);
+  for (const [uid, u] of online) if (uid !== id && u.socks.size && !u.acct && u.friends.has(id) && !o.friends.has(uid)) send(ws, { type: 'friend_added', id: uid, name: u.name, av: u.av });
+  if (!wasOn) presenceChanged(id);
+}
+// signed in: friends, balance and history come from the account, on any device
+async function becomeAccount(ws, u) {
+  if (ws.me && ws.me !== u.id) dropPresence(ws);
+  ws.me = u.id; ws.uid = u.id;
+  let o = online.get(u.id); const wasOn = !!(o && o.socks.size);
+  if (!o) { o = { socks: new Set(), name: '', av: null, friends: new Set(), acct: true }; online.set(u.id, o); }
+  o.socks.add(ws); o.acct = true; o.name = u.display; o.av = u.av;
+  try { o.friends = new Set(await accounts.friendIds(u.id)); } catch (e) { console.error('friend ids:', e.message); }
+  send(ws, { type: 'you', id: u.id, acct: 1 });
+  // a guest seat this socket already holds now counts for the account, if the balance covers it
+  const T = ws.table, p = T && T.players[ws.pid];
+  if (p && !p.uid && !p.isBot && freeChips(u.id) >= p.chips) { p.uid = u.id; if (T.handStart && T.handStart.has(p)) T.handStart.set(p, T.handStart.get(p)); if (T.persistent) saveRoom(T); }
+  await sendAccount(ws);
+  sendPresence(ws);
+  if (!wasOn) presenceChanged(u.id);
+}
 
 // ---------- seats ----------
 function enter(ws, t, r, resumed) {
@@ -120,11 +182,24 @@ function enter(ws, t, r, resumed) {
   t.sync(); if (t.persistent) saveRoom(t);
   for (const p of t.players) if (p.conn && p.conn !== ws) send(p.conn, { type: 'peer', id: r.id, event: 'joined' });
   listDirty = true; if (ws.me) presenceChanged(ws.me);
+  if (ws.uid) setTimeout(() => pushAccount(ws.uid), 50);
+}
+// an account already holding a seat at this table goes straight back to it, from any device
+function returnAcct(ws, t) {
+  if (!ws.uid) return false;
+  const p = t.players.find(x => !x.isBot && !x.gone && x.uid === ws.uid); if (!p) return false;
+  if (p.conn === ws) { enter(ws, t, { id: p.id, token: p.token }, true); return true; }
+  if (ws.table && ws.table !== t) leave(ws);
+  const prev = p.conn && p.conn !== ws ? p.conn : null; p.conn = null;
+  const r = t.reclaim(p.id, ws); if (!r) { p.conn = prev; return false; }
+  r.prev = prev; enter(ws, t, r, true); return true;
 }
 function seatNew(ws, t, m) {
+  if (returnAcct(ws, t)) return;
   const name = cleanName(m.name); if (!name) return send(ws, { type: 'error', msg: 'Type your name first.' });
+  const err = sitError(ws, t); if (err) return send(ws, { type: 'error', msg: err, need: 'chips' });
   if (ws.table) leave(ws);
-  const r = t.addHuman(ws, name, m.av, m.mic, m.cam);
+  const r = t.addHuman(ws, name, m.av, m.mic, m.cam, ws.uid);
   if (r.error) return send(ws, { type: 'error', msg: r.error });
   enter(ws, t, r, false);
 }
@@ -149,10 +224,13 @@ function leave(ws, dropped) {
   if (p && p.conn === ws) { if (dropped || T.persistent) T.disconnect(pid); else T.removeHuman(pid); }
   for (const q of T.players) if (q.conn && q.conn !== ws) send(q.conn, { type: 'peer', id: pid, event: 'left' });
   listDirty = true; if (ws.me) presenceChanged(ws.me);
+  if (ws.uid) setTimeout(() => pushAccount(ws.uid), 50);
   if (T.persistent || T.closed) return;
   if (T.humansPresent() === 0) unregister(T);
   else if (T.humansConnected() === 0) { clearTimeout(T.emptyT); T.emptyT = setTimeout(() => { if (!T.closed && T.humansConnected() === 0) unregister(T); }, 120000); }
 }
+// a seat waiting for its owner: same name, and if it belongs to an account, the same account
+function waitingSeat(t, name, uid) { return t.players.findIndex(p => !p.isBot && !p.gone && !p.conn && p.name.toLowerCase() === name.toLowerCase() && (!p.uid || p.uid === uid)); }
 function broadcast(table) {
   if (table.closed) return;
   if (table.idsChanged) { table.idsChanged = false; for (const p of table.players) if (p.conn) send(p.conn, { type: 'rtc_reset' }); }
@@ -180,7 +258,7 @@ function iceServers() {
 // ---------- http ----------
 const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
-  if (url === '/health') { res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' }); return res.end('ok'); }
+  if (url === '/health') { res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' }); return res.end(accounts.isReady() ? 'ok' : 'ok (accounts offline)'); }
   if (url === '/ice') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify(iceServers())); }
   const file = url === '/' ? 'index.html' : url.slice(1);
   const fp = path.join(PUBLIC, path.normalize(file).replace(/^(\.\.[/\\])+/, ''));
@@ -195,135 +273,209 @@ const server = http.createServer((req, res) => {
 
 // ---------- websocket ----------
 const wss = new WebSocketServer({ server, maxPayload: 64 * 1024 });
-wss.on('connection', ws => {
-  ws.table = null; ws.pid = -1; ws.lastFx = 0; ws.isAlive = true; ws.me = null; ws.request = null;
+wss.on('connection', (ws, req) => {
+  ws.table = null; ws.pid = -1; ws.lastFx = 0; ws.isAlive = true; ws.me = null; ws.uid = null; ws.dev = null; ws.request = null; ws.tz = 0;
+  ws.ip = String((req.headers['x-forwarded-for'] || '').split(',')[0] || req.socket.remoteAddress || '').trim();
   ws.on('pong', () => (ws.isAlive = true));
   sendRooms(ws);
-  ws.on('message', raw => {
-    let m; try { m = JSON.parse(raw); } catch { return; }
-    if (!m || typeof m !== 'object') return;
-    const T = ws.table;
-    switch (m.type) {
-      // ----- identity & friends -----
-      case 'id': {
-        const secret = String(m.secret || ''); if (!/^[0-9a-f]{32,128}$/.test(secret)) return;
-        const id = sha('id:' + secret).slice(0, 16);
-        if (ws.me && ws.me !== id) dropPresence(ws);
-        ws.me = id;
-        let o = online.get(id); const wasOn = !!(o && o.socks.size);
-        if (!o) { o = { socks: new Set(), name: '', av: null, friends: new Set() }; online.set(id, o); }
-        o.socks.add(ws); o.name = cleanName(m.name) || o.name; o.av = cleanAv(m.av) || o.av; o.friends = cleanFriends(m.friends, id);
-        send(ws, { type: 'you', id });
-        sendPresence(ws);
-        for (const [uid, u] of online) if (uid !== id && u.socks.size && u.friends.has(id) && !o.friends.has(uid)) send(ws, { type: 'friend_added', id: uid, name: u.name, av: u.av });
-        if (!wasOn) presenceChanged(id);
-        break;
-      }
-      case 'me': {
-        if (!ws.me) return; const o = online.get(ws.me); if (!o) return;
-        if (typeof m.name === 'string') o.name = cleanName(m.name) || o.name;
-        if (m.av !== undefined) o.av = cleanAv(m.av);
-        if (Array.isArray(m.friends)) o.friends = cleanFriends(m.friends, ws.me);
-        sendPresence(ws); presenceChanged(ws.me); break;
-      }
-      case 'friend_add': {
-        if (!ws.me || !isId(m.id) || m.id === ws.me) return; const o = online.get(ws.me); if (!o) return;
-        o.friends.add(m.id);
-        const f = online.get(m.id); if (f) for (const s of f.socks) send(s, { type: 'friend_added', id: ws.me, name: o.name, av: o.av });
-        sendPresence(ws); break;
-      }
-      case 'friend_remove': { if (!ws.me || !isId(m.id)) return; const o = online.get(ws.me); if (o) { o.friends.delete(m.id); sendPresence(ws); } break; }
-      case 'invite': {
-        if (!ws.me || !T || !isId(m.to)) return;
-        const f = online.get(m.to); if (!f || !f.socks.size) return send(ws, { type: 'toast', msg: 'They are offline right now. Share the link instead.' });
-        const o = online.get(ws.me); const token = rand(9);
-        invites.set(token, { rid: T.rid, to: m.to, exp: Date.now() + 15 * 60 * 1000 });
-        const me = T.players[ws.pid];
-        for (const s of f.socks) send(s, { type: 'invited', token, from: { id: ws.me, name: (o && o.name) || (me && me.name) || 'A friend', av: o && o.av }, room: { name: T.tableName, host: hostName(T), seated: T.players.filter(p => !p.isBot && !p.gone).length, seats: T.seats, wager: T.wager } });
-        send(ws, { type: 'toast', msg: `Invite sent to ${f.name || 'your friend'}` });
-        break;
-      }
-      case 'accept_invite': {
-        const inv = invites.get(String(m.token || ''));
-        if (!inv || inv.to !== ws.me || inv.exp < Date.now()) return send(ws, { type: 'error', msg: 'That invite has expired. Ask for a new one.' });
-        invites.delete(String(m.token)); const t = byRid.get(inv.rid);
-        if (!t || t.closed) return send(ws, { type: 'error', msg: 'That room has closed.' });
-        seatNew(ws, t, m); break;
-      }
-
-      // ----- rooms -----
-      case 'rooms': sendRooms(ws); break;
-      case 'host': {
-        if (!cleanName(m.name)) return send(ws, { type: 'error', msg: 'Type your name first.' });
-        if (T) leave(ws);
-        const cfg = Object.assign({}, m.cfg || {}); delete cfg.rid;
-        const t = new Table(newCode(), cfg, broadcast); register(t);
-        const r = t.addHuman(ws, m.name, m.av, m.mic, m.cam); t.hostId = r.id;
-        enter(ws, t, r, false); break;
-      }
-      case 'join': {
-        const code = String(m.code || '').toLowerCase().trim(); const t = tables.get(code);
-        if (!t || t.closed) return send(ws, { type: 'error', msg: 'No open table with that code. Check it with the host.' });
-        const name = cleanName(m.name); if (!name) return send(ws, { type: 'error', msg: 'Type your name first.' });
-        // the name matches a seat waiting for its owner: the host decides whether it is really them
-        const ret = t.players.findIndex(p => !p.isBot && !p.gone && !p.conn && p.name.toLowerCase() === name.toLowerCase());
-        if (ret >= 0) return askToJoin(ws, t, m, ret);
-        seatNew(ws, t, m); break;
-      }
-      case 'request': {
-        const t = byRid.get(String(m.rid || ''));
-        if (!t || t.closed) return send(ws, { type: 'error', msg: 'That room has closed.' });
-        const name = cleanName(m.name); if (!name) return send(ws, { type: 'error', msg: 'Type your name first.' });
-        const ret = t.players.findIndex(p => !p.isBot && !p.gone && !p.conn && p.name.toLowerCase() === name.toLowerCase());
-        if (ret >= 0) return askToJoin(ws, t, m, ret);
-        if (t.pub) return seatNew(ws, t, m);
-        askToJoin(ws, t, m, -1); break;
-      }
-      case 'request_cancel': cancelRequest(ws, true); break;
-      case 'admit': {
-        if (!T || ws.pid !== T.hostId) return;
-        const r = T.requests.get(String(m.id || '')); if (!r) return;
-        T.requests.delete(r.id); if (r.ws.request && r.ws.request.id === r.id) r.ws.request = null; T.sync();
-        if (r.ws.readyState !== 1) return;
-        if (!m.yes) return send(r.ws, { type: 'declined', msg: `${hostName(T) || 'The host'} said not now.` });
-        if (r.ret >= 0) {
-          const p = T.players[r.ret];
-          if (p && !p.isBot && !p.gone && !p.conn && p.name.toLowerCase() === r.name.toLowerCase()) { if (r.ws.table) leave(r.ws); const rr = T.reclaim(r.ret, r.ws); if (rr) return enter(r.ws, T, rr, true); }
-        }
-        seatNew(r.ws, T, { name: r.name, av: r.av }); break;
-      }
-      case 'resume': {
-        const code = String(m.code || '').toLowerCase().trim();
-        let t = tables.get(code); if (t && t.closed) t = null;
-        const o = openSeal(m.seal);
-        if (o && o.room.code === code) t = restoreFromSeal(o) || t;
-        if (!t) return send(ws, { type: 'gone', code: code.toUpperCase(), msg: closedCodes.has(code) ? 'That room was closed by its host.' : 'That table has closed.' });
-        if (ws.table && ws.table !== t) leave(ws);
-        const r = t.resume(String(m.token || ''), ws, seatHash);
-        if (!r) return send(ws, { type: 'gone', code: code.toUpperCase(), msg: 'Your seat at that table is no longer held.' });
-        enter(ws, t, r, true); break;
-      }
-      case 'leave': leave(ws); sendRooms(ws); break;
-      case 'close': {
-        if (!T || ws.pid !== T.hostId || !T.persistent) return;
-        closedCodes.add(T.code);
-        const conns = T.players.map(p => p.conn).filter(Boolean);
-        unregister(T); persistAll();
-        for (const c of conns) { c.table = null; c.pid = -1; send(c, { type: 'gone', code: T.code.toUpperCase(), msg: 'The host closed the room.' }); sendRooms(c); if (c.me) presenceChanged(c.me); }
-        break;
-      }
-
-      // ----- at the table -----
-      case 'hello': if (T) T.updateHuman(ws.pid, m); break;
-      case 'act': if (T) T.action(ws.pid, m.a); break;
-      case 'rtc': { // voice/video introductions: {to, data}
-        if (!T) return; const to = T.players[+m.to]; if (!to || !to.conn) return;
-        send(to.conn, { type: 'rtc', from: ws.pid, data: m.data }); break;
-      }
-    }
-  });
-  ws.on('close', () => { leave(ws, true); dropPresence(ws); });
+  // one message at a time per player, so a sign-in finishes before the next request uses it
+  let queue = Promise.resolve();
+  ws.on('message', raw => { queue = queue.then(() => handle(ws, raw)).catch(e => console.error('message error:', e && e.stack || e)); });
+  ws.on('close', () => { queue.then(() => { leave(ws, true); dropPresence(ws); }); });
 });
+
+async function handle(ws, raw) {
+  let m; try { m = JSON.parse(raw); } catch { return; }
+  if (!m || typeof m !== 'object') return;
+  const T = ws.table;
+  switch (m.type) {
+    // ----- identity -----
+    case 'id': {
+      const secret = String(m.secret || ''); if (!/^[0-9a-f]{32,128}$/.test(secret)) return;
+      ws.dev = sha('id:' + secret).slice(0, 16); ws.devFriends = Array.isArray(m.friends) ? m.friends : []; ws.devName = cleanName(m.name); ws.devAv = cleanAv(m.av);
+      if (typeof m.tz === 'number') ws.tz = m.tz;
+      let u = null;
+      if (m.session) { try { u = await accounts.fromSession(String(m.session)); } catch (e) { console.error('session:', e.message); } if (!u && accounts.isReady()) send(ws, { type: 'signed_out', reason: 'expired' }); }
+      if (u) { ws.session = String(m.session); await becomeAccount(ws, u); } else becomeDevice(ws);
+      break;
+    }
+    case 'me': {
+      if (!ws.me) return; const o = online.get(ws.me); if (!o) return;
+      const nm = typeof m.name === 'string' ? cleanName(m.name) : '', av = m.av !== undefined ? cleanAv(m.av) : undefined;
+      if (ws.uid) { const u = accounts.cached(ws.uid); if (u) accounts.setLook(u, nm || u.display, av); if (nm) o.name = nm; if (av !== undefined) o.av = av; }
+      else { if (nm) o.name = nm; if (av !== undefined) o.av = av; if (Array.isArray(m.friends)) { ws.devFriends = m.friends; o.friends = cleanFriends(m.friends, ws.me); } ws.devName = o.name; ws.devAv = o.av; }
+      sendPresence(ws); presenceChanged(ws.me); break;
+    }
+
+    // ----- accounts -----
+    case 'signup': case 'signin': {
+      if (!ws.dev) return send(ws, { type: 'auth_error', msg: 'Still connecting. Try again in a moment.' });
+      const args = { username: m.username, password: m.password, display: cleanName(m.display) || ws.devName, av: cleanAv(m.av) || ws.devAv, dev: ws.dev, ip: ws.ip };
+      let r; try { r = m.type === 'signup' ? await accounts.signup(args) : await accounts.signin(args); } catch (e) { console.error(m.type, e.message); r = { error: 'Something went wrong. Try again.' }; }
+      if (r.error) return send(ws, { type: 'auth_error', msg: r.error });
+      ws.session = r.token;
+      send(ws, { type: 'session', token: r.token, welcome: r.welcome || 0, mode: m.type });
+      try { await accounts.adoptDeviceFriends(r.user, ws.devFriends); } catch (e) { console.error('adopt friends:', e.message); }
+      await becomeAccount(ws, r.user);
+      for (const id of accounts.cached(r.user.id) ? [...(online.get(r.user.id) || { friends: [] }).friends] : []) pushFriends(id);
+      break;
+    }
+    case 'signout': {
+      if (!ws.uid) return; await accounts.signout(ws.session); ws.session = null;
+      dropPresence(ws); ws.uid = null; becomeDevice(ws); send(ws, { type: 'signed_out', reason: 'asked' }); break;
+    }
+    case 'password': {
+      if (!ws.uid) return; const u = await accounts.get(ws.uid);
+      const r = await accounts.changePassword(u, m.old, m.new, ws.session);
+      send(ws, r.error ? { type: 'auth_error', msg: r.error } : { type: 'toast', msg: 'Password changed. Other devices are signed out.' }); break;
+    }
+    case 'profile': { if (typeof m.tz === 'number') ws.tz = m.tz; await sendAccount(ws); break; }
+    case 'spin': {
+      if (!ws.uid) return send(ws, { type: 'need_account', why: 'wheel' });
+      const u = await accounts.get(ws.uid); const r = u && accounts.spin(u);
+      if (!r) return send(ws, { type: 'toast', msg: 'You have spun today already. The wheel is back tomorrow.' });
+      send(ws, Object.assign({ type: 'spun' }, r));
+      const o = online.get(ws.uid); if (o) for (const s of o.socks) if (s !== ws) send(s, { type: 'account_lite', user: accounts.pub(u), inPlay: inPlay(u.id), bonus: accounts.bonusInfo(u) });
+      break;
+    }
+
+    // ----- friends -----
+    case 'friend_add': { // from a friend link someone shared
+      if (!isId(m.id) || m.id === ws.me) return;
+      if (ws.uid) {
+        const u = await accounts.get(ws.uid); const r = await accounts.link(u, m.id);
+        if (r.error) { if (/not for an account/.test(r.error)) return send(ws, { type: 'toast', msg: 'They play as a guest. Ask them to make a free account so you can be friends.' }); return send(ws, { type: 'toast', msg: r.error }); }
+        await pushFriends(u.id); await pushFriends(r.other.id);
+        send(ws, { type: 'toast', msg: `You and ${r.other.display} are friends now` }); notify(r.other.id, { type: 'toast', msg: `${u.display} added you as a friend` });
+        return;
+      }
+      const acct = await accounts.accountOf(m.id);
+      if (acct) return send(ws, { type: 'need_account', why: 'friend', id: acct.id, name: acct.display });
+      const o = online.get(ws.me); if (!o) return;
+      o.friends.add(m.id); ws.devFriends = [...o.friends];
+      const f = online.get(m.id); if (f) for (const s of f.socks) send(s, { type: 'friend_added', id: ws.me, name: o.name, av: o.av });
+      sendPresence(ws); break;
+    }
+    case 'friend_remove': {
+      if (!isId(m.id)) return;
+      if (ws.uid) { const u = await accounts.get(ws.uid); await accounts.unfriend(u, m.id); await pushFriends(u.id); await pushFriends(m.id); return; }
+      const o = online.get(ws.me); if (o) { o.friends.delete(m.id); sendPresence(ws); } break;
+    }
+    case 'friend_req': {
+      if (!ws.uid) return send(ws, { type: 'need_account', why: 'request' });
+      const u = await accounts.get(ws.uid); const r = await accounts.request(u, m.username, isId(m.id) ? m.id : null);
+      if (r.error) return send(ws, { type: 'friend_msg', ok: 0, msg: r.error });
+      await pushFriends(u.id); await pushFriends(r.other.id);
+      if (r.accepted) { send(ws, { type: 'friend_msg', ok: 1, msg: `You and ${r.other.display} are friends now` }); notify(r.other.id, { type: 'toast', msg: `${u.display} accepted your friend request` }); }
+      else { send(ws, { type: 'friend_msg', ok: 1, msg: `Request sent to @${r.other.username}` }); notify(r.other.id, { type: 'friend_req_in', from: { id: u.id, username: u.username, name: u.display, av: u.av } }); }
+      break;
+    }
+    case 'friend_ans': {
+      if (!ws.uid || !isId(m.id)) return; const u = await accounts.get(ws.uid);
+      const r = await accounts.answer(u, m.id, !!m.yes); if (r.error) return send(ws, { type: 'toast', msg: r.error });
+      await pushFriends(u.id); await pushFriends(m.id);
+      if (m.yes) { notify(m.id, { type: 'toast', msg: `${u.display} accepted your friend request` }); presenceChanged(u.id); presenceChanged(m.id); }
+      break;
+    }
+    case 'friend_cancel': { if (!ws.uid || !isId(m.id)) return; const u = await accounts.get(ws.uid); await accounts.cancel(u, m.id); await pushFriends(u.id); await pushFriends(m.id); break; }
+    case 'invite': {
+      if (!ws.me || !T || !isId(m.to)) return;
+      const f = online.get(m.to); if (!f || !f.socks.size) return send(ws, { type: 'toast', msg: 'They are offline right now. Share the link instead.' });
+      const o = online.get(ws.me); const token = rand(9);
+      invites.set(token, { rid: T.rid, to: m.to, exp: Date.now() + 15 * 60 * 1000 });
+      const me = T.players[ws.pid];
+      for (const s of f.socks) send(s, { type: 'invited', token, from: { id: ws.me, name: (o && o.name) || (me && me.name) || 'A friend', av: o && o.av }, room: { name: T.tableName, host: hostName(T), seated: T.players.filter(p => !p.isBot && !p.gone).length, seats: T.seats, wager: T.wager, buyIn: T.buyIn } });
+      send(ws, { type: 'toast', msg: `Invite sent to ${f.name || 'your friend'}` });
+      break;
+    }
+    case 'accept_invite': {
+      const inv = invites.get(String(m.token || ''));
+      if (!inv || inv.to !== ws.me || inv.exp < Date.now()) return send(ws, { type: 'error', msg: 'That invite has expired. Ask for a new one.' });
+      invites.delete(String(m.token)); const t = byRid.get(inv.rid);
+      if (!t || t.closed) return send(ws, { type: 'error', msg: 'That room has closed.' });
+      seatNew(ws, t, m); break;
+    }
+
+    // ----- rooms -----
+    case 'rooms': sendRooms(ws); break;
+    case 'host': {
+      if (!cleanName(m.name)) return send(ws, { type: 'error', msg: 'Type your name first.' });
+      const cfg = Object.assign({}, m.cfg || {}); delete cfg.rid;
+      const t = new Table(newCode(), cfg, broadcast);
+      const err = sitError(ws, t); if (err) return send(ws, { type: 'error', msg: err, need: 'chips' });
+      if (T) leave(ws);
+      register(t);
+      const r = t.addHuman(ws, m.name, m.av, m.mic, m.cam, ws.uid); t.hostId = r.id;
+      enter(ws, t, r, false); break;
+    }
+    case 'join': {
+      const code = String(m.code || '').toLowerCase().trim(); const t = tables.get(code);
+      if (!t || t.closed) return send(ws, { type: 'error', msg: 'No open table with that code. Check it with the host.' });
+      if (returnAcct(ws, t)) return;
+      const name = cleanName(m.name); if (!name) return send(ws, { type: 'error', msg: 'Type your name first.' });
+      // the name matches a seat waiting for its owner: the host decides whether it is really them
+      const ret = waitingSeat(t, name, ws.uid);
+      if (ret >= 0) return askToJoin(ws, t, m, ret);
+      seatNew(ws, t, m); break;
+    }
+    case 'request': {
+      const t = byRid.get(String(m.rid || ''));
+      if (!t || t.closed) return send(ws, { type: 'error', msg: 'That room has closed.' });
+      if (returnAcct(ws, t)) return;
+      const name = cleanName(m.name); if (!name) return send(ws, { type: 'error', msg: 'Type your name first.' });
+      const ret = waitingSeat(t, name, ws.uid);
+      if (ret >= 0) return askToJoin(ws, t, m, ret);
+      if (t.pub) return seatNew(ws, t, m);
+      askToJoin(ws, t, m, -1); break;
+    }
+    case 'return': { // an account going back to a seat it holds (works from any device)
+      const t = byRid.get(String(m.rid || ''));
+      if (!t || t.closed || !returnAcct(ws, t)) return send(ws, { type: 'error', msg: 'That seat is no longer held.' });
+      break;
+    }
+    case 'request_cancel': cancelRequest(ws, true); break;
+    case 'admit': {
+      if (!T || ws.pid !== T.hostId) return;
+      const r = T.requests.get(String(m.id || '')); if (!r) return;
+      T.requests.delete(r.id); if (r.ws.request && r.ws.request.id === r.id) r.ws.request = null; T.sync();
+      if (r.ws.readyState !== 1) return;
+      if (!m.yes) return send(r.ws, { type: 'declined', msg: `${hostName(T) || 'The host'} said not now.` });
+      if (r.ret >= 0) {
+        const p = T.players[r.ret];
+        if (p && !p.isBot && !p.gone && !p.conn && p.name.toLowerCase() === r.name.toLowerCase() && (!p.uid || p.uid === r.ws.uid)) { if (r.ws.table) leave(r.ws); const rr = T.reclaim(r.ret, r.ws); if (rr) return enter(r.ws, T, rr, true); }
+      }
+      seatNew(r.ws, T, { name: r.name, av: r.av }); break;
+    }
+    case 'resume': {
+      const code = String(m.code || '').toLowerCase().trim();
+      let t = tables.get(code); if (t && t.closed) t = null;
+      const o = openSeal(m.seal);
+      if (o && o.room.code === code) t = restoreFromSeal(o) || t;
+      if (!t) return send(ws, { type: 'gone', code: code.toUpperCase(), msg: closedCodes.has(code) ? 'That room was closed by its host.' : 'That table has closed.' });
+      if (ws.table && ws.table !== t) leave(ws);
+      const r = t.resume(String(m.token || ''), ws, seatHash);
+      if (!r) { if (returnAcct(ws, t)) return; return send(ws, { type: 'gone', code: code.toUpperCase(), msg: 'Your seat at that table is no longer held.' }); }
+      enter(ws, t, r, true); break;
+    }
+    case 'leave': leave(ws); sendRooms(ws); break;
+    case 'close': {
+      if (!T || ws.pid !== T.hostId || !T.persistent) return;
+      closedCodes.add(T.code);
+      const conns = T.players.map(p => p.conn).filter(Boolean);
+      unregister(T); persistAll();
+      for (const c of conns) { c.table = null; c.pid = -1; send(c, { type: 'gone', code: T.code.toUpperCase(), msg: 'The host closed the room.' }); sendRooms(c); if (c.me) presenceChanged(c.me); }
+      break;
+    }
+
+    // ----- at the table -----
+    case 'hello': if (T) T.updateHuman(ws.pid, m); break;
+    case 'act': if (T) T.action(ws.pid, m.a); break;
+    case 'rtc': { // voice/video introductions: {to, data}
+      if (!T) return; const to = T.players[+m.to]; if (!to || !to.conn) return;
+      send(to.conn, { type: 'rtc', from: ws.pid, data: m.data }); break;
+    }
+  }
+}
 
 // rooms list to everyone in the lobby when something changes
 setInterval(() => {
@@ -339,14 +491,20 @@ setInterval(() => {
   for (const [k, v] of invites) if (v.exp < now) invites.delete(k);
 }, 30000);
 
-// restore rooms saved on this machine's disk (hosts with a persistent disk)
-(() => {
-  const saved = store.load();
+// restore standing rooms: from this machine's disk first, then from the database (which outlives restarts)
+function restoreSaved(saved, from) {
   (saved.closed || []).forEach(c => closedCodes.add(c));
+  let n = 0;
   for (const [code, o] of Object.entries(saved.rooms || {})) {
-    try { const t = Table.fromJSON(o.room, broadcast); t.sealVer = o.ver || 0; register(t); } catch (e) { console.error('restore failed', code, e.message); }
+    if (tables.has(code) || closedCodes.has(code)) continue;
+    try { const t = Table.fromJSON(o.room, broadcast); t.sealVer = o.ver || 0; register(t); n++; } catch (e) { console.error('restore failed', code, e.message); }
   }
-  if (tables.size) console.log('restored rooms:', [...tables.keys()].join(', '));
-})();
+  if (n) console.log(`restored ${n} room(s) from ${from}:`, [...tables.keys()].join(', '));
+}
+restoreSaved(store.load(), 'disk');
+accounts.init().then(async () => {
+  if (!accounts.isReady()) return;
+  try { const saved = await accounts.kvGet('rooms'); if (saved) restoreSaved(saved, 'the database'); } catch (e) { console.error('rooms load:', e.message); }
+});
 
 server.listen(PORT, () => console.log('Tete 21 listening on', PORT));

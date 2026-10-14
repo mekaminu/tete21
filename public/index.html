@@ -391,7 +391,80 @@ details.more summary small{color:var(--fg-dim);font-weight:400;font-size:12.5px}
 .setrow:last-of-type{border-bottom:0}
 .seg.sm button{padding:6px 14px}
 .setrow input[type=range]{width:min(200px,52%);accent-color:var(--gold)}
-/* ---------- table motion: flying cards and chips, the riffle, gains ---------- */
+/* ---------- accounts: profile, balance, history, wheel ---------- */
+.lvrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:4px;font-size:12.5px;color:var(--fg-dim)}
+.lvchip{background:linear-gradient(180deg,var(--gold-hi),var(--gold));color:var(--ink);font-weight:800;border-radius:99px;padding:1px 8px;font-size:11.5px;letter-spacing:.04em}
+.xpbar{height:6px;border-radius:3px;background:#2b1f25;overflow:hidden;width:100%;max-width:240px}
+.xpbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold-dim),var(--gold-hi));border-radius:3px;transition:width 1.1s cubic-bezier(.2,.8,.2,1)}
+.balcard{position:relative;overflow:hidden;border-radius:16px;padding:14px 16px;margin:2px 0 14px;background:radial-gradient(120% 140% at 0% 0%,rgba(217,178,95,.22),transparent 55%),linear-gradient(160deg,#2c1e25,#170f13);border:1px solid var(--gold-dim);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center}
+.balcard::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,240,200,.10) 50%,transparent 60%);transform:translateX(-120%);animation:balsheen 5s ease-in-out 1s infinite;pointer-events:none}
+@keyframes balsheen{0%,70%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+.balcard .bal{font-family:var(--display);font-size:clamp(30px,8vw,40px);color:var(--gold-hi);line-height:1.1;font-variant-numeric:tabular-nums}
+.balcard .bal small{font-family:var(--body);font-size:13px;color:var(--fg-dim);margin-left:4px}
+.balcard .btn{grid-column:2;grid-row:1 / span 3;align-self:center}
+.balcard .note{margin:0}
+.wheelbtn.ready{animation:pulse 1.6s infinite,glow 1.2s infinite alternate}
+.statgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:4px}
+.stat{background:#120c0f;border:1px solid #33252c;border-radius:12px;padding:9px 6px;text-align:center;animation:rowin .4s both}
+.stat b{display:block;font-family:var(--display);font-size:19px;color:var(--fg);font-variant-numeric:tabular-nums}
+.stat span{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-dim)}
+.chart{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:4px;height:120px;position:relative;margin-top:4px}
+.chart::before{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px dashed #4a3640}
+.chart .col{position:relative;height:100%;background:none;border:0;padding:0;border-radius:4px}
+.chart .col.sel{background:rgba(217,178,95,.08)}
+.chart .col i{position:absolute;left:14%;right:14%;border-radius:3px;transition:height .8s cubic-bezier(.2,.9,.25,1)}
+.chart .col i.up{bottom:50%;background:linear-gradient(180deg,#7ee8ae,#2f9b63);box-shadow:0 0 10px rgba(79,201,139,.35)}
+.chart .col i.down{top:50%;background:linear-gradient(180deg,#b8322c,#e2574f)}
+.chart .col i.none{bottom:50%;height:2px!important;background:#4a3640}
+.chart-days{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:4px;font-size:10px;color:var(--fg-dim);text-align:center;margin-top:4px}
+.chart-tip{font-size:13px;color:var(--fg-dim);min-height:20px;margin:6px 0 0}
+.chart-tip b.up{color:var(--good)}.chart-tip b.down{color:var(--bad)}
+.recent{display:grid;gap:2px}
+.rec{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:7px 2px;border-bottom:1px solid #2a1f25;font-size:13.5px;animation:rowin .4s both}
+.rec small{color:var(--fg-dim);font-size:12px}
+.rec .d{font-weight:700;font-variant-numeric:tabular-nums;grid-row:span 2;align-self:center}
+.rec .d.up{color:var(--good)}.rec .d.down{color:var(--bad)}
+.promo{border:1px solid var(--gold-dim);border-radius:16px;padding:14px 16px;margin:0 0 14px;background:radial-gradient(120% 140% at 100% 0%,rgba(217,178,95,.18),transparent 60%),#1a1116}
+.promo b{font-family:var(--display);color:var(--gold-hi);font-size:17px;display:block;margin-bottom:4px}
+.promo p{margin:0 0 10px;font-size:13.5px;color:var(--fg-dim)}
+.promo .actions{justify-content:flex-start;margin-top:0}
+.mechip .dot{position:absolute;right:-2px;top:-2px;width:11px;height:11px;border-radius:50%;background:var(--good);box-shadow:0 0 0 2px var(--velvet);animation:livepulse 1.6s infinite}
+.mechip{position:relative}
+.pwrow{display:flex;gap:8px;align-items:center}
+.pwrow input{flex:1;min-width:0}
+.auth-err{color:#ffd6d3;background:#3a1f1c;border:1px solid var(--bad);border-radius:10px;padding:8px 12px;font-size:13px;margin:0 0 12px;animation:shake .4s}
+.addrow{display:flex;gap:8px}
+.addrow input{flex:1;min-width:0;background:#120c0f;border:1px solid #4a3640;color:var(--fg);border-radius:8px;padding:10px 12px;font-size:15px}
+.fr-msg{font-size:13px;margin:6px 0 0;min-height:18px;color:var(--fg-dim)}
+.fr-msg.ok{color:var(--good)}.fr-msg.bad{color:#ffb4ae}
+.myhandle{font-size:13px;color:var(--fg-dim);margin:0 0 10px}
+.myhandle b{color:var(--gold-hi)}
+.reqrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:7px 2px;border-bottom:1px solid #2a1f25;animation:rowin .4s both}
+.reqrow .btn{padding:6px 10px;font-size:12.5px}
+.fchip.add .reqdot{position:absolute;top:0;right:4px;min-width:18px;height:18px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;padding:0 4px;box-shadow:0 0 0 2px var(--velvet)}
+.fchip.add{position:relative}
+/* the daily wheel */
+.wheelbox{text-align:center}
+.wheelwrap{position:relative;width:min(300px,76vw);aspect-ratio:1;margin:10px auto 6px}
+#wheel{width:100%;height:100%;filter:drop-shadow(0 12px 30px rgba(0,0,0,.6));will-change:transform}
+#wheel .bulb{fill:#fff3c4;animation:bulb .8s steps(1) infinite}
+#wheel .bulb.alt{animation-delay:.4s}
+@keyframes bulb{50%{fill:#7a5a20}}
+.pointer{position:absolute;left:50%;top:-8px;transform:translateX(-50%);width:0;height:0;border-left:15px solid transparent;border-right:15px solid transparent;border-top:28px solid var(--gold-hi);z-index:2;filter:drop-shadow(0 3px 4px rgba(0,0,0,.6))}
+.pointer.tick{animation:ptick .12s}
+@keyframes ptick{50%{transform:translateX(-50%) rotate(-14deg)}}
+.hub{position:absolute;left:50%;top:50%;width:27%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;border:3px solid #fff3c4;background:radial-gradient(circle at 35% 30%,#fff3c4,#d9b25f 60%,#8a6a2a);color:var(--ink);font-family:var(--display);font-weight:700;font-size:clamp(13px,4vw,18px);letter-spacing:.08em;box-shadow:0 6px 18px rgba(0,0,0,.5);z-index:2;padding:0}
+.hub:disabled{filter:grayscale(.4) brightness(.8);cursor:default}
+.wheel-res{min-height:56px;font-family:var(--display);font-size:28px;color:var(--gold-hi)}
+.wheel-res small{display:block;font-family:var(--body);font-size:13px;color:var(--fg-dim)}
+/* big moments: welcome bonus, wheel prize */
+.celebrate{position:fixed;inset:0;z-index:90;display:grid;place-items:center;background:radial-gradient(circle at 50% 45%,rgba(40,24,30,.75),rgba(5,2,5,.9));overflow:hidden;cursor:pointer}
+.celebrate .cel{text-align:center;position:relative;z-index:2}
+.celebrate .cel-t{font-size:13px;letter-spacing:.3em;text-transform:uppercase;color:var(--cream)}
+.celebrate .cel-a{font-family:var(--display);font-weight:700;font-size:clamp(54px,16vw,110px);line-height:1.05;font-variant-numeric:tabular-nums}
+.celebrate .cel-s{color:var(--fg-dim);font-size:15px;margin-top:6px}
+.celebrate .rain{position:absolute;top:-30px;z-index:1}
+
 .flylayer{position:fixed;inset:0;pointer-events:none;z-index:46}
 .flylayer>*{position:absolute}
 .flycard{margin:0;will-change:transform,opacity}
@@ -434,6 +507,7 @@ details.more summary small{color:var(--fg-dim);font-weight:400;font-size:12.5px}
 #intro .bars i:first-child{top:0}
 #intro .bars i:last-child{bottom:0}
 #intro .skip{position:absolute;right:16px;bottom:calc(9vh + 12px);z-index:6;background:rgba(0,0,0,.35);border:1px solid rgba(243,217,144,.35);color:rgba(243,217,144,.85);border-radius:99px;padding:6px 14px;font-size:11px;letter-spacing:.24em;text-transform:uppercase;opacity:0}
+#m-me.acct .guest-only,#m-me:not(.acct) .acct-only,#m-friends.acct .guest-only,#m-friends:not(.acct) .acct-only{display:none!important}
 [hidden]{display:none!important}
 .pill:empty{display:none}
 @media (max-width:520px){.row>.field:has(.seg){min-width:100%}}
@@ -689,8 +763,18 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <div class="modal" id="m-end"><div class="box"><h2 id="end-title">Hand over</h2><p id="end-body"></p><div class="actions" id="end-actions"></div></div></div>
 
 <div class="modal sheet" id="m-me"><div class="box"><div class="grab"></div>
-<div class="me-head"><div class="avprev" id="av-prev" title="Use a photo"></div><div><h2 id="me-title">Your profile</h2><p class="note" style="margin:0" id="me-note">How the table sees you, plus sound settings.</p></div></div>
-<div class="field"><label for="f-name">Your name at the table</label><input id="f-name" value="" placeholder="Type your name" maxlength="14" autocomplete="nickname" enterkeyhint="done"></div>
+<div class="me-head"><div class="avprev" id="av-prev" title="Use a photo"></div><div style="min-width:0;flex:1"><h2 id="me-title">Your profile</h2><p class="note" style="margin:0" id="me-note">How the table sees you, plus sound settings.</p><div class="lvrow acct-only"><span class="lvchip" id="acct-lv">Lv 1</span><span id="acct-title">Fresh hand</span><div class="xpbar" title="Experience"><i id="acct-xp"></i></div></div></div></div>
+<div class="me-more guest-only"><div class="promo"><b>Make it yours</b><p>A free account keeps your chips, friends and history on any phone or computer. You start with 10,000 chips, plus a daily wheel.</p><div class="actions"><button class="btn btn-gold" id="me-signup" type="button">Create free account</button><button class="btn btn-ghost" id="me-signin" type="button">Sign in</button></div></div></div>
+<div class="me-more acct-only">
+  <div class="balcard"><div><div class="eyebrow">Balance</div><div class="bal"><span id="acct-bal">0</span><small>chips</small></div></div><button class="btn btn-gold wheelbtn" id="btn-wheel" type="button">Daily wheel</button><p class="note" id="acct-inplay"></p></div>
+  <div class="statgrid" id="acct-stats"></div>
+  <h3 class="subh">Last 14 days</h3>
+  <div class="chart" id="acct-chart"></div><div class="chart-days" id="acct-days"></div><p class="chart-tip" id="chart-tip">Tap a day to see how it went.</p>
+  <h3 class="subh">Recent hands</h3>
+  <div class="recent" id="acct-recent"></div>
+  <h3 class="subh">Name &amp; look</h3>
+</div>
+<div class="field"><label for="f-name" id="f-name-lbl">Your name at the table</label><input id="f-name" value="" placeholder="Type your name" maxlength="14" autocomplete="nickname" enterkeyhint="done"></div>
 <div class="field"><label>Pick a look</label><div class="avrow" id="av-opts"></div></div>
 <div class="me-more"><div class="field"><label for="av-file">Or use a photo</label><input id="av-file" type="file" accept="image/*"></div>
 <p class="note" style="margin-top:-4px">A photo shows on your own screen; other players see your colour or emoji until your camera is on.</p>
@@ -698,7 +782,23 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <div class="setrow"><span>Game sounds</span><div class="seg sm"><button type="button" id="snd-on">On</button><button type="button" id="snd-off">Off</button></div></div>
 <div class="setrow"><label for="snd-vol">Volume</label><input type="range" id="snd-vol" min="0" max="100" step="5"></div>
 <div class="setrow"><span>Launch intro <button class="linkbtn" id="intro-replay" type="button" style="margin-left:8px;font-size:13px">Watch it</button></span><div class="seg sm"><button type="button" id="intro-on">On</button><button type="button" id="intro-off">Off</button></div></div>
-</div><div class="actions"><button class="btn btn-ghost me-more" id="me-friendlink" type="button">Share my friend link</button><button class="btn btn-ghost me-more" id="av-clear" type="button">Use my initial</button><button class="btn btn-gold" id="me-done" type="button">Done</button></div></div></div>
+</div><div class="actions"><button class="btn btn-ghost me-more" id="me-friendlink" type="button">Share my friend link</button><button class="btn btn-ghost me-more" id="av-clear" type="button">Use my initial</button><button class="btn btn-dark me-more acct-only" id="me-signout" type="button">Sign out</button><button class="btn btn-gold" id="me-done" type="button">Done</button></div></div></div>
+
+<div class="modal sheet" id="m-auth"><div class="box"><div class="grab"></div>
+<h2 id="auth-title">Create your account</h2>
+<p class="note" id="auth-why" style="margin-top:0">Keep your chips, friends and history on any phone or computer. You start with 10,000 chips.</p>
+<div class="seg" style="margin-bottom:14px"><button type="button" id="auth-up" class="on">Create account</button><button type="button" id="auth-in">Sign in</button></div>
+<div class="field"><label for="au-user">Username</label><input id="au-user" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. meka" maxlength="17" enterkeyhint="next"></div>
+<div class="field"><label for="au-pass">Password</label><div class="pwrow"><input id="au-pass" type="password" autocomplete="new-password" placeholder="At least 6 characters" maxlength="200" enterkeyhint="go"><button class="linkbtn" id="au-show" type="button">Show</button></div></div>
+<p class="note" id="au-hint" style="margin-top:-4px">Friends find you by your username. Keep your password safe: there's no email reset yet.</p>
+<p class="auth-err" id="auth-err" hidden></p>
+<button class="btn btn-gold btn-wide" id="au-go" type="button">Create account</button></div></div>
+
+<div class="modal sheet" id="m-wheel"><div class="box wheelbox"><div class="grab"></div>
+<h2>Daily wheel</h2><p class="note" id="wheel-note" style="margin:0">One free spin every day.</p>
+<div class="wheelwrap"><div class="pointer" id="wheel-ptr"></div><svg id="wheel" viewBox="-110 -110 220 220" aria-hidden="true"></svg><button class="hub" id="wheel-go" type="button">SPIN</button></div>
+<div class="wheel-res" id="wheel-res"></div>
+<div class="actions" style="justify-content:center"><button class="btn btn-ghost" data-close type="button">Close</button></div></div></div>
 
 <div class="modal sheet" id="m-host"><div class="box"><div class="grab"></div>
 <h2>Host a table</h2>
@@ -737,6 +837,11 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 
 <div class="modal sheet" id="m-friends"><div class="box"><div class="grab"></div>
 <div class="phead"><h2>Friends</h2><span class="pill" id="friends-count2"></span><span class="spacer"></span><button class="linkbtn" id="friends-edit" type="button" hidden>Edit</button></div>
+<div class="acct-only"><p class="myhandle">You are <b id="my-handle">@you</b>. Friends can add you by that name.</p>
+<div class="addrow"><input id="fr-user" placeholder="Add by username, e.g. tolu" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="17" enterkeyhint="send"><button class="btn btn-gold" id="fr-add" type="button">Add</button></div>
+<p class="fr-msg" id="fr-msg"></p>
+<div id="fr-reqs"></div></div>
+<div class="guest-only"><div class="promo"><b>Add friends by name</b><p>With a free account you can send friend requests by username and see your friends on any device.</p><div class="actions"><button class="btn btn-gold" id="fr-signup" type="button">Create free account</button></div></div></div>
 <div class="friends" id="friends"></div>
 <div class="actions"><button class="btn btn-ghost" id="btn-friendlink" type="button">Share my friend link</button><button class="btn btn-gold" data-close type="button">Done</button></div></div></div>
 

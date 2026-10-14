@@ -2,7 +2,8 @@
 
 The Nigerian home card game Tete (21), playable online with friends on any phone or computer, with voice and video at the table.
 
-- `server.js` — serves the game page, runs the tables, relays voice/video introductions
+- `server.js` — serves the game page, runs the tables, accounts and friends, relays voice/video introductions
+- `accounts.js`, `db.js` — accounts, wallet, friends and history (Postgres, or a local file)
 - `public/engine.js` — the rules: deal, flush, drop, trick, pick, reveal, ties, side bets, timers, computer players (the same file runs practice games in the browser)
 - `public/index.html` — the screens and their styles
 - `public/app.js` — the lobby, the table, friends, invites, voice and video, card and chip animation
@@ -45,6 +46,18 @@ TURN_PASS=...
 ## Standing rooms
 
 A host can keep a room open until they close it. Each player's device keeps a sealed (signed) copy of the room, so if the server restarts or the free plan sleeps, the first player back restores it with everyone's chips. Set `ROOM_SECRET` (any long random string; Render's "Generate" button works) so copies stay valid across deploys; without it the server falls back to Render's service id.
+
+## Accounts
+
+Playing as a guest still works. A free account (username and password) adds:
+
+- **Balance:** 10,000 play chips to start. Your balance backs the chips in front of you: you need enough free chips to sit at a table, and each hand's win or loss lands on your balance the moment the hand ends.
+- **Daily wheel:** one free spin a day for bonus chips.
+- **Profile:** level and experience, hands, wins, win rate, biggest win, Adasi count, best streak, a 14-day chart of daily gains and losses, and recent hands.
+- **Friends:** requests by username (accept or decline), friend links still work, friends' online status on any device.
+- **Any device:** your seat follows your account, so you can pick it up on another phone or computer.
+
+Accounts need a Postgres database: set `DATABASE_URL` (Neon's free tier works). Without it the server keeps accounts in `data/accounts.json`, which is fine for running locally but is wiped on Render's free plan. Standing rooms are saved in the database too, so they survive restarts. `/health` answers `ok (accounts offline)` if the database can't be reached.
 
 ## Look and sound
 
