@@ -7,6 +7,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg">
 <link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script src="engine.js"></script>
 <title>Tete 21</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&display=swap">
 <style>
@@ -338,6 +340,7 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
         <h2>Practice alone</h2>
         <p class="note" style="margin-top:0">A quick table against computer players, no code needed.</p>
         <button class="btn btn-ghost btn-wide" id="btn-solo" style="margin-top:10px">Play vs the computer</button>
+        <p class="note">Works without a connection too. <button class="btn btn-dark" id="btn-install" hidden style="padding:6px 10px;margin-left:6px">Install app</button></p>
       </div>
       <button class="btn btn-ghost btn-wide" id="btn-rules">How to play &amp; what I assumed</button>
     </div>
@@ -411,6 +414,7 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
 <li><b>Tie.</b> Agreed when the table is set up: either the tied players each top up another wager and play off (winner takes everything), or they split the pot.</li>
 <li><b>Adasi.</b> Two Aces in your dealt hand wins the pot outright. When the drop reaches you, declare it (or the timer declares it for you), your Aces are shown to the table and the hand ends.</li>
 <li><b>Series</b> (table option, off by default). If anyone is dealt three of the same number, or three of the same number land on the flushed board, the hand is void: the dealer redeals and the pot stays.</li>
+<li><b>Offline.</b> Once you have opened the app online, it keeps working without a connection for practice against the computer. Hosting, joining, voice and video need a connection.</li>
 <li><b>Playing with friends.</b> The host opens a table and gets a code. Friends open the same link on any phone or computer and enter the code. The game runs on the server, so the table stays open as long as someone is seated. People who join mid-hand sit in from the next hand.</li>
 <li><b>Voice &amp; video.</b> Mic, camera and sound buttons under your hand. Turn them on to let the table hear and see you; your browser will ask permission once. A seat shows that player's video when their camera is on, a red mic badge when muted, and glows green while they talk.</li>
 <li><b>Timer.</b> On your turn a ring counts down around your avatar. At zero the game acts for you (drops your lowest legal card, or stays). Three timeouts in a row and you're sat out until you tap Rejoin.</li>
@@ -507,19 +511,30 @@ $('#av-file').onchange=()=>{const f=$('#av-file').files[0];if(!f)return;const im
 refreshAv();
 const myName=()=>(($('#f-name').value||'You').trim().slice(0,14))||'You';
 
+// ---------- local engine (offline / practice) ----------
+let LOCALT=null;
+function startLocal(cfgT){
+  const E=window.TeteEngine;if(!E){toast('Offline engine not loaded yet; reload once while online');return false}
+  let lastFx=0;
+  const t=new E.Table('tete-solo',cfgT,table=>{const fresh=table.fxq.filter(e=>e.n>lastFx);if(fresh.length)lastFx=fresh[fresh.length-1].n;onMessage({type:'state',st:table.snapshot(0),fx:fresh})});
+  const r=t.addHuman({readyState:1,send(){}},myName(),publicAv(),false,false);t.hostId=r.id;LOCALT=t;HOST=true;
+  onMessage({type:'joined',code:'PRACTICE',id:r.id});t.sync();setTimeout(()=>t.action(0,{type:'start'}),300);return true;
+}
+function stopLocal(){if(LOCALT){LOCALT.closed=true;LOCALT=null}}
 // ---------- connection ----------
 function connect(){
+  if(WS&&WS.readyState<=1){try{WS.onclose=null;WS.close()}catch{}}
   const proto=location.protocol==='https:'?'wss':'ws';
   WS=new WebSocket(`${proto}://${location.host}`);
   WS.onopen=()=>{CONNECTED=true;setStatus('ok','Connected. Host a table or join with a code.');$('#conn').style.display='';$('#conn').textContent='live';if(S&&S.code&&ME>=0){/* reconnect: rejoin */WS.send(JSON.stringify({type:'join',code:S.code,name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam}))}};
-  WS.onclose=()=>{CONNECTED=false;setStatus('warn','Connection lost. Reconnecting…');$('#conn').textContent='reconnecting…';setTimeout(connect,1500)};
+  WS.onclose=function(){if(WS!==this&&WS&&WS.readyState<=1)return;CONNECTED=false;if(navigator.onLine===false)setStatus('warn','Offline. Practice vs the computer works; hosting and joining need a connection.');else setStatus('warn','Connection lost. Reconnecting…');$('#conn').textContent='reconnecting…';setTimeout(connect,1500)};
   WS.onerror=()=>{};
   WS.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch{return}onMessage(m)};
 }
 function setStatus(kind,text){const el=$('#live-status');const col=kind==='ok'?'var(--good)':kind==='warn'?'var(--warn)':'var(--bad)';el.innerHTML=`<b style="color:${col}">${kind==='ok'?'Live':'Live tables'}:</b> ${esc(text)}`}
 const send=m=>{if(WS&&WS.readyState===1)WS.send(JSON.stringify(m))};
-const act=a=>send({type:'act',a});
-function hello(){send({type:'hello',name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam})}
+const act=a=>{if(LOCALT)LOCALT.action(ME,a);else send({type:'act',a})};
+function hello(){if(LOCALT)return;send({type:'hello',name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam})}
 function onMessage(m){
   if(m.type==='joined'){ME=m.id;if(!S)S={code:m.code,players:[],sideBets:[],board:[],participants:[]};S.code=m.code;enterGame();return}
   if(m.type==='error'){toast(m.msg,3500);$('#btn-join').disabled=false;$('#join-note').textContent=m.msg;return}
@@ -531,17 +546,17 @@ function enterGame(){
   $('#lobby').classList.remove('on');$('#game').classList.add('on');rendered=new Set();lastCount=0;LOG.length=0;$('#log').innerHTML='';
   $('#wait').hidden=false;$('#wait-code').textContent=S.code||'…';avUI();
 }
-$('#btn-start').onclick=()=>{if(!CONNECTED){toast('Not connected yet');return}
+$('#btn-start').onclick=()=>{if(!CONNECTED){toast(navigator.onLine?'Not connected to the server yet':'You are offline. You can still practise against the computer.',3000);return}
   const cfgT={seats:+$('#f-seats').value,buyIn:+$('#f-buyin').value,wager:+$('#f-wager').value,tableName:$('#f-table').value,timer:+$('#f-timer').value,fill:cfg.fill,side:cfg.side,series:cfg.series,tie:cfg.tie};
   HOST=true;send({type:'host',cfg:cfgT,name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam})};
-$('#btn-solo').onclick=()=>{if(!CONNECTED){toast('Not connected yet');return}
-  const cfgT={seats:+$('#f-seats').value,buyIn:+$('#f-buyin').value,wager:+$('#f-wager').value,tableName:$('#f-table').value,timer:+$('#f-timer').value,fill:true,side:cfg.side,series:cfg.series,tie:cfg.tie};
-  HOST=true;send({type:'host',cfg:cfgT,name:myName(),av:publicAv(),mic:false,cam:false});setTimeout(()=>act({type:'start'}),400)};
+$('#btn-solo').onclick=()=>{
+  const cfgT={seats:+$('#f-seats').value,buyIn:+$('#f-buyin').value,wager:+$('#f-wager').value,tableName:'Practice table',timer:+$('#f-timer').value,fill:true,side:cfg.side,series:cfg.series,tie:cfg.tie};
+  startLocal(cfgT)};
 $('#btn-join').onclick=()=>{const code=($('#f-join').value||'').trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
   if(!/^tete-[a-z0-9]{4}$/.test(code)){toast('Enter a code like TETE-AB12');return}
-  if(!CONNECTED){toast('Not connected yet');return}
+  if(!CONNECTED){toast(navigator.onLine?'Not connected to the server yet':'You are offline. Playing with friends needs a connection.',3000);return}
   HOST=false;$('#btn-join').disabled=true;$('#join-note').textContent='Joining…';send({type:'join',code,name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam})};
-$('#btn-leave').onclick=()=>{send({type:'leave'});rtcLeaveAll();S=null;ME=-1;$('#game').classList.remove('on');$('#lobby').classList.add('on');$('#btn-join').disabled=false;$('#join-note').textContent='Your name and avatar above are what the table will see.'};
+$('#btn-leave').onclick=()=>{if(LOCALT)stopLocal();else send({type:'leave'});rtcLeaveAll();S=null;ME=-1;$('#game').classList.remove('on');$('#lobby').classList.add('on');$('#btn-join').disabled=false;$('#join-note').textContent='Your name and avatar above are what the table will see.'};
 $('#fill-on').onclick=()=>{cfg.fill=true;$('#fill-on').classList.add('on');$('#fill-off').classList.remove('on')};
 $('#fill-off').onclick=()=>{cfg.fill=false;$('#fill-off').classList.add('on');$('#fill-on').classList.remove('on')};
 $('#sb-on').onclick=()=>{cfg.side=true;$('#sb-on').classList.add('on');$('#sb-off').classList.remove('on')};
@@ -745,7 +760,7 @@ function maybeAskSideBet(){
 const AVS={mic:false,cam:false,spk:true};
 let LOCAL=null, ICE=null; const PC=new Map(); // pid -> {pc, stream, analyser}
 async function getIce(){if(ICE)return ICE;try{ICE=await (await fetch('/ice')).json()}catch{ICE=[{urls:'stun:stun.l.google.com:19302'}]}return ICE}
-function avUI(){const set=(id,on)=>{const b=$(id);b.classList.toggle('on',on);b.classList.toggle('off',!on)};set('#btn-mic',AVS.mic);set('#btn-cam',AVS.cam);set('#btn-spk',AVS.spk);if(S)renderSeats();hello()}
+function avUI(){$('.avbar').style.display=LOCALT?'none':'';const set=(id,on)=>{const b=$(id);b.classList.toggle('on',on);b.classList.toggle('off',!on)};set('#btn-mic',AVS.mic);set('#btn-cam',AVS.cam);set('#btn-spk',AVS.spk);if(S)renderSeats();hello()}
 async function ensureLocal(){
   const wantAudio=AVS.mic, wantVideo=AVS.cam;
   if(!wantAudio&&!wantVideo){if(LOCAL){LOCAL.getTracks().forEach(t=>t.stop());LOCAL=null}return}
@@ -805,6 +820,10 @@ $('#btn-spk').onclick=()=>{AVS.spk=!AVS.spk;$$('.seat video').forEach(v=>{if(!v.
 document.addEventListener('pointerdown',()=>{if(ACTX&&ACTX.state==='suspended')ACTX.resume();$$('.seat video').forEach(v=>v.play().catch(()=>{}))},{passive:true});
 
 if(location.search.includes('demo'))window.__fx=runFx;
+window.addEventListener('online',()=>{if(!CONNECTED)connect();else setStatus('ok','Connected. Host a table or join with a code.')});
+window.addEventListener('offline',()=>setStatus('warn','Offline. Practice vs the computer works; hosting and joining need a connection.'));
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+let INSTALL=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();INSTALL=e;const b=$('#btn-install');if(b){b.hidden=false;b.onclick=()=>{INSTALL.prompt();INSTALL=null;b.hidden=true}}});
 connect();
 })();
 </script>

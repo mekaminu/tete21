@@ -332,4 +332,5 @@ class Table {
   }
 }
 
-module.exports = { Table, cleanName, cleanAv };
+if (typeof module !== 'undefined' && module.exports) module.exports = { Table, cleanName, cleanAv };
+else if (typeof window !== 'undefined') window.TeteEngine = { Table, cleanName, cleanAv };
