@@ -64,6 +64,11 @@ Accounts need a Postgres database: set `DATABASE_URL` (Neon's free tier works). 
 - **Launch intro:** about four seconds. An Ace spins in and bursts into the deck, the cards whirl and slam into a fan, then TETE stamps down and an Ace and a 10 make 21. Tap to skip. It is skipped automatically when you are getting back into a game, can be switched off under your profile, and `/?intro` replays it.
 - **Lobby:** your name chip, three choices (Host, Join, Practice), a Return card for tables you hold a seat at, then open tables and friends. Settings live in sheets that slide up.
 - **At the table:** the dealer riffles the deck before each deal; cards fly from the shoe to each seat and the board; picked cards fly from the board to the player; chips arc into the pot and back out; chip counts roll; the trick is swept back to the dealer.
+- **Hot streaks:** win two hands in a row and a flame badge with the count sits over your seat, with a fire glow round your avatar. Three in a row gets a shout, five or more a fire banner for the whole table; when a run of three or more ends it goes out in a puff of smoke. A play-off keeps the tied players' runs alive.
+- **Twenty-one:** landing on 21 bursts gold from the seat with a brass ta-da; winning the pot with 21 adds rays and double confetti, and when it's you a gold glow and a shine across your cards. Sitting on 21 straight after the drop gets a private nudge.
+- **Table felt:** classic green, royal blue, wine, midnight or an ankara print, picked in your profile (tap your own seat at the table). Each player sees their own choice.
+- **Tonight's scores:** the Scores & log panel ranks everyone by what they're up or down since they sat (chips in front of them against everything they bought in), with hands won and best run. When the host closes a standing room, everyone sees the final scores on a podium.
+- **Chat:** the Chat button holds the Pidgin shouts and a box to say anything to the table; it floats over your seat and goes in the hand log.
 - **Sounds:** made in the browser with Web Audio: riffle, card flicks, chip clinks, your-turn chime, a ticking clock in the last five seconds, the Adasi fanfare, the Series thud and more. Mute and volume are in the profile; the speaker buttons in the lobby and under your hand toggle them. Phones only play sound after the first tap.
 
 ## Notes
