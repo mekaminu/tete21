@@ -206,6 +206,28 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
 .roomav{font-size:12px;color:var(--fg-dim);margin-left:6px}
 @media (max-width:700px){.avbar{justify-content:center;margin-top:8px}}
 
+/* drama: adasi & series */
+.drama{position:absolute;inset:0;z-index:40;display:grid;place-items:center;pointer-events:none;animation:dramain .35s both}
+@keyframes dramain{from{opacity:0}}
+.drama .dim{position:absolute;inset:0;background:rgba(0,0,0,.55);border-radius:var(--tr,96px)}
+.drama .inner{position:relative;text-align:center;animation:slam .6s cubic-bezier(.2,1.4,.3,1) both}
+@keyframes slam{0%{transform:scale(3) rotate(-8deg);opacity:0}60%{transform:scale(.95) rotate(1deg);opacity:1}100%{transform:scale(1)}}
+.drama .word{font-family:var(--display);font-weight:700;font-size:clamp(40px,9vw,96px);letter-spacing:.12em;line-height:1}
+.drama.adasi .word{color:var(--gold-hi);text-shadow:0 3px 0 #5c4616,0 0 40px rgba(243,217,144,.9),0 0 90px rgba(243,217,144,.5)}
+.drama.series .word{color:#ff6b61;text-shadow:0 3px 0 #5a0f0a,0 0 40px rgba(226,87,79,.9)}
+.drama .sub{font-size:clamp(13px,2vw,18px);color:var(--cream);margin-top:6px;letter-spacing:.08em}
+.drama .cards{display:flex;gap:10px;justify-content:center;margin:14px 0 10px;--card-w:clamp(64px,10vw,110px)}
+.drama .cards .card{animation:flip .6s cubic-bezier(.2,.7,.2,1) both}
+.drama .cards .card:nth-child(2){animation-delay:.18s}.drama .cards .card:nth-child(3){animation-delay:.36s}
+.drama.series .cards .card{animation:flip .6s cubic-bezier(.2,.7,.2,1) both,sweep .7s 2.6s ease-in both}
+@keyframes sweep{to{transform:translateX(140vw) rotate(25deg);opacity:0}}
+.drama .stamp{display:inline-block;border:4px solid currentColor;border-radius:10px;padding:4px 18px;transform:rotate(-6deg);color:#ff6b61;font-family:var(--display);font-weight:700;font-size:clamp(14px,2.4vw,22px);letter-spacing:.3em;margin-top:8px}
+.shake{animation:shake2 .6s}
+@keyframes shake2{10%,90%{transform:translate(-2px,1px)}20%,80%{transform:translate(4px,-2px)}30%,50%,70%{transform:translate(-6px,2px)}40%,60%{transform:translate(6px,-1px)}}
+.flash{position:fixed;inset:0;background:#fff;z-index:80;pointer-events:none;animation:flash .5s both}
+@keyframes flash{from{opacity:.85}to{opacity:0}}
+.btn-adasi{background:linear-gradient(180deg,var(--gold-hi),var(--gold));color:var(--ink);font-family:var(--display);font-size:clamp(16px,2.4vw,22px);letter-spacing:.2em;padding:14px 26px;animation:pulse 1s infinite,glow 1.2s infinite alternate}
+@keyframes glow{to{box-shadow:0 0 30px rgba(243,217,144,.9)}}
 /* waiting room */
 .wait{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:30;background:rgba(10,6,8,.86);border:1px solid var(--gold-dim);border-radius:16px;padding:18px 22px;width:min(420px,88%);text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.7);animation:popin2 .3s}
 .wait .code.big{font-size:clamp(22px,4vw,34px);margin:8px 0;padding:10px 18px}
@@ -296,6 +318,10 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
         <div class="field"><label>Side bets</label>
           <div class="seg"><button type="button" id="sb-on" class="on">Allowed</button><button type="button" id="sb-off">Off</button></div></div>
       </div>
+      <div class="row">
+        <div class="field"><label>Series rule (three of a kind voids the hand)</label>
+          <div class="seg"><button type="button" id="sr-off" class="on">Off</button><button type="button" id="sr-on">On</button></div></div>
+      </div>
       <button class="btn btn-gold btn-wide" id="btn-start">Open the table</button>
       <p class="note">You get a table code to send to friends. Everyone gets the same stack of play chips, and every seated player puts the agreed wager into the pot each hand. Chips are dummy money in this version.</p>
     </div>
@@ -381,6 +407,8 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
 <li><b>Pick.</b> On your turn you take from the top of the board, one card at a time, as many as you like. You can't pass 21: if the next card would bust you the game stops you and you stay where you are. Then the next player clockwise picks.</li>
 <li><b>Reveal.</b> Closest to 21 wins the pot.</li>
 <li><b>Tie.</b> Only the tied players go again, each adds another wager, and the winner takes everything.</li>
+<li><b>Adasi.</b> Two Aces in your dealt hand wins the pot outright. When the drop reaches you, declare it (or the timer declares it for you), your Aces are shown to the table and the hand ends.</li>
+<li><b>Series</b> (table option, off by default). If anyone is dealt three of the same number, or three of the same number land on the flushed board, the hand is void: the dealer redeals and the pot stays.</li>
 <li><b>Playing with friends.</b> The host opens a table and gets a code. Friends open the same link on any phone or computer and enter the code. The game runs on the server, so the table stays open as long as someone is seated. People who join mid-hand sit in from the next hand.</li>
 <li><b>Voice &amp; video.</b> Mic, camera and sound buttons under your hand. Turn them on to let the table hear and see you; your browser will ask permission once. A seat shows that player's video when their camera is on, a red mic badge when muted, and glows green while they talk.</li>
 <li><b>Timer.</b> On your turn a ring counts down around your avatar. At zero the game acts for you (drops your lowest legal card, or stays). Three timeouts in a row and you're sat out until you tap Rejoin.</li>
@@ -393,6 +421,7 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
 <li>Dropped cards don't count toward your 21. If your two kept cards already exceed 21 (Ace + Ace), you're bust for the hand. Lowest possible start is 6 (3 + 3).</li>
 <li>The "dealer button" rotates each hand to decide who drops first; the house dealer avatar does the physical dealing.</li>
 <li>If every player is bust, the pot carries over to the next hand.</li>
+<li>If two players both hold Adasi, the first one the drop reaches wins. A series in a player's hand is shown to everyone when it voids the hand.</li>
 <li>Side bet "first card higher than second" is settled as soon as the board is flushed; "my total beats yours" at the reveal; equal values are a push (chips returned).</li>
 </ul></div>
 </div>
@@ -438,7 +467,7 @@ const fmt=n=>(+n||0).toLocaleString('en-GB');
 
 let S=null, ME=-1, WS=null, CONNECTED=false, HOST=false;
 let rendered=new Set(), lastCount=0, lastME=null, LASTFX=0;
-let cfg={fill:true,side:true};
+let cfg={fill:true,side:true,series:false};
 const LOG=[];
 
 // ---------- helpers ----------
@@ -501,10 +530,10 @@ function enterGame(){
   $('#wait').hidden=false;$('#wait-code').textContent=S.code||'…';avUI();
 }
 $('#btn-start').onclick=()=>{if(!CONNECTED){toast('Not connected yet');return}
-  const cfgT={seats:+$('#f-seats').value,buyIn:+$('#f-buyin').value,wager:+$('#f-wager').value,tableName:$('#f-table').value,timer:+$('#f-timer').value,fill:cfg.fill,side:cfg.side};
+  const cfgT={seats:+$('#f-seats').value,buyIn:+$('#f-buyin').value,wager:+$('#f-wager').value,tableName:$('#f-table').value,timer:+$('#f-timer').value,fill:cfg.fill,side:cfg.side,series:cfg.series};
   HOST=true;send({type:'host',cfg:cfgT,name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam})};
 $('#btn-solo').onclick=()=>{if(!CONNECTED){toast('Not connected yet');return}
-  const cfgT={seats:+$('#f-seats').value,buyIn:+$('#f-buyin').value,wager:+$('#f-wager').value,tableName:$('#f-table').value,timer:+$('#f-timer').value,fill:true,side:cfg.side};
+  const cfgT={seats:+$('#f-seats').value,buyIn:+$('#f-buyin').value,wager:+$('#f-wager').value,tableName:$('#f-table').value,timer:+$('#f-timer').value,fill:true,side:cfg.side,series:cfg.series};
   HOST=true;send({type:'host',cfg:cfgT,name:myName(),av:publicAv(),mic:false,cam:false});setTimeout(()=>act({type:'start'}),400)};
 $('#btn-join').onclick=()=>{const code=($('#f-join').value||'').trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
   if(!/^tete-[a-z0-9]{4}$/.test(code)){toast('Enter a code like TETE-AB12');return}
@@ -515,6 +544,8 @@ $('#fill-on').onclick=()=>{cfg.fill=true;$('#fill-on').classList.add('on');$('#f
 $('#fill-off').onclick=()=>{cfg.fill=false;$('#fill-off').classList.add('on');$('#fill-on').classList.remove('on')};
 $('#sb-on').onclick=()=>{cfg.side=true;$('#sb-on').classList.add('on');$('#sb-off').classList.remove('on')};
 $('#sb-off').onclick=()=>{cfg.side=false;$('#sb-off').classList.add('on');$('#sb-on').classList.remove('on')};
+$('#sr-on').onclick=()=>{cfg.series=true;$('#sr-on').classList.add('on');$('#sr-off').classList.remove('on')};
+$('#sr-off').onclick=()=>{cfg.series=false;$('#sr-off').classList.add('on');$('#sr-on').classList.remove('on')};
 $('#btn-rules').onclick=()=>openModal('#m-rules');
 $('#btn-rules2').onclick=()=>openModal('#m-rules');
 // code in URL: ?t=TETE-XXXX pre-fills join
@@ -523,7 +554,7 @@ try{const u=new URL(location.href);const t=u.searchParams.get('t');if(t)$('#f-jo
 // ---------- state ----------
 function applyState(o,fx){
   const prevPhase=S&&S.phase;
-  S={tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,msgHost:o.mh||'',hostId:o.host,next:o.nx,
+  S={tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,
     players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13]})),
     sideBets:o.sbs.map(a=>({id:a[0],a:a[1],b:a[2],type:a[3],amt:a[4],mine:a[5],theirs:a[6],status:a[7],result:a[8],winner:a[9],desc:sbDesc(a[3],a[5],a[6])}))};
   ME=o.me;HOST=o.host===ME;
@@ -553,6 +584,8 @@ function runFx(e){
     case 'log':logLocal(e.t,e.cls||'');break;
     case 'toast':if(e.pid===undefined||e.pid===ME)toast(e.t,e.ms||2200);break;
     case 'nudge':if(e.pid===ME)nudge(e.t);break;
+    case 'adasi':drama('adasi',e);break;
+    case 'series':drama('series',e);break;
     case 'sel':if(e.pid===ME){const el=$(`#myhand .card[data-id="${e.id}"]`);el&&el.classList.add('pop')}break;
   }
 }
@@ -614,6 +647,7 @@ function renderMe(){
   else if(S.phase===2){msg(`Dealer flushes ${S.boardSize} cards onto the board before anyone drops.`);actions('')}
   else if(S.phase===3){
     if(out){msg('You sit this hand out.');actions('')}
+    else if(myTurn&&S.adasiTurn===ME){msg('<b>Two Aces!</b> You hold Adasi. Declare it and the pot is yours.');actions('<button class="btn btn-adasi" id="btn-adasi">DECLARE ADASI</button>');$('#btn-adasi').onclick=()=>{actions('');act({type:'adasi'})}}
     else if(myTurn){const must=S.leadSuit&&me.hand.some(c=>c.s===S.leadSuit);
       msg(S.leadSuit?(must?`Lead suit is ${S.leadSuit} — you must drop a ${S.leadSuit}. Tap a card.`:`Lead suit is ${S.leadSuit}. You have none, so drop any card.`):'You lead. Tap the card you want to drop. It leaves your hand.');actions('');
       $$('#myhand .card').forEach(el=>{const c=me.hand.find(x=>x.id===el.dataset.id);
@@ -653,6 +687,18 @@ function center(el){const r=el.getBoundingClientRect();return{x:r.left+r.width/2
 async function flyChip(fromEl,toEl,cls='c25',count=1){if(!fromEl||!toEl)return;
   for(let i=0;i<count;i++){const a=center(fromEl),b=center(toEl);const c=document.createElement('span');c.className='chip fly '+cls;c.style.left=(a.x-11)+'px';c.style.top=(a.y-11)+'px';document.body.appendChild(c);
     requestAnimationFrame(()=>requestAnimationFrame(()=>{c.style.transform=`translate(${b.x-a.x}px,${b.y-a.y}px)`;c.style.opacity='0'}));setTimeout(()=>c.remove(),900);await new Promise(r=>setTimeout(r,90))}
+}
+function drama(kind,e){
+  const fx=$('#fx');$$('.drama').forEach(d=>d.remove());
+  const cards=(e.cards||[]).map(dec);
+  const d=document.createElement('div');d.className='drama '+kind;
+  d.innerHTML=`<div class="dim"></div><div class="inner">${kind==='adasi'?`<div class="word">ADASI!</div><div class="cards">${cards.map(c=>cardHTML(c)).join('')}</div><div class="sub">${esc(e.who)} takes the pot — ${fmt(e.pot||0)} chips</div>`:`<div class="word">SERIES!</div><div class="cards">${cards.map(c=>cardHTML(c)).join('')}</div><div class="sub">${e.pid<0?'Three of a kind on the board':esc(e.who)+' was dealt three of a kind'}</div><div class="stamp">REDEAL · POT STAYS</div>`}</div>`;
+  fx.appendChild(d);
+  const fl=document.createElement('div');fl.className='flash';document.body.appendChild(fl);setTimeout(()=>fl.remove(),600);
+  const t=$('#table');t.classList.remove('shake');void t.offsetWidth;t.classList.add('shake');
+  if(kind==='adasi'){confetti();setTimeout(confetti,500);setTimeout(confetti,1000);const el=$('#seat-'+e.pid);if(el){el.classList.add('winner');setTimeout(()=>el.classList.remove('winner'),3500)}}
+  if(navigator.vibrate)try{navigator.vibrate(kind==='adasi'?[80,40,80,40,200]:[200,60,200])}catch{}
+  setTimeout(()=>d.remove(),kind==='adasi'?3500:4000);
 }
 function banner(text){const b=document.createElement('div');b.className='banner';b.textContent=text;$('#fx').appendChild(b);setTimeout(()=>b.remove(),2300)}
 function confetti(){const fx=$('#fx');for(let i=0;i<40;i++){const c=document.createElement('i');c.className='confetti';c.style.left=Math.random()*100+'%';c.style.top='0';c.style.background=['var(--gold)','var(--cream)','var(--good)','var(--red)'][i%4];c.style.animationDelay=(Math.random()*.6)+'s';fx.appendChild(c);setTimeout(()=>c.remove(),2600)}}
