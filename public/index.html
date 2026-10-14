@@ -480,6 +480,12 @@ details.more summary small{color:var(--fg-dim);font-weight:400;font-size:12.5px}
 .tbtn small{font-size:12px;color:var(--gold-hi);font-variant-numeric:tabular-nums}
 .tbtn:disabled{opacity:.4}
 .sprayopts{margin-top:10px}
+.reactbar{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;gap:6px;background:linear-gradient(180deg,#2a1c22,#17100f);border:1px solid var(--gold-dim);border-radius:16px;padding:8px;width:min(380px,94vw);box-shadow:0 18px 50px rgba(0,0,0,.6);z-index:20;animation:popin2 .2s}
+.reactbar button{background:#120c0f;border:1px solid #4a3640;color:var(--fg);border-radius:99px;padding:7px 12px;font-weight:700;font-size:14px}
+.reactbar button.em{font-size:20px;padding:3px 10px}
+.reactbar button:active{transform:scale(.94)}
+.react{font-family:var(--display);font-weight:700;font-size:23px;color:#fff3c4;text-shadow:0 2px 0 #3f2c0c,0 0 14px rgba(0,0,0,.85),0 0 2px #000;white-space:nowrap;will-change:transform,opacity}
+.react.em{font-size:40px}
 .flylayer{position:fixed;inset:0;pointer-events:none;z-index:46}
 .flylayer>*{position:absolute}
 .flycard{margin:0;will-change:transform,opacity}
@@ -714,9 +720,10 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
     <div class="info">
       <div><span class="eyebrow">Your total</span> <span class="big num" id="mytotal">–</span> <span class="eyebrow" style="margin-left:14px">Chips</span> <span class="big num" id="mychips">0</span></div>
       <div class="msg" id="msg">Welcome to the table.</div>
-      <div class="avbar"><button class="avbtn off" id="btn-mic" title="Microphone">🎤<span class="lbl">Mic</span></button><button class="avbtn off" id="btn-cam" title="Camera">📷<span class="lbl">Camera</span></button><button class="avbtn on" id="btn-spk" title="Hear the other players">🔊<span class="lbl">Voices</span></button><button class="avbtn sndbtn" id="btn-fx" type="button" title="Game sounds"><span class="ico"></span><span class="lbl">Sounds</span></button><button class="avbtn" id="btn-treat" type="button" title="Drinks and small chops">🍹<span class="lbl">Treats</span></button><span class="roomav" id="roomav"></span></div>
+      <div class="avbar"><button class="avbtn off" id="btn-mic" title="Microphone">🎤<span class="lbl">Mic</span></button><button class="avbtn off" id="btn-cam" title="Camera">📷<span class="lbl">Camera</span></button><button class="avbtn on" id="btn-spk" title="Hear the other players">🔊<span class="lbl">Voices</span></button><button class="avbtn sndbtn" id="btn-fx" type="button" title="Game sounds"><span class="ico"></span><span class="lbl">Sounds</span></button><button class="avbtn" id="btn-treat" type="button" title="Drinks and small chops">🍹<span class="lbl">Treats</span></button><button class="avbtn" id="btn-react" type="button" title="React">😄<span class="lbl">React</span></button><span class="roomav" id="roomav"></span></div>
     </div>
     <div class="actions" id="actions"></div>
+    <div class="reactbar" id="reactbar" hidden></div>
   </div>
 </section>
 

@@ -539,6 +539,7 @@ function runFx(e){
     case 'shuffle':shuffleFx();break;
     case 'spray':sprayFx(e.from,e.to,e.amt);break;
     case 'treat':treatFx(e.from,e.to,e.item);break;
+    case 'react':reactFx(e.pid,e.r);break;
   }
 }
 
@@ -746,6 +747,17 @@ function renderTreats(){const others=S.players.filter(p=>!p.gone&&p.id!==ME),n=S
   $('#treats').innerHTML=Object.entries(TREATS).map(([id,t])=>`<button class="tbtn" type="button" data-item="${id}" ${t.price*k>mine?'disabled':''}><span class="e">${t.e}</span><b>${esc(t.n)}</b><small>${fmt(t.price*k)}</small></button>`).join('');
   $$('#treats .tbtn').forEach(b=>b.onclick=()=>{closeModal('#m-treat');act({type:'treat',item:b.dataset.item,to:TREAT_TO})})}
 $('#btn-treat').onclick=()=>openTreats('all');
+// quick reactions
+const REACTS=(window.TeteEngine&&window.TeteEngine.REACTS)||[];const isEmo=t=>!/[A-Za-z]/.test(t);
+function toggleReacts(){const bar=$('#reactbar');if(!bar.hidden){bar.hidden=true;return}if(!S||!S.started||ME<0){toast('Reactions are for when the game is on');return}
+  bar.innerHTML=REACTS.map((t,i)=>`<button type="button" data-r="${i}" class="${isEmo(t)?'em':''}">${esc(t)}</button>`).join('');bar.hidden=false;
+  bar.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{bar.hidden=true;act({type:'react',r:+b.dataset.r})});SND('flick')}
+$('#btn-react').onclick=e=>{e.stopPropagation();toggleReacts()};
+document.addEventListener('pointerdown',e=>{const bar=$('#reactbar');if(!bar.hidden&&!e.target.closest('#reactbar')&&!e.target.closest('#btn-react'))bar.hidden=true});
+function reactFx(pid,r){const t=REACTS[r];if(t===undefined)return;const a=seatCenterRect(pid);SND('pop',{bg:true});if(!a||document.hidden)return;
+  const e=document.createElement('div');e.className='react'+(isEmo(t)?' em':'');e.textContent=t;layer().appendChild(e);const w=e.offsetWidth,h=e.offsetHeight;
+  e.style.left=(a.left+a.width/2-w/2)+'px';e.style.top=(a.top-h*.4)+'px';const wob=(Math.random()-.5)*16;
+  e.animate([{transform:'translateY(10px) scale(.4)',opacity:0},{offset:.15,transform:`translateY(-12px) scale(1.25) rotate(${wob}deg)`,opacity:1},{offset:.3,transform:`translateY(-20px) scale(1) rotate(${-wob/2}deg)`,opacity:1},{offset:.8,transform:'translateY(-58px) scale(1)',opacity:1},{transform:'translateY(-76px) scale(.95)',opacity:0}],{duration:2100,easing:'ease-out'}).onfinish=()=>e.remove();setTimeout(()=>e.remove(),2600)}
 function seatCenterRect(pid){return rectOf($(`#seat-${pid} .av`))}
 function sprayFx(from,to,amt){const a=seatCenterRect(from),b=seatCenterRect(to);SND('spray',{bg:true});if(S.players[from])bubble(from,'Oya! 💸',1500);
   if(!a||!b||document.hidden)return;const w=S.wager||50,n=Math.max(6,Math.min(18,Math.round(4+amt/w*2)));

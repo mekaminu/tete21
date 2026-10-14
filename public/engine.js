@@ -25,6 +25,7 @@ function cleanAv(av) {
 function newToken() { return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
 // treats you can buy for your seat, a friend or the whole table (play chips go to the house)
 const TREATS = { chapman: { e: '🍹', n: 'Chapman', price: 30 }, palm: { e: '🥥', n: 'Palm wine', price: 40 }, zobo: { e: '🍷', n: 'Zobo', price: 25 }, malt: { e: '🍺', n: 'Malt', price: 30 }, suya: { e: '🍢', n: 'Suya', price: 60 }, puff: { e: '🍩', n: 'Puff-puff', price: 20 }, jollof: { e: '🍛', n: 'Jollof', price: 80 }, pepper: { e: '🍲', n: 'Pepper soup', price: 70 } };
+const REACTS = ['Oya!', 'Chai!', 'Na wa o!', 'E choke!', 'Wahala!', 'Ehen!', 'Abeg!', '🔥', '😂', '👏', '🙏', '😱'];
 const THANKS = ['E se o! 🙏', 'Thank you o!', 'Ah, my person!', 'Oya, more!', 'Big man! 🔥'];
 function sbDesc(type, mine, theirs) { return type === 'first' ? '1st card flushed beats the 2nd' : type === 'cardvcard' ? `board card #${mine + 1} beats #${theirs + 1}` : "final total beats the other's"; }
 
@@ -180,6 +181,7 @@ class Table {
       case 'rebuy_all': if (pid === this.hostId && P && P.kinds.includes('rebuy_all')) P.done(a); break;
       case 'spray': this.spray(pid, a); break;
       case 'treat': this.treat(pid, a); break;
+      case 'react': this.react(pid, a); break;
     }
     this.sync();
   }
@@ -274,7 +276,7 @@ class Table {
     else {
       const best = Math.max(...live.map(p => S.total(p))); const tied = live.filter(p => S.total(p) === best);
       if (tied.length === 1) {
-        const w = tied[0]; winners = [w]; S.fx({ k: 'banner', t: `${w.name} takes ${fmt(S.pot)}` }); S.fx({ k: 'win', pid: w.id });
+        const w = tied[0]; winners = [w]; S.botReact(w.id, w.isBot ? [5, 0, 7] : [1, 3, 2, 11]); S.fx({ k: 'banner', t: `${w.name} takes ${fmt(S.pot)}` }); S.fx({ k: 'win', pid: w.id });
         S.msgHost = `<b>${esc(w.name)}</b> wins the pot with ${best}.`; S.log(`${esc(w.name)} wins ${fmt(S.pot)} with ${best}`, 'win');
         S.fx({ k: 'chip', from: 'pot', to: w.id, cls: 'c100', n2: Math.min(6, Math.ceil(S.pot / S.wager)) }); await sleep(700); w.chips += S.pot; S.pot = 0; S.sync(); await sleep(300);
         next = S.players.map(p => p.id);
@@ -308,7 +310,7 @@ class Table {
     for (const w of winners) { S.fx({ k: 'chip', from: 'pot', to: w.id, cls: 'c100', n2: Math.min(6, Math.ceil(share / S.wager)) }); }
     await sleep(700); for (const w of winners) w.chips += share; S.pot = rem;
     S.sideBets.forEach(b => { if (b.status === 'pending' || b.status === 'open') b.status = 'declined'; });
-    S.endHand(winners, true);
+    S.endHand(winners, true); S.botReact(p.id, [1, 3, 11, 2]);
     S.msgHost = winners.length > 1 ? `<b>${esc(names)}</b> both hold Adasi and share the pot${rem ? ` (${fmt(rem)} stays on the table)` : ''}.` : `<b>${esc(p.name)}</b> wins by Adasi.`; S.busy = false; S.next = S.players.map(x => x.id); S.sync();
     await S.waitFor(S.hostId, ['next'], 12000);
     return S.playHand(S.next);
@@ -327,6 +329,9 @@ class Table {
     if (this.handStart && this.handStart.has(p)) this.handStart.set(p, this.handStart.get(p) + delta);
     if (this.onMoved) try { this.onMoved(p, delta, why, other); } catch (e) { console.error('moved hook', e); }
   }
+  // quick reactions that float up from your seat
+  react(pid, a) { const p = this.players[pid], i = +a.r; if (!p || p.gone || !(i >= 0 && i < REACTS.length)) return; const now = Date.now(); if (now - (p.lastReact || 0) < 1200) return; p.lastReact = now; this.fx({ k: 'react', pid, r: i }); }
+  botReact(not, list) { const bots = this.players.filter(p => p.isBot && !p.gone && p.id !== not); if (!bots.length || Math.random() > 0.55) return; const b = bots[Math.floor(Math.random() * bots.length)]; setTimeout(() => this.fx({ k: 'react', pid: b.id, r: list[Math.floor(Math.random() * list.length)] }), 900 + Math.random() * 900); }
   // spray money: notes from your stack onto another player's
   spray(from, a) {
     const S = this, A = S.players[from], B = S.players[+a.to]; if (!A || !B || A === B || A.gone || B.gone || !S.started) return;
@@ -434,5 +439,5 @@ class Table {
   }
 }
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { Table, cleanName, cleanAv, TREATS };
-else if (typeof window !== 'undefined') window.TeteEngine = { Table, cleanName, cleanAv, TREATS };
+if (typeof module !== 'undefined' && module.exports) module.exports = { Table, cleanName, cleanAv, TREATS, REACTS };
+else if (typeof window !== 'undefined') window.TeteEngine = { Table, cleanName, cleanAv, TREATS, REACTS };
