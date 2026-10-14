@@ -83,6 +83,22 @@
     whoosh(t) { burst(t, { dur: 0.25, freq: 600, q: 0.7, gain: 0.18, sweepTo: 3000 }); },
     clink(t) { [2637, 3951, 5274].forEach((f, i) => tone(t + i * 0.004, { f: f * (0.99 + Math.random() * 0.02), dur: 0.5 - i * 0.12, gain: 0.09 / (i + 1), wet: 0.6 })); tone(t + 0.09, { f: 3136, dur: 0.35, gain: 0.05, wet: 0.6 }); },
     pour(t) { burst(t, { dur: 0.5, freq: 900, q: 2, gain: 0.08, sweepTo: 1800 }); for (let i = 0; i < 6; i++) tone(t + 0.05 + i * 0.07, { f: 500 + i * 90 + Math.random() * 60, dur: 0.05, gain: 0.03 }); },
+    // a win streak catches fire: a roaring swell with crackles, hotter the longer the run
+    flare(t, n = 2) {
+      const k = Math.min(1, (n - 1) / 4);
+      burst(t, { dur: 0.55 + k * 0.3, freq: 260, q: 0.6, gain: 0.22 + k * 0.12, type: 'lowpass', sweepTo: 2600 + k * 1800, wet: 0.3 });
+      for (let i = 0; i < 9 + n * 2; i++) burst(t + 0.05 + Math.random() * (0.5 + k * 0.3), { dur: 0.012, freq: 2500 + Math.random() * 3500, q: 3, gain: 0.08 + Math.random() * 0.08 });
+      tone(t + 0.04, { f: 196, dur: 0.5, gain: 0.07, slideTo: 392 + k * 200, wet: 0.3 });
+    },
+    // a run goes cold
+    fizzle(t) { burst(t, { dur: 0.6, freq: 2600, q: 1.1, gain: 0.12, sweepTo: 260, wet: 0.2 }); tone(t + 0.05, { f: 330, dur: 0.4, gain: 0.05, slideTo: 140 }); },
+    // twenty-one: a brass "ta-da" over bells
+    twentyone(t) {
+      brass(t, N.G4, 0.12, 0.11);
+      [N.C5, N.E5, N.G5].forEach(f => brass(t + 0.14, f, 0.85, 0.09)); brass(t + 0.14, N.C4, 0.85, 0.08);
+      [N.C6, N.E6, N.G6].forEach((f, i) => tone(t + 0.14 + i * 0.07, { f, dur: 0.7, gain: 0.07, wet: 0.6 }));
+      SOUNDS.sparkle(t + 0.2); tone(t + 0.14, { f: 65, dur: 0.35, gain: 0.3, slideTo: 44 });
+    },
     // launch intro
     boom(t) { tone(t, { f: 72, dur: 0.9, gain: 0.55, slideTo: 32 }); tone(t, { f: 144, dur: 0.22, gain: 0.18, slideTo: 60 }); burst(t, { dur: 0.35, freq: 190, q: 0.7, gain: 0.5, type: 'lowpass' }); burst(t, { dur: 0.7, freq: 2600, q: 0.5, gain: 0.08, sweepTo: 380, wet: 0.6 }); },
     riser(t, d = 0.9) {

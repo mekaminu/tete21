@@ -122,7 +122,7 @@ class Table {
     let hi = keep.indexOf(hostP); if (hi < 0) hi = keep.findIndex(p => !p.isBot); this.hostId = Math.max(0, hi);
     this.idsChanged = true;
   }
-  mkPlayer(id, name, isBot) { return { id, name, isBot, chips: this.buyIn, color: isBot ? BOT_COLORS[id % 8] : '#b8862c', hand: [], dropped: null, picked: [], sitout: false, strikes: 0, revealed: false, av: null, conn: null, gone: false, joinedMid: false, mic: false, cam: false, satOutByTimer: false }; }
+  mkPlayer(id, name, isBot) { return { id, name, isBot, chips: this.buyIn, color: isBot ? BOT_COLORS[id % 8] : '#b8862c', hand: [], dropped: null, picked: [], sitout: false, strikes: 0, revealed: false, av: null, conn: null, gone: false, joinedMid: false, mic: false, cam: false, satOutByTimer: false, streak: 0 }; }
   fillBots() {
     if (!this.fill) return;
     const used = new Set(this.players.map(p => p.name.toLowerCase()));
@@ -137,12 +137,12 @@ class Table {
   toJSON(hashFn) {
     const S = this;
     return { code: S.code, cfg: { buyIn: S.buyIn, wager: S.wager, tableName: S.tableName, timer: S.timer, seats: S.seats, fill: S.fill, side: S.side, series: S.series, tie: S.tieSplit ? 'split' : 'playoff', keep: true, pub: S.pub, rid: S.rid }, pot: S.pot, handNo: S.handNo, dealer: S.dealer, hostId: S.hostId, createdAt: S.createdAt,
-      players: S.players.filter(p => !p.isBot && !p.gone).map(p => ({ id: p.id, name: p.name, chips: p.chips, av: p.av, color: p.color, uid: p.uid || null, tokenHash: p.tokenHash || (p.token && hashFn ? hashFn(p.token) : null) })) };
+      players: S.players.filter(p => !p.isBot && !p.gone).map(p => ({ id: p.id, name: p.name, chips: p.chips, av: p.av, color: p.color, uid: p.uid || null, streak: p.streak || 0, tokenHash: p.tokenHash || (p.token && hashFn ? hashFn(p.token) : null) })) };
   }
   static fromJSON(o, send) {
     const t = new Table(o.code, o.cfg, send); t.pot = o.pot || 0; t.handNo = o.handNo || 0; t.createdAt = o.createdAt || Date.now(); t.persistent = true;
     // compact ids so seats are contiguous; everyone is away until they resume
-    o.players.forEach((q, i) => { const p = t.mkPlayer(i, cleanName(q.name) || 'Guest', false); p.chips = Math.max(0, Math.floor(+q.chips || 0)); p.av = cleanAv(q.av); p.token = null; p.tokenHash = typeof q.tokenHash === 'string' ? q.tokenHash : null; p.uid = typeof q.uid === 'string' && /^[0-9a-f]{16}$/.test(q.uid) ? q.uid : null; p.away = true; p.oldId = q.id; t.players.push(p); });
+    o.players.forEach((q, i) => { const p = t.mkPlayer(i, cleanName(q.name) || 'Guest', false); p.chips = Math.max(0, Math.floor(+q.chips || 0)); p.av = cleanAv(q.av); p.token = null; p.tokenHash = typeof q.tokenHash === 'string' ? q.tokenHash : null; p.uid = typeof q.uid === 'string' && /^[0-9a-f]{16}$/.test(q.uid) ? q.uid : null; p.streak = Math.max(0, Math.min(99, q.streak | 0)); p.away = true; p.oldId = q.id; t.players.push(p); });
     const host = t.players.find(p => p.oldId === o.hostId); t.hostId = host ? host.id : 0; t.dealer = t.players.length - 1;
     return t;
   }
@@ -151,7 +151,7 @@ class Table {
     const S = this;
     return {
       now: Date.now(), tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0,
-      pl: S.players.map(p => { const show = p.id === forId || S.phase >= 6 || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0, p.away ? 1 : 0, p.color, p.treat || '']; }),
+      pl: S.players.map(p => { const show = p.id === forId || S.phase >= 6 || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0, p.away ? 1 : 0, p.color, p.treat || '', p.streak || 0]; }),
       sbs: S.sideBets.slice(-8).map(b => [b.id, b.a, b.b, b.type, b.amt, b.mine, b.theirs, b.status, b.result || '', b.winner ?? -1]),
     };
   }
@@ -289,6 +289,7 @@ class Table {
         next = S.players.map(p => p.id);
       } else { S.tiebreak = true; const names = tied.map(p => p.name).join(' and '); S.fx({ k: 'banner', t: 'TIE!' }); S.msgHost = `${esc(names)} tie on ${best}. They top up and go again.`; S.log(`Tie on ${best}: ${esc(names)} play off`, 'hi'); S.sync(); await sleep(1800); next = tied.map(p => p.id); }
     }
+    S.streaks(winners, S.tiebreak ? next : null);
     await S.settleSideBets('reveal');
     S.endHand(winners, false);
     S.busy = false; S.next = next; S.msgHost = ''; S.sync(); if (S.onSave) S.onSave();
@@ -310,7 +311,7 @@ class Table {
     for (const w of winners) { S.fx({ k: 'chip', from: 'pot', to: w.id, cls: 'c100', n2: Math.min(6, Math.ceil(share / S.wager)) }); }
     await sleep(700); for (const w of winners) w.chips += share; S.pot = rem;
     S.sideBets.forEach(b => { if (b.status === 'pending' || b.status === 'open') b.status = 'declined'; });
-    S.endHand(winners, true); S.botReact(p.id, [1, 3, 11, 2]);
+    S.streaks(winners, null); S.endHand(winners, true); S.botReact(p.id, [1, 3, 11, 2]);
     S.msgHost = winners.length > 1 ? `<b>${esc(names)}</b> both hold Adasi and share the pot${rem ? ` (${fmt(rem)} stays on the table)` : ''}.` : `<b>${esc(p.name)}</b> wins by Adasi.`; S.busy = false; S.next = S.players.map(x => x.id); S.sync();
     await S.waitFor(S.hostId, ['next'], 12000);
     return S.playHand(S.next);
@@ -321,6 +322,21 @@ class Table {
     const res = [];
     for (const [p, c0] of start) { if (p.isBot) continue; const played = S.participants.includes(p.id) && S.players[p.id] === p, won = winners.includes(p); res.push({ p, delta: p.chips - c0, played, won, adasi: !!adasi && won, total: played && !adasi ? S.total(p) : null }); }
     if (S.onHandEnd) try { S.onHandEnd(res); } catch (e) { console.error('hand end hook', e); }
+  }
+  // hands won in a row: flames on the seat from two, a shout from three; a play-off keeps the tied players' runs alive
+  streaks(winners, held) {
+    const S = this;
+    for (const id of S.participants) {
+      const p = S.players[id]; if (!p || p.gone) continue;
+      if (winners.includes(p)) {
+        p.streak = (p.streak || 0) + 1;
+        if (p.streak >= 2) S.fx({ k: 'streak', pid: p.id, run: p.streak });
+        if (p.streak >= 3) S.log(p.streak >= 5 ? `${esc(p.name)} is on fire: ${p.streak} wins in a row 🔥` : `${esc(p.name)} has won ${p.streak} in a row 🔥`, 'hi');
+      } else if (!(held && held.includes(p.id))) {
+        if ((p.streak || 0) >= 3) { S.fx({ k: 'streakend', pid: p.id, run: p.streak }); S.log(`${esc(p.name)}'s run of ${p.streak} wins is over`); }
+        p.streak = 0;
+      }
+    }
   }
   // the table is closing in the middle of a hand: give everyone back what they put in this hand
   abandon() { const start = this.handStart; this.handStart = null; if (start) for (const [p, c0] of start) p.chips = c0; this.closed = true; if (this.pend) this.pend.done(null); }
