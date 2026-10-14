@@ -30,8 +30,8 @@ class Table {
     this.code = code;
     this.send = send; // (table) => void : broadcast snapshots
     this.players = [];
-    this.buyIn = Math.max(50, +cfg.buyIn || 1000);
-    this.wager = Math.max(5, +cfg.wager || 50);
+    this.buyIn = Math.min(1e7, Math.max(50, Math.round(+cfg.buyIn) || 1000));
+    this.wager = Math.min(this.buyIn, Math.max(5, +cfg.wager || 50));
     this.tableName = cleanName(cfg.tableName).slice(0, 24) || 'Table';
     this.timer = [0, 15, 20, 30].includes(+cfg.timer) ? +cfg.timer : 20;
     this.seats = Math.min(8, Math.max(2, +cfg.seats || 4));
@@ -219,7 +219,7 @@ class Table {
       await S.waitFor(S.hostId, ['deal'], 8000);
     }
     // 1 deal
-    S.setPhase(1);
+    S.setPhase(1); S.fx({ k: 'shuffle' }); await sleep(1150); // the dealer riffles the deck on the felt first
     for (let r = 0; r < 3; r++) for (const id of participants) { S.players[id].hand.push(S.deck.pop()); S.sync(); await sleep(140); }
     await sleep(400);
     if (S.series) { for (const id of participants) { const p = S.players[id]; const tri = Table.seriesIn(p.hand); if (tri) { p.revealed = true; S.sync(); await sleep(500); S.fx({ k: 'series', pid: id, cards: tri.map(enc), who: p.name }); S.log(`<b>Series!</b> ${esc(p.name)} was dealt ${tri.map(cname).join(' ')} — redeal, pot stays`, 'hi'); await sleep(4200); S.handNo--; return S.playHand(participants, true); } } }

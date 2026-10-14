@@ -36,18 +36,74 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
 .screen{display:none;min-height:100%}
 .screen.on{display:block}
 
-/* ---------- LOBBY ---------- */
-#lobby{padding-block:28px 40px;padding-inline:16px;max-width:1080px;margin:0 auto}
-.brand{text-align:center;margin-bottom:22px}
-.brand h1{font-size:clamp(34px,7vw,64px);color:var(--gold-hi);text-shadow:0 2px 0 #5c4616,0 0 30px rgba(217,178,95,.25)}
-.brand h1 span{color:var(--gold);font-weight:500}
-.brand p{margin:6px 0 0;color:var(--fg-dim);font-style:italic}
-.brand .ornament{display:flex;align-items:center;justify-content:center;gap:12px;color:var(--gold-dim);margin-top:8px}
-.brand .ornament i{display:block;width:90px;height:1px;background:linear-gradient(90deg,transparent,var(--gold-dim),transparent)}
-.lobby-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}
-@media (max-width:760px){.lobby-grid{grid-template-columns:1fr}}
-.panel{background:linear-gradient(180deg,#261a20,#1a1115);border:1px solid #3a2a31;border-radius:14px;padding:20px;box-shadow:0 20px 50px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04)}
-.panel h2{font-size:18px;color:var(--gold);margin-bottom:14px}
+/* ---------- LOBBY: a name chip, three big choices, compact strips; everything else lives in sheets ---------- */
+#lobby{position:relative;max-width:820px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top,0px)) 16px calc(36px + env(safe-area-inset-bottom,0px))}
+.spacer{flex:1}
+.lb-bg{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:-1}
+.lb-bg i{position:absolute;font-style:normal;font-size:clamp(110px,22vw,240px);line-height:1;color:rgba(217,178,95,.035);animation:drift 46s ease-in-out infinite}
+.lb-bg i:nth-child(1){left:4%;top:10%}
+.lb-bg i:nth-child(2){left:70%;top:4%;color:rgba(184,50,44,.05);animation-duration:54s;animation-delay:-12s}
+.lb-bg i:nth-child(3){left:60%;top:60%;color:rgba(184,50,44,.045);animation-duration:50s;animation-delay:-22s}
+.lb-bg i:nth-child(4){left:8%;top:68%;animation-duration:60s;animation-delay:-6s}
+@keyframes drift{0%,100%{transform:translate(0,0) rotate(-8deg)}50%{transform:translate(28px,-36px) rotate(8deg)}}
+.lb-top{display:flex;align-items:center;gap:8px;padding:4px 0}
+.mechip{display:flex;align-items:center;gap:10px;min-width:0;max-width:64%;background:rgba(255,255,255,.035);border:1px solid #3a2a31;border-radius:99px;padding:4px 14px 4px 4px;color:var(--fg);text-align:left;transition:background .2s,border-color .2s,transform .15s}
+.mechip:hover{background:rgba(217,178,95,.07);border-color:var(--gold-dim)}
+.mechip:active{transform:scale(.98)}
+.mechip .avprev{width:40px;height:40px;margin:0;border-width:2px;font-size:17px;flex:none}
+.mechip .mc{min-width:0}
+.mechip b{display:block;font-size:15px;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mechip small{display:block;font-size:12px;color:var(--fg-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mechip.unset{border-color:var(--gold);animation:pulse 1.8s infinite}
+.mechip.unset b{color:var(--gold-hi)}
+.livest{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--fg-dim);padding:0 4px;white-space:nowrap}
+.livest i{width:8px;height:8px;border-radius:50%;background:var(--warn);animation:blip 1.4s infinite}
+.livest.ok i{background:var(--good);animation:none;box-shadow:0 0 8px var(--good)}
+.livest.off i{background:var(--bad);animation:none}
+@keyframes blip{50%{opacity:.3}}
+.lb-top .iconbtn{width:38px;height:38px;font-weight:700;color:var(--gold);flex:none}
+.iconbtn svg,.avbtn svg{width:18px;height:18px}
+.sndbtn.off{color:var(--fg-dim)}
+.brand{text-align:center;margin:clamp(18px,5vh,48px) 0 clamp(18px,4vh,34px)}
+.logo{font-size:clamp(52px,15vw,96px);line-height:1;letter-spacing:.06em;display:inline-flex;gap:.22em;align-items:baseline;justify-content:center;margin:0}
+.logo .l21{font-size:.78em}
+.gold{background-image:linear-gradient(105deg,transparent 0 44%,rgba(255,255,255,.95) 50%,transparent 56% 100%),linear-gradient(180deg,#fff3c4 0%,#f3d990 28%,#d9b25f 55%,#a17628 80%,#e9c97c 100%);background-size:300% 100%,100% 100%;background-repeat:no-repeat;background-position:200% 0,0 0;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 0 #3f2c0c) drop-shadow(0 0 18px rgba(217,178,95,.28))}
+.logo .gold{animation:logoshine 7s ease-in-out 1.5s infinite}
+@keyframes logoshine{0%,70%{background-position:200% 0,0 0}100%{background-position:-100% 0,0 0}}
+.brand p{margin:12px 0 0;color:var(--fg-dim);letter-spacing:.22em;font-size:11.5px;text-transform:uppercase}
+.tiles{display:grid;gap:12px}
+@media (min-width:720px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}}
+.tile{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px;padding:14px 16px 14px 14px;border-radius:18px;border:1px solid #3e2c34;background:linear-gradient(160deg,#2c1e25 0%,#1b1217 62%,#140c10 100%);color:var(--fg);text-align:left;box-shadow:0 16px 36px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.05);overflow:hidden;transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s,border-color .25s}
+.tile::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,240,200,.09) 48%,transparent 60%);transform:translateX(-110%);transition:transform .9s cubic-bezier(.2,.8,.2,1);pointer-events:none}
+@media (hover:hover){.tile:hover{transform:translateY(-3px);border-color:var(--gold-dim);box-shadow:0 22px 46px rgba(0,0,0,.55),0 0 0 1px rgba(217,178,95,.12)}.tile:hover::after{transform:translateX(110%)}.tile:hover .suit{transform:rotate(0) translateY(-2px) scale(1.05)}}
+.tile:active{transform:scale(.985)}
+.tile .suit{width:50px;height:68px;border-radius:8px;background:linear-gradient(160deg,#fffaf0,#eadfc2);color:var(--ink);display:grid;place-items:center;font-size:28px;box-shadow:0 6px 14px rgba(0,0,0,.45);transform:rotate(-6deg);transition:transform .35s cubic-bezier(.2,1.4,.3,1)}
+.tile .suit.red{color:var(--red)}
+.tile:nth-child(2) .suit{transform:rotate(5deg)}
+.tile:nth-child(3) .suit{transform:rotate(-3deg)}
+.tile b{font-family:var(--display);font-size:18px;letter-spacing:.04em;color:var(--gold-hi);display:block;line-height:1.2}
+.tile small{display:block;color:var(--fg-dim);font-size:13px;margin-top:3px}
+.tile .chev{font-size:28px;line-height:1;color:var(--gold-dim)}
+.tile .suit{position:relative}
+.tile .suit .badge{font-family:var(--body)}
+@media (min-width:720px){.tile{grid-template-columns:1fr;justify-items:center;text-align:center;padding:26px 16px 22px;gap:14px}.tile .chev{display:none}.tile .suit{width:64px;height:88px;font-size:38px}}
+.returns{display:grid;gap:10px;margin-bottom:14px}
+.returns:empty{display:none}
+.retcard{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 12px 12px 14px;border-radius:16px;border:1px solid var(--gold);background:linear-gradient(100deg,rgba(217,178,95,.16),rgba(217,178,95,.03) 65%),#1a1116;box-shadow:0 0 30px rgba(217,178,95,.12),0 14px 34px rgba(0,0,0,.45)}
+.retcard .btn{padding:9px 16px}
+.strip{margin-top:26px}
+.strip-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.strip-h h2{font-size:13px;color:var(--gold);letter-spacing:.16em;text-transform:uppercase}
+.fstrip{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 6px;scrollbar-width:none;align-items:flex-start}
+.fstrip::-webkit-scrollbar{display:none}
+.fchip{display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;color:var(--fg);width:60px;flex:none;padding:0;animation:rowin .4s both}
+.fchip .fav{width:52px;height:52px;font-size:20px;transition:transform .2s}
+.fchip:hover .fav{transform:translateY(-2px)}
+.fchip .fn{font-size:12px;max-width:62px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg-dim)}
+.fchip.add .fav{background:transparent;border:2px dashed var(--gold-dim);color:var(--gold);font-size:26px;font-family:var(--body);font-weight:400}
+.fs-empty{align-self:center;max-width:320px;margin:0}
+.lb-foot{margin-top:30px;display:grid;justify-items:center;gap:10px;text-align:center}
+.lb-foot .note{margin:0}
 .field{display:grid;gap:6px;margin-bottom:12px}
 .field label{font-size:13px;color:var(--fg-dim);letter-spacing:.02em}
 .field input,.field select{background:#120c0f;border:1px solid #4a3640;color:var(--fg);border-radius:8px;padding:10px 12px;font-size:15px;width:100%}
@@ -303,17 +359,87 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
 .rules .ass{background:#1b1419;border-left:3px solid var(--warn);padding:8px 12px;border-radius:0 8px 8px 0;margin-top:10px;font-size:13px}
 .drawer-scroll{max-height:70vh;overflow:auto}
 @media (max-width:900px){.dealer .nm{display:none}.room,.room.with-side{grid-template-columns:minmax(0,1fr)}.side{position:fixed;top:0;right:0;bottom:0;width:min(330px,88vw);z-index:62;transform:translateX(105%);transition:transform .35s cubic-bezier(.2,.8,.2,1),visibility 0s .35s;box-shadow:-20px 0 50px rgba(0,0,0,.6);padding-top:env(safe-area-inset-top,0px)}.room.with-side .side{transform:none;transition:transform .35s cubic-bezier(.2,.8,.2,1)}#btn-rules2{display:none}.topbar{padding:6px 12px;gap:6px}.topbar .meta{display:none}.topbar h1{font-size:15px}.topbar .btn{padding:6px 9px;font-size:12px}.phases{padding:4px 12px;gap:3px}.phase{font-size:9px;padding:2px 6px}.table-wrap{padding:26px 10px 6px}}
+/* ---------- sheets (slide up on phones, centred dialogs on bigger screens) ---------- */
+.modal.on{animation:fadein .2s both}
+@keyframes fadein{from{opacity:0}}
+.modal.sheet .box{max-height:min(90vh,820px);overflow:auto;overscroll-behavior:contain}
+.grab{display:none}
+@media (max-width:600px){
+  .modal.sheet{place-items:end stretch;padding:0}
+  .modal.sheet .box{width:100%;border-radius:22px 22px 0 0;border-bottom:0;padding:8px 18px calc(18px + env(safe-area-inset-bottom,0px));animation:sheetup .42s cubic-bezier(.2,.9,.25,1) both;max-height:92vh}
+  .grab{display:block;width:42px;height:5px;border-radius:3px;background:#5a4650;margin:4px auto 14px}
+}
+@keyframes sheetup{from{transform:translateY(100%)}}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opts button{flex:1 0 auto;min-width:44px;background:#120c0f;border:1px solid #4a3640;color:var(--fg);border-radius:10px;padding:9px 10px;font-weight:600;font-variant-numeric:tabular-nums;transition:background .15s,border-color .15s,box-shadow .15s}
+.opts button.on{background:linear-gradient(180deg,var(--gold-hi),var(--gold));color:var(--ink);border-color:var(--gold);box-shadow:0 6px 14px rgba(217,178,95,.22)}
+.field .hint{font-size:12px;color:var(--fg-dim)}
+details.more{border:1px solid #3a2a31;border-radius:12px;padding:0 12px;margin:2px 0 14px;background:rgba(0,0,0,.18)}
+details.more summary{cursor:pointer;padding:12px 0;font-weight:600;color:var(--gold);list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::after{content:'\25BE';margin-left:auto;transition:transform .2s;color:var(--gold-dim)}
+details.more[open] summary::after{transform:rotate(180deg)}
+details.more summary small{color:var(--fg-dim);font-weight:400;font-size:12.5px}
+.joinrow{display:flex;gap:8px}
+.joinrow input{font-size:20px!important;letter-spacing:.14em;text-transform:uppercase;font-family:ui-monospace,Menlo,monospace;text-align:center;min-width:0}
+.me-head{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.me-head .avprev{margin:0;cursor:pointer;flex:none}
+#m-me.ask .me-more{display:none}
+#m-me.ask #me-done{width:100%;font-size:17px;padding:14px}
+.me-head h2{margin-bottom:2px!important}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #2a1f25}
+.setrow:last-of-type{border-bottom:0}
+.seg.sm button{padding:6px 14px}
+.setrow input[type=range]{width:min(200px,52%);accent-color:var(--gold)}
+/* ---------- table motion: flying cards and chips, the riffle, gains ---------- */
+.flylayer{position:fixed;inset:0;pointer-events:none;z-index:46}
+.flylayer>*{position:absolute}
+.flycard{margin:0;will-change:transform,opacity}
+.card.incoming{visibility:hidden}
+.riffle{will-change:transform,opacity}
+.riffle .card{will-change:transform}
+.gain{font-family:var(--display);font-weight:700;font-size:20px;color:var(--gold-hi);white-space:nowrap;text-shadow:0 2px 0 #4a3510,0 0 14px rgba(243,217,144,.7)}
+.me.myturn{box-shadow:inset 0 2px 0 rgba(243,217,144,.75),0 -12px 34px rgba(217,178,95,.14)}
+.card.back::after{content:"21";display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:calc(var(--card-w)*.24);color:rgba(243,217,144,.75)}
+/* ---------- LAUNCH INTRO ---------- */
+#intro{position:fixed;inset:0;z-index:300;background:#050205;overflow:hidden;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;animation:introsafe .4s 7s both}
+@keyframes introsafe{to{opacity:0;visibility:hidden}}
+#intro .cam{position:absolute;inset:0}
+#intro .spot{position:absolute;inset:0;background:radial-gradient(70vmax 50vmax at 50% 52%,rgba(255,226,160,.17),rgba(122,31,43,.12) 38%,transparent 72%)}
+#intro .rays{position:absolute;left:50%;top:50%;width:220vmax;height:220vmax;margin:-110vmax 0 0 -110vmax;background:repeating-conic-gradient(rgba(243,217,144,.09) 0 4deg,transparent 4deg 13deg);-webkit-mask:radial-gradient(closest-side,#000 6%,transparent 42%);mask:radial-gradient(closest-side,#000 6%,transparent 42%);opacity:0}
+#intro .stage{position:absolute;left:50%;top:50%;width:0;height:0;perspective:1100px;transform-style:preserve-3d}
+#intro .ic{position:absolute;left:0;top:0;width:var(--cw);height:calc(var(--cw)*1.4);margin:calc(var(--cw)*-.7) 0 0 calc(var(--cw)*-.5);transform-style:preserve-3d;will-change:transform,opacity}
+#intro .ic>i{position:absolute;inset:0;border-radius:calc(var(--cw)*.09);backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden}
+#intro .ic .f{background:linear-gradient(160deg,#fffdf6,#efe3c6);color:#16120e;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),0 8px 22px rgba(0,0,0,.55)}
+#intro .ic .f.red{color:#b8322c}
+#intro .ic .f em{position:absolute;left:7%;top:5%;font-style:normal;font-weight:700;font-family:var(--display);font-size:calc(var(--cw)*.24);line-height:.95;text-align:center}
+#intro .ic .f em small{display:block;font-size:.85em}
+#intro .ic .f em.br{left:auto;top:auto;right:7%;bottom:5%;transform:rotate(180deg)}
+#intro .ic .f b{position:absolute;inset:0;display:grid;place-items:center;font-size:calc(var(--cw)*.56);font-weight:400}
+#intro .ic .b{transform:rotateY(180deg);background:radial-gradient(circle at 50% 50%,rgba(243,217,144,.22),transparent 45%),repeating-linear-gradient(45deg,#7b1f2b 0 4px,#5a121c 4px 8px);border:calc(var(--cw)*.055) solid #f6efdc;box-shadow:0 8px 22px rgba(0,0,0,.55)}
+#intro .ic .b::after{content:"21";position:absolute;inset:12%;border:1px solid rgba(243,217,144,.55);border-radius:calc(var(--cw)*.05);display:grid;place-items:center;font-family:var(--display);font-weight:700;color:rgba(243,217,144,.9);font-size:calc(var(--cw)*.3)}
+#intro .glint{position:absolute;inset:-20%;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.85) 50%,transparent 60%);transform:translateX(-120%)}
+#intro .spark{position:absolute;left:0;top:0;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:#fff6d6;box-shadow:0 0 10px 3px rgba(243,217,144,.85)}
+#intro .flash{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,#fff 0,rgba(255,240,200,.7) 25%,rgba(255,240,200,0) 65%);opacity:0;pointer-events:none}
+#intro .ititle{position:absolute;left:0;right:0;top:55%;text-align:center;white-space:nowrap;pointer-events:none}
+#intro .iword{font-family:var(--display);font-weight:700;font-size:clamp(48px,min(17vw,16vh),132px);letter-spacing:.08em;line-height:1;display:flex;justify-content:center;padding-left:.08em}
+#intro .iword span{display:inline-block;opacity:0}
+#intro .i21{display:flex;align-items:center;justify-content:center;gap:clamp(12px,3.4vw,26px);margin-top:clamp(8px,1.8vh,18px)}
+#intro .i21 .ic{position:relative;margin:0;--cw:clamp(40px,min(10.5vw,10vh),76px);opacity:0}
+#intro .w21{position:relative;display:inline-block}
+#intro .n21{position:relative;display:inline-block;font-family:var(--display);font-weight:700;font-size:clamp(42px,min(13vw,12vh),100px);line-height:1;opacity:0}
+#intro .glow{position:absolute;left:50%;top:50%;width:260%;height:260%;background:radial-gradient(closest-side,rgba(243,217,144,.42),transparent 70%);opacity:0}
+#intro .itag{margin-top:clamp(12px,2.2vh,22px);font-size:clamp(11px,2.9vw,15px);letter-spacing:.42em;text-transform:uppercase;color:#dccca6;padding-left:.42em;opacity:0}
+#intro .bars i{position:absolute;left:0;right:0;height:9vh;background:#000;z-index:5}
+#intro .bars i:first-child{top:0}
+#intro .bars i:last-child{bottom:0}
+#intro .skip{position:absolute;right:16px;bottom:calc(9vh + 12px);z-index:6;background:rgba(0,0,0,.35);border:1px solid rgba(243,217,144,.35);color:rgba(243,217,144,.85);border-radius:99px;padding:6px 14px;font-size:11px;letter-spacing:.24em;text-transform:uppercase;opacity:0}
 [hidden]{display:none!important}
 .pill:empty{display:none}
 @media (max-width:520px){.row>.field:has(.seg){min-width:100%}}
-/* lobby columns; on phones the panels interleave: rooms, friends, join, host, practice */
-.lobby-grid .col{display:flex;flex-direction:column;gap:18px;min-width:0}
-@media (max-width:760px){.lobby-grid .col{display:contents}.p-rooms{order:1}.p-friends{order:2}.p-join{order:3}.p-host{order:4}.p-practice{order:5}.p-rules{order:6}}
 .phead{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .phead h2{margin:0!important}
 .linkbtn{background:none;border:0;color:var(--gold);text-decoration:underline;text-underline-offset:3px;padding:0;cursor:pointer}
-.p-join.flash{animation:joinflash 1.2s 2}
-@keyframes joinflash{50%{box-shadow:0 0 0 3px var(--gold-hi),0 0 40px rgba(243,217,144,.35)}}
 /* room rows */
 .rooms{display:grid;gap:8px}
 .rrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;background:#120c0f;border:1px solid #33252c;border-radius:12px;padding:10px 12px;animation:rowin .4s both}
@@ -373,7 +499,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 #btn-invite{position:relative}
 .badge{position:absolute;top:-7px;right:-7px;min-width:19px;height:19px;border-radius:10px;background:var(--good);color:#06301b;font-size:11px;font-weight:800;display:grid;place-items:center;padding:0 5px;box-shadow:0 0 0 2px var(--velvet);animation:popin2 .3s}
 .short{display:none}
-@media (max-width:700px){.long{display:none}.short{display:inline}}
+@media (max-width:700px){.long{display:none}.short{display:inline}#conn{display:none!important}.topbar h1{max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 .seat.friend .nm::before{content:'\2605  ';color:var(--gold)}
 .seat.human .av{cursor:pointer}
 /* seats are compact at every size: hidden cards show as a count badge, a dropped card sits beside the seat toward the middle */
@@ -412,78 +538,40 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 
 </head>
 <body>
+<!-- ============ INTRO: intro.js plays it, or removes it at once ============ -->
+<div id="intro" aria-hidden="true"></div>
+<script src="sound.js"></script>
+<script src="intro.js"></script>
+
 <!-- ============ LOBBY ============ -->
 <section id="lobby" class="screen on">
-  <div class="brand">
-    <div class="eyebrow">Nigerian card room · online</div>
-    <h1>TETE <span>21</span></h1>
-    <div class="ornament"><i></i>♠ ♥ ♦ ♣<i></i></div>
-    <p>Drop one. Win the trick. Pick to 21. Closest takes the pot.</p>
+  <div class="lb-bg" aria-hidden="true"><i>♠</i><i>♥</i><i>♦</i><i>♣</i></div>
+  <header class="lb-top">
+    <button class="mechip unset" id="me-chip" type="button"><span class="avprev" id="av-lobby"></span><span class="mc"><b id="me-name">Set your name</b><small id="me-sub">So the table knows who you are</small></span></button>
+    <span class="spacer"></span>
+    <span class="livest" id="live" title="Game server"><i></i><span id="live-word">Connecting</span></span>
+    <button class="iconbtn sndbtn" id="btn-sound" type="button" aria-label="Game sounds"></button>
+    <button class="iconbtn" id="btn-rules" type="button" aria-label="How to play">?</button>
+  </header>
+  <div class="brand" id="brand">
+    <h1 class="logo"><span class="gold">TETE</span><span class="gold l21">21</span></h1>
+    <p>Drop one · Win the trick · Pick to 21</p>
   </div>
-  <div class="panel you" style="margin-bottom:18px">
-    <div class="row" style="align-items:center">
-      <div class="field" style="flex:2 1 300px"><label for="f-name">Your name at the table</label><div style="display:flex;gap:8px;align-items:center"><div class="avprev" id="av-lobby" style="width:44px;height:44px;margin:0;font-size:18px;cursor:pointer" title="Change avatar"></div><input id="f-name" value="" placeholder="Type your name" maxlength="14" autocomplete="nickname"><button type="button" class="btn btn-ghost" id="btn-av" style="padding:8px 10px;white-space:nowrap">Avatar</button></div></div>
-      <div style="flex:1 1 240px"><p class="note" id="live-status" style="margin:0">Connecting… the free server can take up to a minute to wake up.</p><p class="note" style="margin:4px 0 0">Tap the circle to pick a colour, emoji or photo.</p></div>
-    </div>
-  </div>
-  <div class="lobby-grid">
-   <div class="col">
-    <div class="panel p-rooms">
-      <div class="phead"><h2>Rooms</h2><span class="pill" id="rooms-count">…</span></div>
-      <div class="rooms" id="rooms"><p class="note">Looking for open rooms…</p></div>
-    </div>
-    <div class="panel p-host">
-      <h2>Host a table</h2>
-      <div class="row">
-        <div class="field"><label for="f-table">Table name</label><input id="f-table" value="" placeholder="e.g. Friday Parlour" maxlength="24"></div>
-      </div>
-      <div class="row">
-        <div class="field"><label for="f-seats">Seats at the table</label>
-          <select id="f-seats"><option value="2">2 players</option><option value="3">3 players</option><option value="4" selected>4 players</option><option value="5">5 players</option><option value="6">6 players</option><option value="7">7 players (2 decks)</option><option value="8">8 players (2 decks)</option></select></div>
-        <div class="field"><label for="f-buyin">Buy-in per player (chips)</label><input id="f-buyin" type="number" value="1000" min="50" step="50"></div>
-        <div class="field"><label for="f-wager">Wager per hand</label><input id="f-wager" type="number" value="50" min="5" step="5"></div>
-        <div class="field"><label for="f-timer">Turn timer</label><select id="f-timer"><option value="15">15 seconds</option><option value="20" selected>20 seconds</option><option value="30">30 seconds</option><option value="0">No timer (relaxed)</option></select></div>
-      </div>
-      <div class="row">
-        <div class="field"><label>Empty seats</label>
-          <div class="seg"><button type="button" id="fill-on" class="on">Fill with computer players</button><button type="button" id="fill-off">Leave empty</button></div></div>
-        <div class="field"><label>Side bets</label>
-          <div class="seg"><button type="button" id="sb-on" class="on">Allowed</button><button type="button" id="sb-off">Off</button></div></div>
-      </div>
-      <div class="row">
-        <div class="field"><label>Series rule (three of a kind voids the hand)</label>
-          <div class="seg"><button type="button" id="sr-off" class="on">Off</button><button type="button" id="sr-on">On</button></div></div>
-        <div class="field"><label>Who can join</label>
-          <div class="seg"><button type="button" id="pub-off" class="on">Private: code or my OK</button><button type="button" id="pub-on">Public: anyone</button></div></div>
-        <div class="field"><label>Keep this room open</label>
-          <div class="seg"><button type="button" id="keep-off" class="on">No, close when empty</button><button type="button" id="keep-on">Yes, until I close it</button></div></div>
-        <div class="field"><label>Tie rule (two players on the same total)</label>
-          <div class="seg"><button type="button" id="tie-playoff" class="on">Top up &amp; play off</button><button type="button" id="tie-split">Split the pot</button></div></div>
-      </div>
-      <button class="btn btn-gold btn-wide" id="btn-start">Open the table</button>
-      <p class="note">Your table shows in everyone's Rooms list. Private tables need the code, or your OK when someone asks to join. Everyone gets the same stack of play chips; chips are dummy money in this version.</p>
-    </div>
-   </div>
-   <div class="col">
-      <div class="panel p-friends">
-        <div class="phead"><h2>Friends</h2><span class="pill" id="friends-count"></span><span class="spacer"></span><button class="linkbtn" id="friends-edit" hidden>Edit</button></div>
-        <div class="friends" id="friends"></div>
-        <button class="btn btn-ghost btn-wide" id="btn-friendlink">Share my friend link</button>
-      </div>
-      <div class="panel p-join" id="p-join">
-        <h2>Join with a code</h2>
-        <div class="field"><label for="f-join">Table code</label><div style="display:flex;gap:8px"><input id="f-join" placeholder="TETE-XXXX" style="text-transform:uppercase" maxlength="9" autocomplete="off"><button class="btn btn-gold" id="btn-join">Join</button></div></div>
-        <p class="note" id="join-note">Enter the code the host sent you.</p>
-      </div>
-      <div class="panel p-practice">
-        <h2>Practice alone</h2>
-        <p class="note" style="margin-top:0">A quick table against computer players, no code needed.</p>
-        <button class="btn btn-ghost btn-wide" id="btn-solo" style="margin-top:10px">Play vs the computer</button>
-        <p class="note">Works without a connection too. <button class="btn btn-dark" id="btn-install" hidden style="padding:6px 10px;margin-left:6px">Install app</button></p>
-      </div>
-      <button class="btn btn-ghost btn-wide p-rules" id="btn-rules">How to play &amp; what I assumed</button>
-   </div>
-  </div>
+  <div class="returns" id="returns"></div>
+  <nav class="tiles" aria-label="Play">
+    <button class="tile" id="tile-host" type="button"><span class="suit">♠</span><span class="tt"><b>Host a table</b><small>Invite friends with a link or code</small></span><span class="chev" aria-hidden="true">›</span></button>
+    <button class="tile" id="tile-join" type="button"><span class="suit red">♥<span class="badge" id="rooms-badge" hidden></span></span><span class="tt"><b>Join a table</b><small id="join-sub">Enter a code or pick an open table</small></span><span class="chev" aria-hidden="true">›</span></button>
+    <button class="tile" id="tile-solo" type="button"><span class="suit">♣</span><span class="tt"><b>Practice</b><small>You against the computer, even offline</small></span><span class="chev" aria-hidden="true">›</span></button>
+  </nav>
+  <section class="strip" id="strip-rooms" hidden>
+    <div class="strip-h"><h2>Open tables</h2><span class="pill" id="rooms-count"></span><span class="spacer"></span><button class="linkbtn" id="rooms-all" type="button">See all</button></div>
+    <div class="rooms" id="rooms-mini"></div>
+  </section>
+  <section class="strip" id="strip-friends">
+    <div class="strip-h"><h2>Friends</h2><span class="pill" id="friends-count"></span><span class="spacer"></span><button class="linkbtn" id="friends-all" type="button" hidden>See all</button></div>
+    <div class="fstrip" id="fstrip"></div>
+  </section>
+  <footer class="lb-foot"><p class="note" id="live-status">Connecting… the free server can take up to a minute to wake up.</p><button class="btn btn-dark" id="btn-install" type="button" hidden>Install the app</button></footer>
   <div class="reqbar" id="reqbar" hidden><span class="hourglass" aria-hidden="true"></span><span id="reqbar-text">Waiting…</span><button class="btn btn-ghost" id="reqbar-cancel">Cancel</button></div>
 </section>
 
@@ -498,7 +586,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
     <button class="btn btn-ghost" id="btn-sidebet"><span class="long">Propose side bet</span><span class="short">Side bet</span></button>
     <button class="btn btn-ghost" id="btn-side"><span class="long">Bets &amp; log</span><span class="short">Log</span><span class="badge" id="side-badge" hidden></span></button>
     <button class="btn btn-ghost" id="btn-rules2">Rules</button>
-    <button class="btn btn-dark" id="btn-close" hidden>Close room</button><button class="btn btn-dark" id="btn-leave">Leave table</button>
+    <button class="btn btn-dark" id="btn-close" hidden>Close room</button><button class="btn btn-dark" id="btn-leave"><span class="long">Leave table</span><span class="short">Leave</span></button>
   </div>
   <div class="phases" id="phases"></div>
   <div class="room">
@@ -537,7 +625,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
     <div class="info">
       <div><span class="eyebrow">Your total</span> <span class="big num" id="mytotal">–</span> <span class="eyebrow" style="margin-left:14px">Chips</span> <span class="big num" id="mychips">0</span></div>
       <div class="msg" id="msg">Welcome to the table.</div>
-      <div class="avbar"><button class="avbtn off" id="btn-mic" title="Microphone">🎤<span class="lbl">Mic</span></button><button class="avbtn off" id="btn-cam" title="Camera">📷<span class="lbl">Camera</span></button><button class="avbtn on" id="btn-spk" title="Hear others">🔊<span class="lbl">Sound</span></button><span class="roomav" id="roomav"></span></div>
+      <div class="avbar"><button class="avbtn off" id="btn-mic" title="Microphone">🎤<span class="lbl">Mic</span></button><button class="avbtn off" id="btn-cam" title="Camera">📷<span class="lbl">Camera</span></button><button class="avbtn on" id="btn-spk" title="Hear the other players">🔊<span class="lbl">Voices</span></button><button class="avbtn sndbtn" id="btn-fx" type="button" title="Game sounds"><span class="ico"></span><span class="lbl">Sounds</span></button><span class="roomav" id="roomav"></span></div>
     </div>
     <div class="actions" id="actions"></div>
   </div>
@@ -600,12 +688,58 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 
 <div class="modal" id="m-end"><div class="box"><h2 id="end-title">Hand over</h2><p id="end-body"></p><div class="actions" id="end-actions"></div></div></div>
 
-<div class="modal" id="m-av"><div class="box"><h2>Your avatar</h2>
-<div class="avprev" id="av-prev"></div>
-<div class="field"><label for="av-file">Upload a photo</label><input id="av-file" type="file" accept="image/*"></div>
-<div class="field"><label>Or pick one</label><div class="avrow" id="av-opts"></div></div>
-<p class="note">A photo shows on your own screen; other players see your colour or emoji until you turn your camera on.</p>
-<div class="actions"><button class="btn btn-ghost" id="av-clear">Use my initial</button><button class="btn btn-gold" data-close>Done</button></div></div></div>
+<div class="modal sheet" id="m-me"><div class="box"><div class="grab"></div>
+<div class="me-head"><div class="avprev" id="av-prev" title="Use a photo"></div><div><h2 id="me-title">Your profile</h2><p class="note" style="margin:0" id="me-note">How the table sees you, plus sound settings.</p></div></div>
+<div class="field"><label for="f-name">Your name at the table</label><input id="f-name" value="" placeholder="Type your name" maxlength="14" autocomplete="nickname" enterkeyhint="done"></div>
+<div class="field"><label>Pick a look</label><div class="avrow" id="av-opts"></div></div>
+<div class="me-more"><div class="field"><label for="av-file">Or use a photo</label><input id="av-file" type="file" accept="image/*"></div>
+<p class="note" style="margin-top:-4px">A photo shows on your own screen; other players see your colour or emoji until your camera is on.</p>
+<h3 class="subh">Sound &amp; show</h3>
+<div class="setrow"><span>Game sounds</span><div class="seg sm"><button type="button" id="snd-on">On</button><button type="button" id="snd-off">Off</button></div></div>
+<div class="setrow"><label for="snd-vol">Volume</label><input type="range" id="snd-vol" min="0" max="100" step="5"></div>
+<div class="setrow"><span>Launch intro <button class="linkbtn" id="intro-replay" type="button" style="margin-left:8px;font-size:13px">Watch it</button></span><div class="seg sm"><button type="button" id="intro-on">On</button><button type="button" id="intro-off">Off</button></div></div>
+</div><div class="actions"><button class="btn btn-ghost me-more" id="me-friendlink" type="button">Share my friend link</button><button class="btn btn-ghost me-more" id="av-clear" type="button">Use my initial</button><button class="btn btn-gold" id="me-done" type="button">Done</button></div></div></div>
+
+<div class="modal sheet" id="m-host"><div class="box"><div class="grab"></div>
+<h2>Host a table</h2>
+<div class="field"><label for="f-table">Table name</label><input id="f-table" value="" placeholder="e.g. Friday Parlour" maxlength="24"></div>
+<div class="field"><label>Players</label><div class="opts" data-for="f-seats"><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button><button data-v="6">6</button><button data-v="7">7</button><button data-v="8">8</button></div><input type="hidden" id="f-seats" value="4"><span class="hint" id="seats-hint">One deck · 36 cards</span></div>
+<div class="field"><label>Buy-in, chips each</label><div class="opts" data-for="f-buyin"><button data-v="500">500</button><button data-v="1000">1,000</button><button data-v="2500">2,500</button><button data-v="5000">5,000</button><button data-v="other">Other</button></div><input class="other-in" type="number" min="50" step="50" inputmode="numeric" placeholder="Chips, at least 50" data-for="f-buyin" hidden><input type="hidden" id="f-buyin" value="1000"></div>
+<div class="field"><label>Wager per hand</label><div class="opts" data-for="f-wager"><button data-v="25">25</button><button data-v="50">50</button><button data-v="100">100</button><button data-v="250">250</button><button data-v="other">Other</button></div><input class="other-in" type="number" min="5" step="5" inputmode="numeric" placeholder="Chips, at least 5" data-for="f-wager" hidden><input type="hidden" id="f-wager" value="50"></div>
+<div class="field"><label>Who can join</label><div class="seg"><button type="button" id="pub-off" class="on">Private</button><button type="button" id="pub-on">Public</button></div><span class="hint" id="pub-hint">Friends need the code or your OK to sit down.</span></div>
+<details class="more"><summary>More options <small id="more-sum"></small></summary>
+  <div class="field"><label>Turn timer</label><div class="opts" data-for="f-timer"><button data-v="15">15s</button><button data-v="20">20s</button><button data-v="30">30s</button><button data-v="0">Relaxed</button></div><input type="hidden" id="f-timer" value="20"></div>
+  <div class="field"><label>Empty seats</label><div class="seg"><button type="button" id="fill-on" class="on">Computer players</button><button type="button" id="fill-off">Leave empty</button></div></div>
+  <div class="field"><label>Side bets</label><div class="seg"><button type="button" id="sb-on" class="on">Allowed</button><button type="button" id="sb-off">Off</button></div></div>
+  <div class="field"><label>Series rule (three of a kind voids the hand)</label><div class="seg"><button type="button" id="sr-off" class="on">Off</button><button type="button" id="sr-on">On</button></div></div>
+  <div class="field"><label>Tie rule (two players on the same total)</label><div class="seg"><button type="button" id="tie-playoff" class="on">Top up, play off</button><button type="button" id="tie-split">Split the pot</button></div></div>
+  <div class="field"><label>Keep this room open</label><div class="seg"><button type="button" id="keep-off" class="on">Close when empty</button><button type="button" id="keep-on">Until I close it</button></div></div>
+</details>
+<button class="btn btn-gold btn-wide" id="btn-start" type="button">Open the table</button>
+<p class="note">Everyone starts with the same stack of play chips. Your table shows in the Open tables list; private ones need the code or your OK.</p></div></div>
+
+<div class="modal sheet" id="m-join"><div class="box"><div class="grab"></div>
+<h2>Join a table</h2>
+<div class="field"><label for="f-join">Table code</label><div class="joinrow"><input id="f-join" placeholder="TETE-XXXX" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go"><button class="btn btn-gold" id="btn-join" type="button">Join</button></div></div>
+<p class="note" id="join-note">Enter the code the host sent you. Just the last four letters works too.</p>
+<div class="phead" style="margin:18px 0 10px"><h3 class="subh" style="margin:0">Open tables</h3><span class="pill" id="rooms-count2"></span></div>
+<div class="rooms" id="rooms"><p class="empty">Looking for open tables…</p></div>
+<div class="actions"><button class="btn btn-ghost" data-close type="button">Close</button></div></div></div>
+
+<div class="modal sheet" id="m-solo"><div class="box"><div class="grab"></div>
+<h2>Practice</h2>
+<p class="note" style="margin-top:0">A table against computer players. Works without a connection too.</p>
+<div class="field"><label>Computer players</label><div class="opts" data-for="f-solo-n"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button><button data-v="6">6</button><button data-v="7">7</button></div><input type="hidden" id="f-solo-n" value="3"></div>
+<div class="field"><label>Turn timer</label><div class="opts" data-for="f-solo-t"><button data-v="0">Relaxed</button><button data-v="20">20 seconds</button></div><input type="hidden" id="f-solo-t" value="0"></div>
+<div class="field"><label>Series rule</label><div class="seg"><button type="button" id="ssr-off" class="on">Off</button><button type="button" id="ssr-on">On</button></div></div>
+<button class="btn btn-gold btn-wide" id="btn-solo" type="button">Deal me in</button>
+<p class="note">Install the app and it opens without a connection. <button class="linkbtn" id="btn-install2" type="button" hidden>Install now</button></p></div></div>
+
+<div class="modal sheet" id="m-friends"><div class="box"><div class="grab"></div>
+<div class="phead"><h2>Friends</h2><span class="pill" id="friends-count2"></span><span class="spacer"></span><button class="linkbtn" id="friends-edit" type="button" hidden>Edit</button></div>
+<div class="friends" id="friends"></div>
+<div class="actions"><button class="btn btn-ghost" id="btn-friendlink" type="button">Share my friend link</button><button class="btn btn-gold" data-close type="button">Done</button></div></div></div>
+
 <div class="modal" id="m-invite"><div class="box"><h2>Invite to <span id="inv-room">your table</span></h2>
 <div class="inv-code"><div class="eyebrow">Table code</div><button class="code big" id="inv-code" title="Copy the code">TETE-XXXX</button></div>
 <div class="inv-actions"><button class="btn btn-gold" id="inv-share">Share invite…</button><button class="btn btn-ghost" id="inv-copy">Copy link</button></div>

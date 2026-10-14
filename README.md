@@ -3,8 +3,11 @@
 The Nigerian home card game Tete (21), playable online with friends on any phone or computer, with voice and video at the table.
 
 - `server.js` — serves the game page, runs the tables, relays voice/video introductions
-- `engine.js` — the rules: deal, flush, drop, trick, pick, reveal, ties, side bets, timers, computer players
-- `public/index.html` — the game screen
+- `public/engine.js` — the rules: deal, flush, drop, trick, pick, reveal, ties, side bets, timers, computer players (the same file runs practice games in the browser)
+- `public/index.html` — the screens and their styles
+- `public/app.js` — the lobby, the table, friends, invites, voice and video, card and chip animation
+- `public/intro.js` — the launch intro
+- `public/sound.js` — every game sound, made in the browser (no audio files)
 
 ## Run it yourself
 
@@ -42,6 +45,13 @@ TURN_PASS=...
 ## Standing rooms
 
 A host can keep a room open until they close it. Each player's device keeps a sealed (signed) copy of the room, so if the server restarts or the free plan sleeps, the first player back restores it with everyone's chips. Set `ROOM_SECRET` (any long random string; Render's "Generate" button works) so copies stay valid across deploys; without it the server falls back to Render's service id.
+
+## Look and sound
+
+- **Launch intro:** about four seconds. An Ace spins in and bursts into the deck, the cards whirl and slam into a fan, then TETE stamps down and an Ace and a 10 make 21. Tap to skip. It is skipped automatically when you are getting back into a game, can be switched off under your profile, and `/?intro` replays it.
+- **Lobby:** your name chip, three choices (Host, Join, Practice), a Return card for tables you hold a seat at, then open tables and friends. Settings live in sheets that slide up.
+- **At the table:** the dealer riffles the deck before each deal; cards fly from the shoe to each seat and the board; picked cards fly from the board to the player; chips arc into the pot and back out; chip counts roll; the trick is swept back to the dealer.
+- **Sounds:** made in the browser with Web Audio: riffle, card flicks, chip clinks, your-turn chime, a ticking clock in the last five seconds, the Adasi fanfare, the Series thud and more. Mute and volume are in the profile; the speaker buttons in the lobby and under your hand toggle them. Phones only play sound after the first tap.
 
 ## Notes
 
