@@ -551,15 +551,31 @@ function runFx(e){
 
 // ---------- rendering ----------
 function renderAll(){const sig=S.players.map(p=>p.id+(p.isBot?'b':'h')+p.name+(p.av?JSON.stringify(p.av):'')).join('|')+'#'+ME;const fresh=sig!==lastSig;lastSig=sig;renderSeats(fresh||lastCount!==S.players.length||lastME!==ME);renderBoard();renderSide();renderMe();renderPhases()}
-function seatLayout(n){
-  const N=n+1,step=360/N,d=Math.round(N/2),sq=v=>Math.sign(v)*Math.pow(Math.abs(v),.62);
-  const at=j=>{const a=(90+j*step)*Math.PI/180,c=sq(Math.cos(a)),s=sq(Math.sin(a));return{left:50+44*c,top:50+44*s,tx:-(1+c)*50,ty:-(1+s)*50,side:s>0.6?'b':(c>0.05?'r':'l')}};
+// seats round the oval; on a tall phone table, seats that would sit level with the board row are lifted
+// (or dropped) out of its way, so a face, a dropped card or a video never hides behind the cards
+function seatLayout(n,tall){
+  const N=n+1,step=360/N,d=Math.round(N/2),sq=v=>Math.sign(v)*Math.pow(Math.abs(v),.62),B=.5;
+  let mid=false;
+  // eight players on a tall phone: hand-placed spots, four up the left, three down the right, none level with the board
+  const A9=[[50,94],[28,90],[7,71],[7,29],[27,9],[50,6],[73,9],[93,29],[93,71]];
+  const at=j=>{if(tall&&N===9){const [l,t]=A9[j],c=(l-50)/44,s=(t-50)/44;return{left:l,top:t,tx:-(1+c)*50,ty:-(1+s)*50,side:s>0.6?'b':(c>0.05?'r':'l')}}
+    const a=(90+j*step)*Math.PI/180;let c=sq(Math.cos(a)),s=sq(Math.sin(a));if(Math.abs(s)<1e-9)s=0;
+    if(tall&&Math.abs(s)<B){s=(s<=0?-1:1)*(B+(1-B)*Math.abs(s))}
+    // a full tall table: corner seats step inwards so the lifted side seats have room beside them
+    else if(tall&&N>=8&&Math.abs(s)>.7&&Math.abs(c)>.3)c*=.8;
+    if(!tall&&Math.abs(s)<.45&&j!==d)mid=true;
+    return{left:50+44*c,top:50+44*s,tx:-(1+c)*50,ty:-(1+s)*50,side:s>0.6?'b':(c>0.05?'r':'l')}};
+  for(let j=0;j<N;j++)at(j);
+  // a wide table with seats level with the board: the board row narrows so their faces stay clear
+  BOARD_FRAC=mid?.6:null;
   return{seat:k=>at(k<d?k:k+1),dealer:at(d)};
 }
 function renderPhases(){$('#phases').innerHTML=PHASES.map((p,i)=>`<span class="phase ${i<S.phase?'done':i===S.phase?'now':''}">${p}</span>`).join('')}
+let TALL=null,BOARD_FRAC=null;
 function renderSeats(fresh){
   const n=S.players.length, root=$('#seats');const meIdx=Math.max(0,ME);
-  if(fresh||lastCount!==n||lastME!==ME){lastCount=n;lastME=ME;const L=seatLayout(n);const D=$('.dealer');D.style.left=L.dealer.left+'%';D.style.top=L.dealer.top+'%';D.style.right='auto';D.style.transform=`translate(${L.dealer.tx}%,${L.dealer.ty}%)`;root.innerHTML=S.players.map((p,i)=>{const pos=L.seat((i-meIdx+n)%n);const a=p.isBot?{style:`background:${p.color}`,text:p.name[0].toUpperCase()}:(p.id===ME?avStyle(AV,p.name[0].toUpperCase()):avStyle(p.av,p.name[0].toUpperCase()));
+  const tb=$('#table'),tall=!!(tb&&tb.clientHeight>tb.clientWidth*1.05);
+  if(fresh||lastCount!==n||lastME!==ME||TALL!==tall){lastCount=n;lastME=ME;TALL=tall;const L=seatLayout(n,tall);sizeBoard();const D=$('.dealer');D.style.left=L.dealer.left+'%';D.style.top=L.dealer.top+'%';D.style.right='auto';D.style.transform=`translate(${L.dealer.tx}%,${L.dealer.ty}%)`;root.innerHTML=S.players.map((p,i)=>{const pos=L.seat((i-meIdx+n)%n);const a=p.isBot?{style:`background:${p.color}`,text:p.name[0].toUpperCase()}:(p.id===ME?avStyle(AV,p.name[0].toUpperCase()):avStyle(p.av,p.name[0].toUpperCase()));
     return`<div class="seat" id="seat-${p.id}" data-side="${pos.side}" style="left:${pos.left}%;top:${pos.top}%;transform:translate(${pos.tx}%,${pos.ty}%);animation:seatin .6s ${i*.08}s both"><span class="flame"></span><div class="av" style="${a.style}" ${p.id===ME?'title="Change your avatar"':''}>${a.text}<div class="vid"><video autoplay playsinline ${p.id===ME?'muted':''}></video></div><span class="rec"></span><span class="mic"></span><span class="treat"></span><div class="ring" hidden></div><div class="tleft" hidden></div></div><div class="nm"></div><div class="chips"><span class="chip s c25"></span><span class="num"></span></div><div class="mini"></div><div class="tot"></div></div>`}).join('');
     if(ME>=0){const me=$('#seat-'+ME+' .av');if(me)me.onclick=openAv}
     S.players.forEach(p=>{if(p.id===ME)return;const el=$('#seat-'+p.id);if(!el)return;el.classList.add('human');el.querySelector('.av').onclick=()=>openPlayer(p.id)});
@@ -587,13 +603,13 @@ function renderSeats(fresh){
 function sizeBoard(){
   const slots=$('#slots');const n=(S&&S.boardSize)||0;if(!slots||!n)return;
   const tw=$('#table').clientWidth||360,phone=matchMedia('(max-width:700px)').matches;
-  const avail=tw*(phone?(n>=7?0.6:0.8):0.78);
+  const avail=tw*(phone?(n>=7?0.6:0.8):(BOARD_FRAC||0.78));
   const maxW=phone?50:70,minW=phone?36:46;
   let w=Math.min(maxW,Math.floor((avail-(n-1)*6)/n)),step=w+6;
   if(w<minW){w=minW;step=Math.max(17,Math.floor((avail-w)/Math.max(1,n-1)))}
   slots.style.setProperty('--card-w',w+'px');slots.style.setProperty('--step',step+'px');slots.classList.toggle('fan',step<w);
 }
-window.addEventListener('resize',()=>{if(S)sizeBoard()});
+window.addEventListener('resize',()=>{if(!S)return;sizeBoard();const tb=$('#table');if(tb&&TALL!==null&&TALL!==(tb.clientHeight>tb.clientWidth*1.05))renderSeats(true)});
 function renderBoard(){
   const n=S.boardSize||0;
   $('#slots').innerHTML=Array.from({length:n},(_,i)=>{const c=S.board[i];return`<div class="slot ${S.phase===5&&i===S.boardTop?'next':''}">${c&&!c.taken?cardHTML(c,FLY.has(c.id)?'incoming':''):''}<span class="idx">${i+1}</span></div>`}).join('');
