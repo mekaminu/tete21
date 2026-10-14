@@ -33,7 +33,11 @@ TURN_USER=...
 TURN_PASS=...
 ```
 
+## Standing rooms
+
+A host can keep a room open until they close it. Each player's device keeps a sealed (signed) copy of the room, so if the server restarts or the free plan sleeps, the first player back restores it with everyone's chips. Set `ROOM_SECRET` (any long random string; Render's "Generate" button works) so copies stay valid across deploys; without it the server falls back to Render's service id.
+
 ## Notes
 
 - Chips are play money. No deposits, no real money.
-- Tables live in memory on the server: a redeploy or restart ends open tables.
+- Ordinary tables live in memory: a redeploy ends them, and players' seats are held for two minutes if their connection drops.

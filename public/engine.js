@@ -22,6 +22,7 @@ function cleanAv(av) {
   if (av.kind === 'initial' && /^#[0-9a-f]{6}$/i.test(av.color || '')) return { kind: 'initial', color: av.color };
   return null;
 }
+function newToken() { return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
 function sbDesc(type, mine, theirs) { return type === 'first' ? '1st card flushed beats the 2nd' : type === 'cardvcard' ? `board card #${mine + 1} beats #${theirs + 1}` : "final total beats the other's"; }
 
 class Table {
@@ -39,6 +40,9 @@ class Table {
     this.side = cfg.side !== false;
     this.series = !!cfg.series;
     this.tieSplit = cfg.tie === 'split';
+    this.persistent = !!cfg.keep;
+    this.pub = !!cfg.pub;
+    this.rid = (typeof cfg.rid === 'string' && /^[a-z0-9]{6,16}$/.test(cfg.rid)) ? cfg.rid : newToken().slice(0, 10);
     this.dealer = -1; this.handNo = 0; this.pot = 0; this.deck = []; this.board = [];
     this.leadSuit = null; this.phase = -1; this.turn = -1; this.deadline = 0;
     this.sideBets = []; this.participants = []; this.busy = false; this.started = false;
@@ -64,20 +68,54 @@ class Table {
       const gi = this.players.findIndex(x => x.gone && !x.isBot);
       if (gi >= 0) { p = this.mkPlayer(gi, name, false); p.chips = this.players[gi].chips; p.color = this.players[gi].color; p.sitout = true; p.joinedMid = true; this.players[gi] = p; this.log(`${esc(name)} sits in from the next hand`, 'hi'); }
       else if (bi >= 0) { const bot = this.players[bi]; p = this.mkPlayer(bot.id, name, false); p.color = bot.color; p.sitout = true; p.joinedMid = true; this.players[bi] = p; this.log(`${esc(name)} takes ${esc(bot.name)}'s seat from the next hand`, 'hi'); }
-      else if (this.players.length < 8) { p = this.mkPlayer(this.players.length, name, false); p.sitout = true; p.joinedMid = true; this.players.push(p); this.log(`${esc(name)} joined; sits in from the next hand`, 'hi'); }
+      else if (this.players.length < this.seats) { p = this.mkPlayer(this.players.length, name, false); p.sitout = true; p.joinedMid = true; this.players.push(p); this.log(`${esc(name)} joined; sits in from the next hand`, 'hi'); }
       else return { error: 'The table is full.' };
     }
-    p.conn = conn; p.av = cleanAv(av); p.mic = !!mic; p.cam = !!cam;
-    this.sync();
-    return { id: p.id };
+    p.conn = conn; p.av = cleanAv(av); p.mic = !!mic; p.cam = !!cam; p.token = newToken();
+    this.sync(); if (this.onSave) this.onSave();
+    return { id: p.id, token: p.token };
   }
   updateHuman(id, h) { const p = this.players[id]; if (!p || p.isBot) return; const nm = cleanName(h.name); if (nm) p.name = nm; p.av = cleanAv(h.av); p.mic = !!h.mic; p.cam = !!h.cam; this.sync(); }
+  // connection dropped: hold the seat for a while
+  disconnect(id) {
+    const p = this.players[id]; if (!p || p.gone || p.isBot) return;
+    p.conn = null; p.away = true; this.log(`${esc(p.name)} lost connection — seat held`);
+    clearTimeout(p.awayT); if (!this.persistent) p.awayT = setTimeout(() => { if (p.away && !p.conn) this.removeHuman(id); }, 120000);
+    const P = this.pend; if (P && P.pid === id && !P.timed) setTimeout(() => { if (this.pend === P && !p.conn) P.done(null); }, 30000);
+    this.sync(); if (this.onSave) this.onSave();
+  }
+  resume(token, conn, hashFn) {
+    if (!token) return null; const h = hashFn ? hashFn(token) : null;
+    const p = this.players.find(x => !x.isBot && !x.gone && ((x.token && x.token === token) || (h && x.tokenHash && x.tokenHash === h))); if (!p) return null;
+    if (!p.token) p.token = token;
+    const prev = p.conn && p.conn !== conn ? p.conn : null;
+    clearTimeout(p.awayT); p.conn = conn; if (p.away) { p.away = false; this.log(`${esc(p.name)} is back`); }
+    this.sync(); if (this.onSave) this.onSave(); return { id: p.id, token: p.token, prev };
+  }
+  reclaim(id, conn) {
+    const p = this.players[id]; if (!p || p.isBot || p.gone || p.conn) return null;
+    clearTimeout(p.awayT); p.conn = conn; p.away = false; p.token = newToken(); p.tokenHash = null;
+    this.log(`${esc(p.name)} is back`); this.sync(); if (this.onSave) this.onSave();
+    return { id: p.id, token: p.token };
+  }
   removeHuman(id) {
     const p = this.players[id]; if (!p || p.gone) return;
-    p.gone = true; p.conn = null; this.log(`${esc(p.name)} left the table`);
+    clearTimeout(p.awayT); p.gone = true; p.away = false; p.conn = null; this.log(`${esc(p.name)} left the table`);
     if (this.pend && this.pend.pid === p.id) this.pend.done(null);
-    if (id === this.hostId) { const h = this.players.find(x => !x.isBot && !x.gone); if (h) { this.hostId = h.id; this.log(`${esc(h.name)} is now the host`, 'hi'); } }
+    if (id === this.hostId && !this.persistent) { const h = this.players.find(x => !x.isBot && !x.gone); if (h) { this.hostId = h.id; this.log(`${esc(h.name)} is now the host`, 'hi'); } }
+    if (!this.started) this.compact();
+    if (this.onSave) this.onSave();
     this.sync();
+  }
+  // before the game starts, drop seats of people who left so nobody shows up twice
+  compact() {
+    if (this.started) return;
+    const keep = this.players.filter(p => !p.gone); if (keep.length === this.players.length) return;
+    const hostP = this.players[this.hostId];
+    keep.forEach((p, i) => { p.id = i; if (p.conn) p.conn.pid = i; });
+    this.players = keep;
+    let hi = keep.indexOf(hostP); if (hi < 0) hi = keep.findIndex(p => !p.isBot); this.hostId = Math.max(0, hi);
+    this.idsChanged = true;
   }
   mkPlayer(id, name, isBot) { return { id, name, isBot, chips: this.buyIn, color: isBot ? BOT_COLORS[id % 8] : '#b8862c', hand: [], dropped: null, picked: [], sitout: false, strikes: 0, revealed: false, av: null, conn: null, gone: false, joinedMid: false, mic: false, cam: false, satOutByTimer: false }; }
   fillBots() {
@@ -87,13 +125,28 @@ class Table {
     while (this.players.length < this.seats && names.length) { const p = this.mkPlayer(this.players.length, names.shift(), true); const r = Math.random(); p.cam = r < .45; p.mic = r < .7; this.players.push(p); }
   }
   humansPresent() { return this.players.filter(p => !p.isBot && !p.gone).length; }
+  humansConnected() { return this.players.filter(p => !p.isBot && !p.gone && p.conn).length; }
+  hostConnected() { const h = this.players[this.hostId]; return !!(h && !h.isBot && !h.gone && h.conn); }
 
+  // ----- persistence (between hands) -----
+  toJSON(hashFn) {
+    const S = this;
+    return { code: S.code, cfg: { buyIn: S.buyIn, wager: S.wager, tableName: S.tableName, timer: S.timer, seats: S.seats, fill: S.fill, side: S.side, series: S.series, tie: S.tieSplit ? 'split' : 'playoff', keep: true, pub: S.pub, rid: S.rid }, pot: S.pot, handNo: S.handNo, dealer: S.dealer, hostId: S.hostId, createdAt: S.createdAt,
+      players: S.players.filter(p => !p.isBot && !p.gone).map(p => ({ id: p.id, name: p.name, chips: p.chips, av: p.av, color: p.color, tokenHash: p.tokenHash || (p.token && hashFn ? hashFn(p.token) : null) })) };
+  }
+  static fromJSON(o, send) {
+    const t = new Table(o.code, o.cfg, send); t.pot = o.pot || 0; t.handNo = o.handNo || 0; t.createdAt = o.createdAt || Date.now(); t.persistent = true;
+    // compact ids so seats are contiguous; everyone is away until they resume
+    o.players.forEach((q, i) => { const p = t.mkPlayer(i, cleanName(q.name) || 'Guest', false); p.chips = Math.max(0, Math.floor(+q.chips || 0)); p.av = cleanAv(q.av); p.token = null; p.tokenHash = typeof q.tokenHash === 'string' ? q.tokenHash : null; p.away = true; p.oldId = q.id; t.players.push(p); });
+    const host = t.players.find(p => p.oldId === o.hostId); t.hostId = host ? host.id : 0; t.dealer = t.players.length - 1;
+    return t;
+  }
   // ----- snapshot per viewer -----
   snapshot(forId) {
     const S = this;
     return {
-      now: Date.now(), tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0,
-      pl: S.players.map(p => { const show = p.id === forId || S.phase >= 6 || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0]; }),
+      now: Date.now(), tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0,
+      pl: S.players.map(p => { const show = p.id === forId || S.phase >= 6 || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0, p.away ? 1 : 0, p.color]; }),
       sbs: S.sideBets.slice(-8).map(b => [b.id, b.a, b.b, b.type, b.amt, b.mine, b.theirs, b.status, b.result || '', b.winner ?? -1]),
     };
   }
@@ -101,21 +154,23 @@ class Table {
   // ----- actions from clients -----
   waitFor(pid, kinds, ms) {
     return new Promise(res => {
-      let to = null;
-      this.pend = { pid, kinds, done: a => { clearTimeout(to); this.pend = null; res(a); } };
-      if (ms > 0) to = setTimeout(() => { if (this.pend && this.pend.pid === pid) { this.pend = null; res(null); } }, ms);
-      const p = this.players[pid]; if (!p || p.gone) { clearTimeout(to); this.pend = null; res(null); }
+      let to = null; const p = this.players[pid];
+      if (!p || p.gone) { res(null); return; }
+      if (!(ms > 0) && !p.isBot && !p.conn) ms = 30000;
+      const P = { pid, kinds, timed: ms > 0, done: a => { clearTimeout(to); if (this.pend === P) this.pend = null; res(a); } };
+      this.pend = P;
+      if (ms > 0) to = setTimeout(() => { if (this.pend === P) { this.pend = null; res(null); } }, ms);
     });
   }
   action(pid, a) {
     const p = this.players[pid]; if (!p || p.gone || !a || typeof a !== 'object') return;
     const P = this.pend;
     switch (a.type) {
-      case 'start': if (pid === this.hostId && !this.started) this.start(); break;
+      case 'start': if ((pid === this.hostId || !this.hostConnected()) && !this.started) this.start(); break;
       case 'drop': case 'take': case 'stay': case 'adasi': if (P && P.pid === pid && P.kinds.includes(a.type)) P.done(a); break;
       case 'deal': case 'next': if (pid === this.hostId && P && P.kinds.includes(a.type)) P.done(a); break;
       case 'rejoin': p.sitout = false; p.satOutByTimer = false; p.strikes = 0; this.log(`${esc(p.name)} rejoins`); break;
-      case 'rebuy': if (p.chips < this.wager) { p.chips += this.buyIn; p.sitout = false; this.log(`${esc(p.name)} rebuys ${fmt(this.buyIn)}`, 'hi'); } break;
+      case 'rebuy': if (p.chips < this.wager) { p.chips += this.buyIn; p.sitout = false; this.log(`${esc(p.name)} rebuys ${fmt(this.buyIn)}`, 'hi'); if (this.onSave) this.onSave(); } break;
       case 'sb': this.proposeSB(pid, a); break;
       case 'sb_ans': this.answerSB(pid, a); break;
       case 'rebuy_all': if (pid === this.hostId && P && P.kinds.includes('rebuy_all')) P.done(a); break;
@@ -137,9 +192,11 @@ class Table {
   setPhase(i) { this.phase = i; this.sync(); }
   async playHand(participants, redeal) {
     const S = this; if (S.closed) return;
+    while (S.humansConnected() === 0) { if (S.closed) return; S.paused = true; S.sync(); await sleep(1500); }
+    S.paused = false;
     S.busy = true; S.handNo++; S.trickWinner = null; S.board = []; S.boardSize = 0; S.boardTop = 0; S.deadline = 0; S.next = null; S.msgHost = '';
     S.players.forEach(p => { p.hand = []; p.dropped = null; p.picked = []; p.revealed = false; if (p.joinedMid) { p.joinedMid = false; p.sitout = false; } if (p.gone) p.sitout = true; if (p.chips < S.wager) p.sitout = true; });
-    if (!S.tiebreak && !redeal) participants = S.players.filter(p => !p.sitout && !p.gone).map(p => p.id);
+    if (!S.tiebreak && !redeal) participants = S.players.filter(p => !p.sitout && !p.gone && !(p.away && !p.isBot)).map(p => p.id);
     else participants = participants.filter(id => S.players[id] && !S.players[id].sitout);
     S.participants = participants;
     if (S.humansPresent() === 0) { S.busy = false; return; }
@@ -224,7 +281,7 @@ class Table {
       } else { S.tiebreak = true; const names = tied.map(p => p.name).join(' and '); S.fx({ k: 'banner', t: 'TIE!' }); S.msgHost = `${esc(names)} tie on ${best}. They top up and go again.`; S.log(`Tie on ${best}: ${esc(names)} play off`, 'hi'); S.sync(); await sleep(1800); next = tied.map(p => p.id); }
     }
     await S.settleSideBets('reveal');
-    S.busy = false; S.next = next; S.msgHost = ''; S.sync();
+    S.busy = false; S.next = next; S.msgHost = ''; S.sync(); if (S.onSave) S.onSave();
     await S.waitFor(S.hostId, ['next'], 12000);
     return S.playHand(next);
   }
@@ -247,7 +304,7 @@ class Table {
     await S.waitFor(S.hostId, ['next'], 12000);
     return S.playHand(S.next);
   }
-  strike(p) { p.strikes++; if (p.strikes >= 3) { p.sitout = true; p.satOutByTimer = true; this.fx({ k: 'toast', pid: p.id, t: 'Three timeouts in a row — you are sat out. Tap "Rejoin" to come back.', ms: 4000 }); this.log(`${esc(p.name)} is sat out (timed out 3 times)`); } else this.fx({ k: 'toast', pid: p.id, t: `Time's up — the game acted for you (${p.strikes}/3)`, ms: 2600 }); }
+  strike(p) { if (p.away) return; p.strikes++; if (p.strikes >= 3) { p.sitout = true; p.satOutByTimer = true; this.fx({ k: 'toast', pid: p.id, t: 'Three timeouts in a row — you are sat out. Tap "Rejoin" to come back.', ms: 4000 }); this.log(`${esc(p.name)} is sat out (timed out 3 times)`); } else this.fx({ k: 'toast', pid: p.id, t: `Time's up — the game acted for you (${p.strikes}/3)`, ms: 2600 }); }
   async humanDrop(p) {
     const S = this; const ms = S.timer ? S.timer * 1000 : 0; S.deadline = ms ? Date.now() + ms : 0; S.sync(); const end = Date.now() + ms;
     for (;;) {
