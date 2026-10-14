@@ -181,7 +181,7 @@ function enter(ws, t, r, resumed) {
   send(ws, { type: 'joined', code: t.code.toUpperCase(), rid: t.rid, id: r.id, token: r.token, resumed: !!resumed, keep: t.persistent ? 1 : 0 });
   send(ws, { type: 'logs', items: t.fxq.filter(e => e.k === 'log').slice(-25) });
   t.sync(); if (t.persistent) saveRoom(t);
-  for (const p of t.players) if (p.conn && p.conn !== ws) send(p.conn, { type: 'peer', id: r.id, event: 'joined' });
+  for (const p of t.players) if (p.conn && p.conn !== ws) send(p.conn, { type: 'peer', id: r.id, event: 'joined', sid: ws.sid });
   listDirty = true; if (ws.me) presenceChanged(ws.me);
   if (ws.uid) setTimeout(() => pushAccount(ws.uid), 50);
 }
@@ -275,6 +275,7 @@ const server = http.createServer((req, res) => {
 // ---------- websocket ----------
 const wss = new WebSocketServer({ server, maxPayload: 64 * 1024 });
 wss.on('connection', (ws, req) => {
+  ws.sid = rand(6); // this screen's session: voice/video links are rebuilt when a player comes back on a new one
   ws.table = null; ws.pid = -1; ws.lastFx = 0; ws.isAlive = true; ws.me = null; ws.uid = null; ws.dev = null; ws.request = null; ws.tz = 0;
   ws.ip = String((req.headers['x-forwarded-for'] || '').split(',')[0] || req.socket.remoteAddress || '').trim();
   ws.on('pong', () => (ws.isAlive = true));
@@ -478,7 +479,7 @@ async function handle(ws, m) {
     case 'act': if (T) T.action(ws.pid, m.a); break;
     case 'rtc': { // voice/video introductions: {to, data}
       if (!T) return; const to = T.players[+m.to]; if (!to || !to.conn) return;
-      send(to.conn, { type: 'rtc', from: ws.pid, data: m.data }); break;
+      send(to.conn, { type: 'rtc', from: ws.pid, sid: ws.sid, data: m.data }); break;
     }
   }
 }

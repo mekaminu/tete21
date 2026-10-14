@@ -169,11 +169,11 @@ function onMessage(m){
   if(m.type==='invited'){showInvited(m);return}
   if(m.type==='logs'){LOG.length=0;(m.items||[]).forEach(e=>logLocal(e.t,e.cls||''));return}
   if(m.type==='toast'){toast(m.msg,3000);if(SPINNING&&/spun today/.test(m.msg))stopSpin();return}
-  if(m.type==='rtc_reset'){for(const [,c] of PC)c.pc.close();PC.clear();LEVELS.clear();lastSig='';return}
+  if(m.type==='rtc_reset'){for(const [,c] of PC){clearTimeout(c.wob);c.pc.close()}PC.clear();SIGQ.clear();PSID.clear();$$('#voices audio').forEach(a=>{a.srcObject=null;a.remove()});LEVELS.clear();lastSig='';return}
   if(m.type==='error'){hideReqbar();PENDING_JOIN=null;if(m.need==='chips'){showNeedChips(m.msg);return}toast(m.msg,3500);$('#btn-join').disabled=false;$('#btn-start').disabled=false;$('#join-note').textContent=m.msg;return}
   if(m.type==='state'){if(m.ids)IDS=m.ids;applyState(m.st,m.fx||[]);REQS=m.rq||[];renderReqs();renderInviteBadge();return}
-  if(m.type==='peer'){if(m.event==='joined')rtcOnPeerJoined(m.id);else rtcOnPeerLeft(m.id);return}
-  if(m.type==='rtc'){rtcOnSignal(m.from,m.data);return}
+  if(m.type==='peer'){if(m.event==='joined')rtcOnPeerJoined(m.id,m.sid);else rtcOnPeerLeft(m.id);return}
+  if(m.type==='rtc'){rtcOnSignal(m.from,m.data,m.sid);return}
 }
 function enterGame(){
   closeSheets();clearMotion();
@@ -933,32 +933,71 @@ function replaceTracks(c,create){
     if(tx.sender.track!==(want[kind]||null))tx.sender.replaceTrack(want[kind]||null).catch(()=>{});
     if(tx.direction!=='sendrecv')tx.direction='sendrecv'}
 }
-async function makePC(pid,initiator){
-  if(PC.has(pid))return PC.get(pid);
-  const pc=new RTCPeerConnection({iceServers:await getIce()});const c={pc,stream:new MediaStream(),polite:ME>pid,making:false};PC.set(pid,c);
+const PCP=new Map(); // pid -> connection being set up (so two messages at once never make two connections)
+function makePC(pid,initiator){
+  if(PC.has(pid))return Promise.resolve(PC.get(pid));
+  if(PCP.has(pid))return PCP.get(pid);
+  const pr=buildPC(pid,initiator).finally(()=>PCP.delete(pid));PCP.set(pid,pr);return pr}
+async function buildPC(pid,initiator){
+  const ice=await getIce();if(PC.has(pid))return PC.get(pid);
+  const pc=new RTCPeerConnection({iceServers:ice});const c={pc,stream:new MediaStream(),polite:ME>pid,init:ME<pid,making:false,cands:[]};PC.set(pid,c);
   pc.onicecandidate=e=>{if(e.candidate)send({type:'rtc',to:pid,data:{cand:e.candidate}})};
   pc.ontrack=e=>{c.stream.addTrack(e.track);attachRemote(pid,c)};
   pc.onnegotiationneeded=async()=>{try{c.making=true;await pc.setLocalDescription();send({type:'rtc',to:pid,data:{sdp:pc.localDescription}})}catch(e){}finally{c.making=false}};
-  pc.onconnectionstatechange=()=>{if(pc.connectionState==='failed'){pc.restartIce()}};
-  if(initiator)replaceTracks(c,true);
+  pc.onconnectionstatechange=()=>{const st=pc.connectionState;clearTimeout(c.wob);
+    const rearm=()=>{clearTimeout(c.dog);c.dog=setTimeout(()=>watchdog(pid,c),c.init?9000:13000)};
+    if(st==='failed'){try{pc.restartIce()}catch{}rearm()}
+    else if(st==='disconnected')c.wob=setTimeout(()=>{if(pc.connectionState==='disconnected'){try{pc.restartIce()}catch{}rearm()}},4000);
+    else if(st==='connected'){clearTimeout(c.dog);TRIES.delete(pid);tuneSenders()}};
+  if(c.init)replaceTracks(c,true);
+  tuneSenders();
+  c.dog=setTimeout(()=>watchdog(pid,c),c.init?9000:13000);
   return c;
 }
-function renegotiate(pid,c){replaceTracks(c,true)}
-async function rtcOnSignal(from,data){
-  const c=await makePC(from);const pc=c.pc;
+// a link that hasn't come up after a few seconds is started again from scratch (a few times at most):
+// phones that lock, reload or hop between wifi and mobile data otherwise leave someone silent
+const TRIES=new Map();
+function watchdog(pid,c){
+  if(PC.get(pid)!==c||c.pc.connectionState==='connected')return;
+  const n=(TRIES.get(pid)||0)+1;TRIES.set(pid,n);if(n>4)return;
+  if(c.init){dropPC(pid);makePC(pid,true)}else{send({type:'rtc',to:pid,data:{redo:1}});c.dog=setTimeout(()=>watchdog(pid,c),13000)}}
+const fpOf=sdp=>(/a=fingerprint:\S+ (\S+)/.exec(sdp||'')||[])[1]||'';
+// keep video light so voices never break up: the more people on camera, the less each stream may use
+function tuneSenders(){const n=Math.max(1,PC.size),br=Math.round(Math.min(320000,Math.max(90000,720000/n)));
+  for(const [,c] of PC){for(const s of c.pc.getSenders()){if(!s.track||s.track.kind!=='video')continue;try{const p=s.getParameters();if(!p.encodings||!p.encodings.length)p.encodings=[{}];if(p.encodings[0].maxBitrate===br)continue;p.encodings[0].maxBitrate=br;p.encodings[0].maxFramerate=15;s.setParameters(p).catch(()=>{})}catch{}}}}
+function renegotiate(pid,c){const run=()=>{if(PC.get(pid)!==c)return;replaceTracks(c,c.init);tuneSenders()};SIGQ.set(pid,(SIGQ.get(pid)||Promise.resolve()).then(()=>capped(Promise.resolve().then(run))).catch(()=>{}))}
+const SIGQ=new Map();
+// in order, but never stuck: a step waiting on a connection that has since been closed may never finish, so each gets four seconds at most
+const capped=p=>Promise.race([p,new Promise(r=>setTimeout(r,4000))]);
+function rtcOnSignal(from,data,sid){const next=(SIGQ.get(from)||Promise.resolve()).then(()=>capped(handleSignal(from,data,sid))).catch(()=>{});SIGQ.set(from,next);return next}
+// which screen each player is on right now: a message from a screen they have since left is ignored
+const PSID=new Map();
+async function handleSignal(from,data,sid){
+  if(sid){const cur=PSID.get(from);if(cur&&cur!==sid)return;if(!cur)PSID.set(from,sid)}
+  // the other side gave up on a stuck link: if we open this conversation, start it again
+  if(data.redo){const cur=PC.get(from);if(cur&&cur.init&&cur.pc.connectionState!=='connected'){dropPC(from);makePC(from,true)}else if(!cur&&ME<from)makePC(from,true);return}
+  let c=await makePC(from),pc=c.pc;
   try{
+    // a brand-new connection from their side (different key): throw ours away and answer the new one
+    if(data.sdp&&data.sdp.type==='offer'&&pc.remoteDescription&&fpOf(pc.remoteDescription.sdp)!==fpOf(data.sdp.sdp)){dropPC(from);c=await makePC(from);pc=c.pc}
     if(data.sdp){const offerCollision=data.sdp.type==='offer'&&(c.making||pc.signalingState!=='stable');
       if(offerCollision&&!c.polite)return;
       await pc.setRemoteDescription(data.sdp);
-      if(data.sdp.type==='offer'){replaceTracks(c,false);await pc.setLocalDescription();send({type:'rtc',to:from,data:{sdp:pc.localDescription}})}}
-    else if(data.cand){try{await pc.addIceCandidate(data.cand)}catch(e){}}
+      for(const k of c.cands.splice(0))try{await pc.addIceCandidate(k)}catch{}
+      if(data.sdp.type==='offer'){replaceTracks(c,false);await pc.setLocalDescription();send({type:'rtc',to:from,data:{sdp:pc.localDescription}})}
+      tuneSenders()}
+    else if(data.cand){if(!pc.remoteDescription){c.cands.push(data.cand);return}try{await pc.addIceCandidate(data.cand)}catch(e){}}
   }catch(e){console.warn('rtc',e)}
 }
-function rtcOnPeerJoined(pid){if(pid===ME)return;if(ME<pid)makePC(pid,true)}
-function rtcOnPeerLeft(pid){const c=PC.get(pid);if(c){c.pc.close();PC.delete(pid)}}
-function rtcLeaveAll(){for(const [pid,c] of PC){c.pc.close()}PC.clear();if(LOCAL){LOCAL.getTracks().forEach(t=>t.stop());LOCAL=null}}
+// someone (re)joined: whatever we had with them belongs to their old session, so start clean
+function rtcOnPeerJoined(pid,sid){if(pid===ME)return;if(sid){if(PSID.get(pid)===sid&&(PC.has(pid)||PCP.has(pid)))return;PSID.set(pid,sid)}TRIES.delete(pid);dropPC(pid);if(ME<pid)makePC(pid,true)}
+function dropPC(pid){const c=PC.get(pid);if(c){clearTimeout(c.wob);clearTimeout(c.dog);c.pc.close();PC.delete(pid)}const a=$('#voice-'+pid);if(a){a.srcObject=null;a.remove()}LEVELS.delete(pid)}
+function rtcOnPeerLeft(pid){dropPC(pid);SIGQ.delete(pid);PSID.delete(pid);tuneSenders()}
+function rtcLeaveAll(){for(const [pid,c] of PC){clearTimeout(c.wob);c.pc.close()}PC.clear();SIGQ.clear();PSID.clear();$$('#voices audio').forEach(a=>{a.srcObject=null;a.remove()});LEVELS.clear();if(LOCAL){LOCAL.getTracks().forEach(t=>t.stop());LOCAL=null}}
 function rtcSyncPeers(){if(!S||ME<0)return;for(const p of S.players){if(p.isBot||p.gone||p.id===ME)continue;if(!PC.has(p.id)&&ME<p.id)makePC(p.id,true)}for(const [pid] of PC){const p=S.players[pid];if(!p||p.gone||p.isBot)rtcOnPeerLeft(pid)}}
-function attachRemote(pid,c){const v=$(`#seat-${pid} .vid video`);if(v&&v.srcObject!==c.stream){v.srcObject=c.stream;v.muted=!AVS.spk;v.play().catch(()=>{})}if(c.stream.getAudioTracks().length)watchLevel(pid,c.stream)}
+function voiceBox(){let b=$('#voices');if(!b){b=document.createElement('div');b.id='voices';b.hidden=true;document.body.appendChild(b)}return b}
+function attachRemote(pid,c){const v=$(`#seat-${pid} .vid video`);if(v&&v.srcObject!==c.stream){v.srcObject=c.stream;v.muted=true;v.play().catch(()=>{})}
+  if(c.stream.getAudioTracks().length){let a=$('#voice-'+pid);if(!a){a=document.createElement('audio');a.id='voice-'+pid;a.autoplay=true;a.setAttribute('playsinline','');voiceBox().appendChild(a)}if(a.srcObject!==c.stream)a.srcObject=c.stream;a.muted=!AVS.spk;if(a.paused)a.play().catch(()=>{});watchLevel(pid,c.stream)}}
 function rtcAttachAll(){attachLocal();for(const [pid,c] of PC)attachRemote(pid,c)}
 let ACTX=null;const LEVELS=new Map();
 function watchLevel(pid,stream){
@@ -967,9 +1006,9 @@ function watchLevel(pid,stream){
 (function levelLoop(){setTimeout(levelLoop,120);for(const [pid,l] of LEVELS){const el=$('#seat-'+pid);if(!el)continue;l.an.getByteFrequencyData(l.buf);let s=0;for(let i=0;i<l.buf.length;i++)s+=l.buf[i];const avg=s/l.buf.length;const muted=pid===ME?!AVS.mic:(S&&S.players[pid]&&!S.players[pid].mic);el.classList.toggle('speaking',!muted&&avg>18&&AVS.spk)}})();
 $('#btn-mic').onclick=async()=>{AVS.mic=!AVS.mic;if(ACTX&&ACTX.state==='suspended')ACTX.resume();await ensureLocal();toast(AVS.mic?'Mic on — the table can hear you':'Mic muted');avUI()};
 $('#btn-cam').onclick=async()=>{AVS.cam=!AVS.cam;await ensureLocal();toast(AVS.cam?'Camera on':'Camera off');avUI()};
-$('#btn-spk').onclick=()=>{AVS.spk=!AVS.spk;$$('.seat video').forEach(v=>{if(!v.closest('#seat-'+ME))v.muted=!AVS.spk});if(ACTX&&ACTX.state==='suspended')ACTX.resume();toast(AVS.spk?'You can hear the table':'Other players muted');avUI()};
+$('#btn-spk').onclick=()=>{AVS.spk=!AVS.spk;$$('#voices audio').forEach(a=>{a.muted=!AVS.spk;if(AVS.spk&&a.paused)a.play().catch(()=>{})});if(ACTX&&ACTX.state==='suspended')ACTX.resume();toast(AVS.spk?'You can hear the table':'Other players muted');avUI()};
 // browsers block remote audio until a tap: resume on first interaction
-document.addEventListener('pointerdown',()=>{if(ACTX&&ACTX.state==='suspended')ACTX.resume();$$('.seat video').forEach(v=>v.play().catch(()=>{}))},{passive:true});
+document.addEventListener('pointerdown',()=>{if(ACTX&&ACTX.state==='suspended')ACTX.resume();$$('.seat video').forEach(v=>{if(v.paused)v.play().catch(()=>{})});$$('#voices audio').forEach(a=>{if(a.paused)a.play().catch(()=>{})})},{passive:true});
 
 // ---------- the lobby comes in after the intro ----------
 let ENTERED=false;
@@ -981,7 +1020,7 @@ function lobbyEnter(){if(ENTERED)return;ENTERED=true;if(!$('#lobby').classList.c
 function afterIntro(fn){const st=window.TETE_INTRO;if(!st||st==='exit'||st==='done'){fn();return}let ran=false;const go=()=>{if(!ran){ran=true;fn()}};window.addEventListener('tete:introexit',go,{once:true});window.addEventListener('tete:introdone',go,{once:true})}
 afterIntro(()=>{lobbyEnter();if(JOIN_LINK)setTimeout(()=>{if($('#lobby').classList.contains('on'))openJoin()},700)});
 
-if(location.search.includes('demo')){window.__fx=runFx;window.__t={get S(){return S},get L(){return LOCALT},get ME(){return ME},fx21,streakFx,streakEndFx,setFelt}}
+if(location.search.includes('demo')){window.__fx=runFx;window.__t={get S(){return S},get L(){return LOCALT},get ME(){return ME},get PC(){return PC},get TRIES(){return TRIES},get PSID(){return PSID},fx21,streakFx,streakEndFx,setFelt}}
 setInterval(()=>{if(!LOCALT&&S&&$('#game').classList.contains('on')&&navigator.onLine!==false)fetch('/health',{cache:'no-store'}).catch(()=>{})},240000);
 window.addEventListener('online',()=>{if(!CONNECTED)connect();else setStatus('ok','Connected.')});
 window.addEventListener('offline',()=>{setStatus('off','Offline. Practice against the computer still works; hosting and joining need a connection.');renderRooms()});
