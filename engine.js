@@ -221,15 +221,21 @@ class Table {
     return S.playHand(next);
   }
   async adasiWin(p, participants) {
-    const S = this; S.turn = -1; p.revealed = true; S.sync();
-    const aces = p.hand.filter(c => c.r === 'A').slice(0, 2);
-    S.fx({ k: 'adasi', pid: p.id, cards: aces.map(enc), who: p.name, pot: S.pot });
-    S.log(`<b>ADASI!</b> ${esc(p.name)} shows ${aces.map(cname).join(' ')} and takes ${fmt(S.pot)}`, 'win');
+    const S = this; S.turn = -1;
+    const winners = participants.map(id => S.players[id]).filter(x => S.hasAdasi(x));
+    if (!winners.includes(p)) winners.unshift(p);
+    winners.forEach(w => (w.revealed = true)); S.sync();
+    const cards = winners.flatMap(w => w.hand.filter(c => c.r === 'A').slice(0, 2));
+    const names = winners.map(w => w.name).join(' & ');
+    S.fx({ k: 'adasi', pid: p.id, pids: winners.map(w => w.id), cards: cards.map(enc), who: names, pot: S.pot, split: winners.length > 1 });
+    S.log(`<b>ADASI!</b> ${esc(names)} show${winners.length > 1 ? '' : 's'} ${cards.map(cname).join(' ')} and ${winners.length > 1 ? 'share' : 'takes'} ${fmt(S.pot)}`, 'win');
     await sleep(3600);
     S.phase = 6; S.players.forEach(x => (x.revealed = true));
-    S.fx({ k: 'chip', from: 'pot', to: p.id, cls: 'c100', n2: Math.min(6, Math.ceil(S.pot / S.wager)) }); await sleep(700); p.chips += S.pot; S.pot = 0;
+    const share = Math.floor(S.pot / winners.length); const rem = S.pot - share * winners.length;
+    for (const w of winners) { S.fx({ k: 'chip', from: 'pot', to: w.id, cls: 'c100', n2: Math.min(6, Math.ceil(share / S.wager)) }); }
+    await sleep(700); for (const w of winners) w.chips += share; S.pot = rem;
     S.sideBets.forEach(b => { if (b.status === 'pending' || b.status === 'open') b.status = 'declined'; });
-    S.msgHost = `<b>${esc(p.name)}</b> wins by Adasi.`; S.busy = false; S.next = S.players.map(x => x.id); S.sync();
+    S.msgHost = winners.length > 1 ? `<b>${esc(names)}</b> both hold Adasi and share the pot${rem ? ` (${fmt(rem)} stays on the table)` : ''}.` : `<b>${esc(p.name)}</b> wins by Adasi.`; S.busy = false; S.next = S.players.map(x => x.id); S.sync();
     await S.waitFor(S.hostId, ['next'], 12000);
     return S.playHand(S.next);
   }

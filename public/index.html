@@ -421,7 +421,7 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
 <li>Dropped cards don't count toward your 21. If your two kept cards already exceed 21 (Ace + Ace), you're bust for the hand. Lowest possible start is 6 (3 + 3).</li>
 <li>The "dealer button" rotates each hand to decide who drops first; the house dealer avatar does the physical dealing.</li>
 <li>If every player is bust, the pot carries over to the next hand.</li>
-<li>If two players both hold Adasi, the first one the drop reaches wins. A series in a player's hand is shown to everyone when it voids the hand.</li>
+<li>If two or more players hold Adasi, they all win and share the pot equally. A series in a player's hand is shown to everyone when it voids the hand.</li>
 <li>Side bet "first card higher than second" is settled as soon as the board is flushed; "my total beats yours" at the reveal; equal values are a push (chips returned).</li>
 </ul></div>
 </div>
@@ -692,11 +692,11 @@ function drama(kind,e){
   const fx=$('#fx');$$('.drama').forEach(d=>d.remove());
   const cards=(e.cards||[]).map(dec);
   const d=document.createElement('div');d.className='drama '+kind;
-  d.innerHTML=`<div class="dim"></div><div class="inner">${kind==='adasi'?`<div class="word">ADASI!</div><div class="cards">${cards.map(c=>cardHTML(c)).join('')}</div><div class="sub">${esc(e.who)} takes the pot — ${fmt(e.pot||0)} chips</div>`:`<div class="word">SERIES!</div><div class="cards">${cards.map(c=>cardHTML(c)).join('')}</div><div class="sub">${e.pid<0?'Three of a kind on the board':esc(e.who)+' was dealt three of a kind'}</div><div class="stamp">REDEAL · POT STAYS</div>`}</div>`;
+  d.innerHTML=`<div class="dim"></div><div class="inner">${kind==='adasi'?`<div class="word">ADASI!</div><div class="cards">${cards.map(c=>cardHTML(c)).join('')}</div><div class="sub">${esc(e.who)} ${e.split?'share':'takes'} the pot — ${fmt(e.pot||0)} chips</div>`:`<div class="word">SERIES!</div><div class="cards">${cards.map(c=>cardHTML(c)).join('')}</div><div class="sub">${e.pid<0?'Three of a kind on the board':esc(e.who)+' was dealt three of a kind'}</div><div class="stamp">REDEAL · POT STAYS</div>`}</div>`;
   fx.appendChild(d);
   const fl=document.createElement('div');fl.className='flash';document.body.appendChild(fl);setTimeout(()=>fl.remove(),600);
   const t=$('#table');t.classList.remove('shake');void t.offsetWidth;t.classList.add('shake');
-  if(kind==='adasi'){confetti();setTimeout(confetti,500);setTimeout(confetti,1000);const el=$('#seat-'+e.pid);if(el){el.classList.add('winner');setTimeout(()=>el.classList.remove('winner'),3500)}}
+  if(kind==='adasi'){confetti();setTimeout(confetti,500);setTimeout(confetti,1000);for(const id of (e.pids||[e.pid])){const el=$('#seat-'+id);if(el){el.classList.add('winner');setTimeout(()=>el.classList.remove('winner'),3500)}}}
   if(navigator.vibrate)try{navigator.vibrate(kind==='adasi'?[80,40,80,40,200]:[200,60,200])}catch{}
   setTimeout(()=>d.remove(),kind==='adasi'?3500:4000);
 }
