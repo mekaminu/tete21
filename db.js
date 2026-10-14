@@ -39,7 +39,7 @@ function connOpts(u) {
 async function init() {
   if (DB_URL) {
     const { Pool } = require('pg');
-    pool = new Pool(Object.assign(connOpts(DB_URL), { max: 5, idleTimeoutMillis: 30000, connectionTimeoutMillis: 20000 }));
+    pool = new Pool(Object.assign(connOpts(DB_URL), { max: 5, idleTimeoutMillis: 30000, connectionTimeoutMillis: 10000, query_timeout: 15000 }));
     pool.on('error', e => console.error('db pool:', e.message));
     await pool.query(SCHEMA);
     console.log('accounts: Postgres ready');

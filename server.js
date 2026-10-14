@@ -279,15 +279,19 @@ wss.on('connection', (ws, req) => {
   ws.ip = String((req.headers['x-forwarded-for'] || '').split(',')[0] || req.socket.remoteAddress || '').trim();
   ws.on('pong', () => (ws.isAlive = true));
   sendRooms(ws);
-  // one message at a time per player, so a sign-in finishes before the next request uses it
-  let queue = Promise.resolve();
-  ws.on('message', raw => { queue = queue.then(() => handle(ws, raw)).catch(e => console.error('message error:', e && e.stack || e)); });
-  ws.on('close', () => { queue.then(() => { leave(ws, true); dropPresence(ws); }); });
+  // signing in finishes before anything that depends on who you are; game moves never wait on the database
+  let ident = Promise.resolve();
+  const fail = e => console.error('message error:', (e && e.stack) || e);
+  ws.on('message', raw => {
+    let m; try { m = JSON.parse(raw); } catch { return; }
+    if (!m || typeof m !== 'object') return;
+    if (m.type === 'id' || m.type === 'signup' || m.type === 'signin' || m.type === 'signout') ident = ident.then(() => handle(ws, m)).catch(fail);
+    else ident.then(() => handle(ws, m)).catch(fail);
+  });
+  ws.on('close', () => { ident.then(() => { leave(ws, true); dropPresence(ws); }); });
 });
 
-async function handle(ws, raw) {
-  let m; try { m = JSON.parse(raw); } catch { return; }
-  if (!m || typeof m !== 'object') return;
+async function handle(ws, m) {
   const T = ws.table;
   switch (m.type) {
     // ----- identity -----
