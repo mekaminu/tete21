@@ -573,6 +573,31 @@ html[data-felt="midnight"] .felt .ring{border-color:rgba(217,178,95,.32)}
 .goldglow{position:fixed;inset:0;z-index:45;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(243,217,144,.38) 85%,rgba(217,178,95,.6) 100%)}
 .card.shine21{animation:shine21 .9s ease-out both}
 @keyframes shine21{0%{box-shadow:0 0 0 0 rgba(243,217,144,0)}30%{box-shadow:0 0 0 3px var(--gold-hi),0 0 26px rgba(243,217,144,.9);transform:translateY(-10px) scale(1.06)}100%{box-shadow:0 2px 4px rgba(0,0,0,.4),0 6px 14px rgba(0,0,0,.3);transform:none}}
+/* tonight's scores */
+.tonight{padding:6px 8px 8px;display:flex;flex-direction:column;gap:2px;max-height:38%;overflow:auto;flex:none}
+.trow{display:grid;grid-template-columns:24px 22px minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:5px 6px;border-radius:8px;font-size:13px;animation:rowin .35s both}
+.trow.me{background:rgba(217,178,95,.09);box-shadow:inset 0 0 0 1px rgba(217,178,95,.28)}
+.trow .rk{font:700 12px var(--display);color:var(--fg-dim);text-align:center}
+.trow .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font:700 11px var(--display);color:#fff;background-size:cover;background-position:center}
+.trow .who{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trow .who small{color:var(--gold);margin-left:6px;font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+.trow .meta{font-size:11px;color:var(--fg-dim);white-space:nowrap}
+.trow .net,.pod .net{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+.net.up{color:var(--good)}.net.down{color:#ff7a70}.net.even{color:var(--fg-dim)}
+/* final scores */
+.results{text-align:center;overflow:hidden;position:relative}
+.podium{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:8px;margin:18px 0 8px}
+.pod{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.pod b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.pod small{color:var(--fg-dim);font-size:11px}
+.pod .pav{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font:700 18px var(--display);color:#fff;background-size:cover;background-position:center;border:2px solid rgba(255,255,255,.25);position:relative;box-shadow:0 6px 16px rgba(0,0,0,.5)}
+.pod.p1 .pav{width:64px;height:64px;font-size:24px;border-color:var(--gold-hi);box-shadow:0 0 0 3px rgba(243,217,144,.3),0 0 26px rgba(243,217,144,.5)}
+.pod .crown{position:absolute;top:-22px;left:50%;transform:translateX(-50%) rotate(-8deg);font-size:26px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6))}
+.pod .step{width:100%;margin-top:6px;border-radius:10px 10px 0 0;background:linear-gradient(180deg,#3a2a31,#1d1418);border:1px solid #4a3640;border-bottom:0;font:700 22px var(--display);color:var(--fg-dim);display:grid;place-items:center}
+.pod.p1 .step{height:74px;background:linear-gradient(180deg,#a17628,#5c4616);border-color:var(--gold);color:#fff3c4}
+.pod.p2 .step{height:52px}.pod.p3 .step{height:38px}
+.pod.empty{visibility:hidden}
+.res-rest{display:flex;flex-direction:column;gap:2px;text-align:left;margin-bottom:6px}
 [hidden]{display:none!important}
 .pill:empty{display:none}
 @media (max-width:520px){.row>.field:has(.seg){min-width:100%}}
@@ -723,7 +748,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
     <span class="spacer"></span>
     <button class="btn btn-gold" id="btn-invite">Invite<span class="badge" id="invite-badge" hidden></span></button>
     <button class="btn btn-ghost" id="btn-sidebet"><span class="long">Propose side bet</span><span class="short">Side bet</span></button>
-    <button class="btn btn-ghost" id="btn-side"><span class="long">Bets &amp; log</span><span class="short">Log</span><span class="badge" id="side-badge" hidden></span></button>
+    <button class="btn btn-ghost" id="btn-side"><span class="long">Scores &amp; log</span><span class="short">Scores</span><span class="badge" id="side-badge" hidden></span></button>
     <button class="btn btn-ghost" id="btn-rules2">Rules</button>
     <button class="btn btn-dark" id="btn-close" hidden>Close room</button><button class="btn btn-dark" id="btn-leave"><span class="long">Leave table</span><span class="short">Leave</span></button>
   </div>
@@ -753,7 +778,9 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
     </div>
     <div class="side-backdrop" id="side-backdrop"></div>
     <aside class="side" id="side">
-      <div class="side-head"><h3>Side bets</h3><span class="spacer"></span><button class="linkbtn" id="side-rules">Rules</button><button class="iconbtn" id="side-close" aria-label="Hide the side panel">&times;</button></div>
+      <div class="side-head"><h3>Tonight</h3><span class="spacer"></span><button class="linkbtn" id="side-rules">Rules</button><button class="iconbtn" id="side-close" aria-label="Hide the side panel">&times;</button></div>
+      <div class="tonight" id="tonight"><div class="note" style="margin:0">Scores start with the first hand.</div></div>
+      <h3>Side bets</h3>
       <div class="sbs" id="sbs"><div class="note" style="margin:0">No side bets yet. Propose one from the top bar.</div></div>
       <h3>Hand log</h3>
       <div class="log" id="log"></div>
@@ -926,6 +953,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 
 <div class="modal" id="m-addfriend"><div class="box invited"><div class="bigav" id="af-av"></div><h2 id="af-title">Add a friend?</h2><p>You'll see when they're online and can invite each other to tables.</p><div class="actions"><button class="btn btn-ghost" id="af-no">No thanks</button><button class="btn btn-gold" id="af-yes">Add friend</button></div></div></div>
 
+<div class="modal" id="m-results"><div class="box results"><h2 id="res-title">Final scores</h2><p class="note" id="res-sub"></p><div class="podium" id="res-podium"></div><div class="res-rest" id="res-rest"></div><div class="actions"><button class="btn btn-gold" id="res-done" type="button">Done</button></div></div></div>
 <div class="modal" id="m-player"><div class="box invited"><div class="bigav" id="pl-av"></div><h2 id="pl-name">Player</h2><p id="pl-body"></p><div class="actions" id="pl-actions"></div></div></div>
 
 <div class="modal sheet" id="m-treat"><div class="box"><div class="grab"></div>

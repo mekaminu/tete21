@@ -17,6 +17,7 @@ const LOG=[];
 // game sounds (sound.js); most stay quiet while the tab is in the background, "your turn" still rings
 const SND=(n,o)=>{if(document.hidden&&!(o&&o.bg))return;try{window.TeteSound&&window.TeteSound.play(n,o)}catch{}};
 const buzz=p=>{try{navigator.vibrate&&navigator.vibrate(p)}catch{}};
+const RM=()=>document.hidden||matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---------- helpers ----------
 function cardInner(c){return`<div class="c">${c.r}<small>${c.s}</small></div><div class="big">${c.s}</div><div class="c2">${c.r}<small>${c.s}</small></div>`}
@@ -146,7 +147,7 @@ function backToLobby(){rtcLeaveAll();S=null;ME=-1;SIDE_MANUAL=null;SIDE_HOLD=-1;
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches)$$('.tiles .tile').forEach((el,i)=>el.animate([{transform:'translateY(-40px) rotate(-8deg) scale(.9)',opacity:0},{transform:'translateY(0px) rotate(0deg) scale(1)',opacity:1}],{duration:520,delay:i*70,easing:'cubic-bezier(.2,1.25,.35,1)',fill:'backwards'}))}
 function onMessage(m){
   if(m.type==='joined'){hideReqbar();PENDING_JOIN=null;ME=m.id;if(m.token&&m.code!=='PRACTICE'){SEATS[m.code]=Object.assign({},SEATS[m.code],{token:m.token,rid:m.rid,keep:!!m.keep,t:Date.now()});saveSeats();setCurrent(m.code)}if(!S||$('#lobby').classList.contains('on')){S={code:m.code,players:[],sideBets:[],board:[],participants:[]};enterGame()}if(m.resumed)toast('Back at your seat');return}
-  if(m.type==='gone'){if(PENDING_JOIN&&m.code===PENDING_JOIN.code){const pj=PENDING_JOIN;PENDING_JOIN=null;if(SEATS[m.code]){delete SEATS[m.code];saveSeats()}send(pj.msg);return}if(m.code&&SEATS[m.code]){delete SEATS[m.code];saveSeats()}if(!m.code||CURRENT===m.code)setCurrent(null);if(!LOCALT){toast(m.msg,3500);if($('#game').classList.contains('on'))backToLobby()}renderRooms();return}
+  if(m.type==='gone'){if(PENDING_JOIN&&m.code===PENDING_JOIN.code){const pj=PENDING_JOIN;PENDING_JOIN=null;if(SEATS[m.code]){delete SEATS[m.code];saveSeats()}send(pj.msg);return}if(m.code&&SEATS[m.code]){delete SEATS[m.code];saveSeats()}if(!m.code||CURRENT===m.code)setCurrent(null);if(!LOCALT){if(m.final&&m.final.length){if($('#game').classList.contains('on'))backToLobby();setTimeout(()=>showResults(m.final,m.tn),350)}else{toast(m.msg,3500);if($('#game').classList.contains('on'))backToLobby()}}renderRooms();return}
   if(m.type==='seal'){const s=SEATS[m.code];if(s){s.seal=m.seal;s.rid=m.rid;s.keep=true;if(S&&S.tableName)s.name=S.tableName;saveSeats()}return}
   if(m.type==='you'){MYID=m.id;if(!m.acct)try{localStorage.setItem('tete.myid',m.id)}catch{}handlePendingFriend();return}
   if(m.type==='session'){SESSION=m.token;try{localStorage.setItem('tete.session',m.token)}catch{}closeModal('#m-auth');$('#au-pass').value='';if(m.welcome)setTimeout(()=>celebrate(m.welcome,'Welcome bonus','chips to start you off'),450);else toast('Signed in. Welcome back');return}
@@ -488,7 +489,7 @@ function celebrate(amount,title,sub){
 function applyState(o,fx){
   const prev=S;const before=prev&&prev.players&&prev.players.length?snapCards():new Map();
   S={tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,
-    players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||'',streak:a[17]||0})),
+    players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||'',streak:a[17]||0,bought:a[18]||0,wins:a[19]||0,best:a[20]||0})),
     sideBets:o.sbs.map(a=>({id:a[0],a:a[1],b:a[2],type:a[3],amt:a[4],mine:a[5],theirs:a[6],status:a[7],result:a[8],winner:a[9],desc:sbDesc(a[3],a[5],a[6])}))};
   ME=o.me;HOST=o.host===ME;
   $('#t-name').textContent=S.tableName;$('#t-wager').textContent=S.wager;$('#t-decks').textContent=`${S.decks} deck${S.decks>1?'s':''} · ${36*S.decks} cards`;
@@ -597,7 +598,7 @@ function renderBoard(){
   $('#slots').innerHTML=Array.from({length:n},(_,i)=>{const c=S.board[i];return`<div class="slot ${S.phase===5&&i===S.boardTop?'next':''}">${c&&!c.taken?cardHTML(c,FLY.has(c.id)?'incoming':''):''}<span class="idx">${i+1}</span></div>`}).join('');
   sizeBoard();
 }
-function renderSide(){setTimeout(updateSide,0);
+function renderSide(){setTimeout(updateSide,0);renderTonight();
   const el=$('#sbs');const bets=S.sideBets.filter(b=>b.status!=='pending');if(!bets.length){el.innerHTML='<div class="note" style="margin:0">No side bets yet. Propose one from the top bar.</div>';return}
   el.innerHTML=bets.slice().reverse().map(b=>{const A=S.players[b.a],B=S.players[b.b];let st=b.status;if(st==='won')st=b.winner===ME?'won':(b.a===ME||b.b===ME?'lost':'won');return`<div class="sb ${b.a===ME||b.b===ME?'mine':''}"><span class="st ${st}">${st}</span><b>${esc(A?A.name:'?')}</b> vs <b>${esc(B?B.name:'?')}</b> · ${fmt(b.amt)}<br><span style="color:var(--fg-dim)">${esc(b.desc)}</span>${b.result?`<br><span>${esc(b.result)}</span>`:''}</div>`}).join('');
 }
@@ -670,7 +671,11 @@ function drama(kind,e){
   setTimeout(()=>d.remove(),kind==='adasi'?3500:4000);
 }
 function banner(text,cls){const b=document.createElement('div');b.className='banner'+(cls?' '+cls:'');b.textContent=text;$('#fx').appendChild(b);setTimeout(()=>b.remove(),2300)}
-function confetti(){const fx=$('#fx');for(let i=0;i<40;i++){const c=document.createElement('i');c.className='confetti';c.style.left=Math.random()*100+'%';c.style.top='0';c.style.background=['var(--gold)','var(--cream)','var(--good)','var(--red)'][i%4];c.style.animationDelay=(Math.random()*.6)+'s';fx.appendChild(c);setTimeout(()=>c.remove(),2600)}}
+// confetti that really falls the whole way down whatever it rains on
+function confetti(box){const fx=box||$('#fx');if(!fx||RM())return;const H=((box||$('#table')||document.body).getBoundingClientRect().height||innerHeight)+40;
+  for(let i=0;i<40;i++){const c=document.createElement('i');c.className='confetti';c.style.left=Math.random()*100+'%';c.style.top='-14px';c.style.animation='none';c.style.background=['var(--gold)','var(--cream)','var(--good)','var(--red)'][i%4];fx.appendChild(c);
+    const dx=(Math.random()-.5)*90,r=360+Math.random()*540;
+    c.animate([{transform:'translate(0px,0px) rotate(0deg)',opacity:1},{offset:.85,opacity:1},{transform:`translate(${dx.toFixed(0)}px,${H.toFixed(0)}px) rotate(${r.toFixed(0)}deg)`,opacity:0}],{duration:1700+Math.random()*900,delay:Math.random()*600,easing:'cubic-bezier(.3,.1,.6,1)',fill:'backwards'}).onfinish=()=>c.remove();setTimeout(()=>c.remove(),3500)}}
 function seatEl(id){return id===ME?$('#mychips'):$('#seat-'+id)}
 let TICK=-1;
 (function ringLoop(){requestAnimationFrame(ringLoop);if(!S)return;$$('.seat').forEach(el=>{const pid=+el.id.slice(5);const ring=el.querySelector('.ring'),tl=el.querySelector('.tleft');if(!ring)return;const on=S.turn===pid&&S.deadline>0&&(S.phase===3||S.phase===5);ring.hidden=!on;tl.hidden=!on;if(pid===ME&&!on)TICK=-1;if(!on)return;const secs=S.timer||20;const left=Math.max(0,(S.deadline-Date.now())/1000);const pct=Math.min(1,left/secs);ring.style.setProperty('--pct',pct);ring.style.setProperty('--ringc',pct>.5?'var(--good)':pct>.25?'var(--warn)':'var(--bad)');tl.textContent=Math.ceil(left);const urgent=left<=5;ring.classList.toggle('urgent',urgent);tl.classList.toggle('urgent',urgent);
@@ -778,8 +783,27 @@ function treatFx(from,to,item){const t=TREATS[item];if(!t)return;SND('pour',{bg:
     const sx=a.left+a.width/2-15,sy=a.top+a.height/2-15,ex=b.left-6,ey=b.top-8;e.style.left=sx+'px';e.style.top=sy+'px';const dx=ex-sx,dy=ey-sy;
     const an=e.animate([{transform:'translate(0px,0px) scale(.4) rotate(-20deg)',opacity:0},{offset:.15,opacity:1},{offset:.55,transform:`translate(${(dx*.5).toFixed(1)}px,${(dy*.5-70).toFixed(1)}px) scale(1.5) rotate(12deg)`},{transform:`translate(${dx.toFixed(1)}px,${dy.toFixed(1)}px) scale(.7) rotate(0deg)`,opacity:1}],{duration:900,delay:i*130,easing:'cubic-bezier(.3,.7,.35,1)',fill:'backwards'});
     an.onfinish=()=>{e.remove();if(!landed){landed=true;SND('clink',{bg:true})}const tr=$(`#seat-${pid} .treat`);if(tr)tr.animate([{transform:'scale(2.2)'},{transform:'scale(1)'}],{duration:380,easing:'cubic-bezier(.2,1.4,.4,1)'})};setTimeout(()=>e.remove(),2500)})}
+// ---------- tonight: who's up and who's down since they sat ----------
+const signed=n=>(n>0?'+':n<0?'−':'±')+fmt(Math.abs(n));
+const avOf=(r,me)=>me?avStyle(AV,esc(r.name[0].toUpperCase())):r.bot||r.isBot?{style:`background:${r.color}`,text:esc(r.name[0].toUpperCase())}:avStyle(Array.isArray(r.av)?(r.av[0]==='e'?{kind:'emoji',emoji:r.av[1]}:{kind:'initial',color:r.av[1]}):r.av,esc(r.name[0].toUpperCase()));
+let TSIG='';
+function renderTonight(){const box=$('#tonight');if(!box||!S)return;
+  if(!S.started){if(TSIG!=='-'){TSIG='-';box.innerHTML='<div class="note" style="margin:0">Scores start with the first hand.</div>'}return}
+  const rows=S.players.filter(p=>!p.gone).map(p=>({p,net:p.chips-(p.bought||S.buyIn)})).sort((a,b)=>b.net-a.net||b.p.wins-a.p.wins);
+  const sig=rows.map(r=>[r.p.id,r.net,r.p.wins,r.p.best,r.p.name,r.p.id===ME].join(':')).join('|');if(sig===TSIG)return;TSIG=sig;
+  box.innerHTML=rows.map((r,i)=>{const p=r.p,a=avOf(p,p.id===ME),medal=r.net>0&&i<3?['🥇','🥈','🥉'][i]:String(i+1),cls=r.net>0?'up':r.net<0?'down':'even';
+    return`<div class="trow${p.id===ME?' me':''}"><span class="rk">${medal}</span><span class="dot" style="${a.style}">${a.text}</span><span class="who">${esc(p.name)}${p.id===ME?'<small>you</small>':''}</span><span class="meta">${p.wins?p.wins+' won':''}${p.best>=2?' · 🔥'+p.best:''}</span><span class="net ${cls}">${signed(r.net)}</span></div>`}).join('')}
+// the host closed the room: everyone sees the final table, winner on top
+function showResults(final,tn){
+  const w=final[0];$('#res-title').textContent=(tn&&tn!=='Table'?tn+': ':'')+'final scores';
+  $('#res-sub').textContent=w.net>0?`${w.name} takes the night, ${signed(w.net)}.`:'Nobody finished up. The house thanks you all.';
+  const pod=(r,place)=>{if(!r)return'<div class="pod empty"></div>';const a=avOf(r,false);return`<div class="pod p${place}"><div class="pav" style="${a.style}">${a.text}${place===1&&r.net>0?'<span class="crown">👑</span>':''}</div><b>${esc(r.name)}</b><span class="net ${r.net>0?'up':r.net<0?'down':'even'}">${signed(r.net)}</span><small>${r.wins} won${r.best>=2?' · best run '+r.best:''}</small><div class="step">${place}</div></div>`};
+  $('#res-podium').innerHTML=pod(final[1],2)+pod(final[0],1)+pod(final[2],3);
+  $('#res-rest').innerHTML=final.slice(3).map((r,i)=>{const a=avOf(r,false);return`<div class="trow"><span class="rk">${i+4}</span><span class="dot" style="${a.style}">${a.text}</span><span class="who">${esc(r.name)}</span><span class="meta">${r.wins?r.wins+' won':''}</span><span class="net ${r.net>0?'up':r.net<0?'down':'even'}">${signed(r.net)}</span></div>`}).join('');
+  openModal('#m-results');SND('sting',{bg:true});buzz([40,30,90]);
+  if(!RM()){const b=$('#m-results .box');$$('#res-podium .pod').forEach((el,i)=>el.animate([{transform:'translateY(40px)',opacity:0},{transform:'none',opacity:1}],{duration:520,delay:[260,0,420][i],easing:'cubic-bezier(.2,1.3,.4,1)',fill:'backwards'}));if(w.net>0)setTimeout(()=>confetti(b),300)}}
+$('#res-done').onclick=()=>closeModal('#m-results');
 // ---------- hot streaks and twenty-one ----------
-const RM=()=>document.hidden||matchMedia('(prefers-reduced-motion: reduce)').matches;
 // glowing bits that shoot out from a seat: embers for a streak, gold sparks for 21, smoke when a run ends
 function sparks(pid,cls,n,spread,reach,up){const a=seatCenterRect(pid);if(!a||RM())return;const cx=a.left+a.width/2,cy=a.top+a.height/2;
   for(let i=0;i<n;i++){const e=document.createElement('div');e.className=cls;layer().appendChild(e);const ang=-Math.PI/2+(Math.random()-.5)*spread,dist=reach*(.45+Math.random()*.55),dx=Math.cos(ang)*dist,dy=Math.sin(ang)*dist-(up||0),s=.6+Math.random()*.8;

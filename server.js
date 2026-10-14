@@ -468,7 +468,8 @@ async function handle(ws, m) {
       closedCodes.add(T.code);
       const conns = T.players.map(p => p.conn).filter(Boolean);
       unregister(T); persistAll();
-      for (const c of conns) { c.table = null; c.pid = -1; send(c, { type: 'gone', code: T.code.toUpperCase(), msg: 'The host closed the room.' }); sendRooms(c); if (c.me) presenceChanged(c.me); }
+      const final = T.started ? T.standings() : null;
+      for (const c of conns) { c.table = null; c.pid = -1; send(c, { type: 'gone', code: T.code.toUpperCase(), msg: 'The host closed the room.', final, tn: T.tableName }); sendRooms(c); if (c.me) presenceChanged(c.me); }
       break;
     }
 
