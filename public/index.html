@@ -385,6 +385,8 @@ details.more summary small{color:var(--fg-dim);font-weight:400;font-size:12.5px}
 .me-head{display:flex;align-items:center;gap:14px;margin-bottom:14px}
 .me-head .avprev{margin:0;cursor:pointer;flex:none}
 #m-me.ask .me-more{display:none}
+.ask-only{display:none}
+#m-me.ask:not(.acct) .ask-only{display:block}
 #m-me.ask #me-done{width:100%;font-size:17px;padding:14px}
 .me-head h2{margin-bottom:2px!important}
 .setrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #2a1f25}
@@ -804,7 +806,8 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <div class="setrow"><span>Game sounds</span><div class="seg sm"><button type="button" id="snd-on">On</button><button type="button" id="snd-off">Off</button></div></div>
 <div class="setrow"><label for="snd-vol">Volume</label><input type="range" id="snd-vol" min="0" max="100" step="5"></div>
 <div class="setrow"><span>Launch intro <button class="linkbtn" id="intro-replay" type="button" style="margin-left:8px;font-size:13px">Watch it</button></span><div class="seg sm"><button type="button" id="intro-on">On</button><button type="button" id="intro-off">Off</button></div></div>
-</div><div class="actions"><button class="btn btn-ghost me-more" id="me-friendlink" type="button">Share my friend link</button><button class="btn btn-ghost me-more" id="av-clear" type="button">Use my initial</button><button class="btn btn-dark me-more acct-only" id="me-signout" type="button">Sign out</button><button class="btn btn-gold" id="me-done" type="button">Done</button></div></div></div>
+</div><div class="actions"><button class="btn btn-ghost me-more" id="me-friendlink" type="button">Share my friend link</button><button class="btn btn-ghost me-more" id="av-clear" type="button">Use my initial</button><button class="btn btn-dark me-more acct-only" id="me-signout" type="button">Sign out</button><button class="btn btn-gold" id="me-done" type="button">Done</button></div>
+<p class="note ask-only" style="text-align:center;margin-top:12px">Want to keep your chips and stats? <button class="linkbtn" id="me-ask-up" type="button">Make a free account</button> or <button class="linkbtn" id="me-ask-in" type="button">sign in</button>.</p></div></div>
 
 <div class="modal sheet" id="m-auth"><div class="box"><div class="grab"></div>
 <h2 id="auth-title">Create your account</h2>

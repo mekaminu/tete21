@@ -422,7 +422,7 @@ function renderHistory(){
 $('#btn-wheel').onclick=()=>openWheel();
 // sign up and sign in
 let AUTH_MODE='up';
-function openAuth(mode,why){AUTH_MODE=mode||'up';setAuthMode(AUTH_MODE);$('#auth-why').textContent=why||(AUTH_MODE==='up'?'Keep your chips, friends and history on any phone or computer. You start with 10,000 chips.':'Welcome back. Sign in to get your chips and friends.');$('#auth-err').hidden=true;$('#m-me').classList.remove('on');openModal('#m-auth');SND('flick');setTimeout(()=>{try{$('#au-user').focus()}catch{}},380)}
+function openAuth(mode,why){if(AFTER_NAME){PENDING_ACCT=AFTER_NAME;AFTER_NAME=null}AUTH_MODE=mode||'up';setAuthMode(AUTH_MODE);$('#auth-why').textContent=why||(AUTH_MODE==='up'?'Keep your chips, friends and history on any phone or computer. You start with 10,000 chips.':'Welcome back. Sign in to get your chips and friends.');$('#auth-err').hidden=true;$('#m-me').classList.remove('on');openModal('#m-auth');SND('flick');setTimeout(()=>{try{$('#au-user').focus()}catch{}},380)}
 function setAuthMode(md){AUTH_MODE=md;$('#auth-up').classList.toggle('on',md==='up');$('#auth-in').classList.toggle('on',md==='in');$('#auth-title').textContent=md==='up'?'Create your account':'Sign in';$('#au-go').textContent=md==='up'?'Create account':'Sign in';$('#au-pass').setAttribute('autocomplete',md==='up'?'new-password':'current-password');$('#au-hint').hidden=md!=='up';$('#auth-err').hidden=true}
 function showAuthErr(t){const e=$('#auth-err');e.textContent=t;e.hidden=false;e.style.animation='none';void e.offsetWidth;e.style.animation='';$('#au-go').disabled=false;SND('error')}
 $('#auth-up').onclick=()=>setAuthMode('up');$('#auth-in').onclick=()=>setAuthMode('in');
@@ -431,7 +431,7 @@ $('#au-go').onclick=()=>{const u=$('#au-user').value.trim(),pw=$('#au-pass').val
   $('#auth-err').hidden=true;$('#au-go').disabled=true;setTimeout(()=>{$('#au-go').disabled=false},3000);send({type:AUTH_MODE==='up'?'signup':'signin',username:u,password:pw,display:myName()||u.replace(/^@/,''),av:publicAv()})};
 $('#au-user').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#au-pass').focus()}});
 $('#au-pass').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#au-go').click()}});
-$('#me-signup').onclick=()=>openAuth('up');$('#me-signin').onclick=()=>openAuth('in');$('#fr-signup').onclick=()=>{closeModal('#m-friends');openAuth('up')};
+$('#me-signup').onclick=()=>openAuth('up');$('#me-signin').onclick=()=>openAuth('in');$('#me-ask-up').onclick=()=>openAuth('up');$('#me-ask-in').onclick=()=>openAuth('in');$('#fr-signup').onclick=()=>{closeModal('#m-friends');openAuth('up')};
 $('#me-signout').onclick=()=>{const b=$('#me-signout');if(!b.dataset.arm){b.dataset.arm='1';b.textContent='Tap again to sign out';setTimeout(()=>{delete b.dataset.arm;b.textContent='Sign out'},3500);return}send({type:'signout'});closeModal('#m-me')};
 function showNeedChips(msg){$('#btn-join').disabled=false;$('#btn-start').disabled=false;$('#join-note').textContent='';closeSheets();$('#info-title').textContent='Not enough chips';const rd=ACCT&&ACCT.bonus&&ACCT.bonus.ready;$('#info-body').innerHTML=esc(msg)+(rd?'<p style="margin:14px 0 0"><button class="btn btn-gold" id="info-wheel" type="button">Spin the daily wheel</button></p>':'');openModal('#m-info');const b=$('#info-wheel');if(b)b.onclick=()=>{closeModal('#m-info');openWheel()};SND('error')}
 // friend requests by username
