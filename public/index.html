@@ -804,6 +804,7 @@ $('#btn-spk').onclick=()=>{AVS.spk=!AVS.spk;$$('.seat video').forEach(v=>{if(!v.
 // browsers block remote audio until a tap: resume on first interaction
 document.addEventListener('pointerdown',()=>{if(ACTX&&ACTX.state==='suspended')ACTX.resume();$$('.seat video').forEach(v=>v.play().catch(()=>{}))},{passive:true});
 
+if(location.search.includes('demo'))window.__fx=runFx;
 connect();
 })();
 </script>
