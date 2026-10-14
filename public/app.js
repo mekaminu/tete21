@@ -81,7 +81,7 @@ $('#snd-vol').oninput=()=>{if(window.TeteSound)TeteSound.setVolume(+$('#snd-vol'
 $('#snd-vol').onchange=()=>SND('chips');
 $('#intro-on').onclick=()=>{try{localStorage.removeItem('tete.intro')}catch{}renderSoundSettings()};
 $('#intro-off').onclick=()=>{try{localStorage.setItem('tete.intro','off')}catch{}renderSoundSettings()};
-$('#intro-replay').onclick=()=>{if(S&&!$('#lobby').classList.contains('on')){toast('Leave the table first, then watch the intro');return}location.href='/?intro'};
+$('#intro-replay').onclick=()=>{if(S&&!$('#lobby').classList.contains('on')){toast('Leave the table first, then watch the intro');return}if(window.TeteSound)TeteSound.unlock();$('#m-me').classList.remove('on');AFTER_NAME=null;window.addEventListener('tete:introexit',()=>{ENTERED=false;lobbyEnter()},{once:true});setTimeout(()=>{if(window.TeteIntro)window.TeteIntro.play();else location.href='/?intro'},250)};
 
 // ---------- choosers: number chips and on/off pairs ----------
 function otherOf(o){return o.parentElement.querySelector(`.other-in[data-for="${o.dataset.for}"]`)}

@@ -3,7 +3,11 @@
 // TETE stamps down in gold and an Ace and a 10 flip over to make 21.
 (() => {
   'use strict';
-  const root = document.getElementById('intro'); if (!root) return;
+  const mark = v => { window.TETE_INTRO = v; try { window.dispatchEvent(new Event('tete:intro' + v)); } catch {} };
+  let playing = false;
+  // replay on demand (the profile's "Watch it"): after a tap the browser lets it play with sound
+  window.TeteIntro = { play() { if (playing) return; let r = document.getElementById('intro'); if (!r) { r = document.createElement('div'); r.id = 'intro'; r.setAttribute('aria-hidden', 'true'); document.body.appendChild(r); } play(r); } };
+  const root0 = document.getElementById('intro'); if (!root0) return;
   const qs = new URLSearchParams(location.search), force = qs.has('intro');
   let skip = qs.has('nointro') || (!!navigator.webdriver && !force);
   try {
@@ -12,9 +16,11 @@
     const cur = localStorage.getItem('tete.current'), seats = JSON.parse(localStorage.getItem('tete.seats') || '{}') || {}, s = cur && seats[cur];
     if (!force && s && s.token && (s.keep || Date.now() - (s.t || 0) < 6 * 3600e3)) skip = true;
   } catch {}
-  const mark = v => { window.TETE_INTRO = v; try { window.dispatchEvent(new Event('tete:intro' + v)); } catch {} };
-  if (skip) { root.remove(); mark('done'); return; }
-  mark('play');
+  if (skip) { root0.remove(); mark('done'); return; }
+  play(root0);
+
+  function play(root) {
+  playing = true; mark('play');
   try { document.fonts && document.fonts.load('700 64px Cinzel'); } catch {}
 
   const SND = (n, d, arg) => { try { window.TeteSound && window.TeteSound.play(n, { delay: d, arg }); } catch {} };
@@ -49,7 +55,7 @@
 
   let exiting = false, finished = false; const timers = [];
   const later = (fn, ms) => timers.push(setTimeout(fn, ms));
-  function finish() { if (finished) return; finished = true; timers.forEach(clearTimeout); root.remove(); mark('done'); }
+  function finish() { if (finished) return; finished = true; playing = false; timers.forEach(clearTimeout); root.remove(); mark('done'); }
   function skipNow() {
     if (exiting) return; exiting = true; timers.forEach(clearTimeout); mark('exit');
     const a = root.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: 'ease-out', fill: 'forwards' });
@@ -182,4 +188,5 @@
     A($('.rays'), [{ opacity: 1 }, { opacity: 0 }], { duration: 400 });
     later(finish, 720);
   }, t.exit);
+  }
 })();
