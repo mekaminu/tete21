@@ -356,11 +356,15 @@ function askAddFriend(id,name){const a=avStyle(null,(name||'?')[0].toUpperCase()
 function addFriend(id,name,av,viaLink){if(!id||id===MYID)return;
   if(ACCT){if(viaLink)send({type:'friend_add',id});else send({type:'friend_req',id});return}
   FRIENDS[id]=Object.assign({},FRIENDS[id],{name:name||(FRIENDS[id]&&FRIENDS[id].name)||'Friend',av:av||(FRIENDS[id]&&FRIENDS[id].av)||null,added:Date.now()});saveFriends();send({type:'friend_add',id});sendMe();toast(`${name||'Friend'} added`);SND('join');renderFriends();if(S)renderSeats()}
-function openPlayer(pid){const p=S&&S.players[pid];if(!p||p.isBot||pid===ME)return;const id=IDS[pid];const a=avStyle(p.av,p.name[0].toUpperCase());const el=$('#pl-av');el.style.cssText=a.style;el.textContent=a.text;
-  $('#pl-name').textContent=p.name;$('#pl-body').textContent=`${fmt(p.chips)} chips${p.away?' · away':''}`;
-  const isF=id&&FR()[id];$('#pl-actions').innerHTML=(!id?'<span class="note">Not on this table right now</span>':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-gold" id="pl-add">Add as a friend</button>')+'<button class="btn btn-ghost" data-close>Close</button>';
+function openPlayer(pid){const p=S&&S.players[pid];if(!p||pid===ME)return;const id=p.isBot?null:IDS[pid];const a=p.isBot?{style:`background:${p.color}`,text:p.name[0].toUpperCase()}:avStyle(p.av,p.name[0].toUpperCase());const el=$('#pl-av');el.style.cssText=a.style;el.textContent=a.text;
+  $('#pl-name').textContent=p.name;$('#pl-body').textContent=`${fmt(p.chips)} chips${p.isBot?' · computer player':''}${p.away?' · away':''}`;
+  const isF=id&&FR()[id];const canSpray=S.started&&ME>=0&&!p.gone;
+  $('#pl-actions').innerHTML=(canSpray?'<button class="btn btn-gold" id="pl-spray">Spray money 💸</button><button class="btn btn-ghost" id="pl-treat">Send a treat 🍹</button>':'')+(p.isBot?'':(!id?'':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-ghost" id="pl-add">Add as a friend</button>'))+'<button class="btn btn-ghost" data-close>Close</button>';
   const add=$('#pl-add');if(add)add.onclick=()=>{closeModal('#m-player');addFriend(id,p.name,p.av)};
-  openModal('#m-player')}
+  const sp=$('#pl-spray');if(sp)sp.onclick=()=>{const w=S.wager||50,mine=S.players[ME]?S.players[ME].chips:0;$('#pl-body').innerHTML=`Spray ${esc(p.name)} from your ${fmt(mine)} chips:<div class="opts sprayopts">${[w,w*2,w*5,w*10].map(v=>`<button type="button" data-amt="${v}" ${v>mine?'disabled':''}>${fmt(v)}</button>`).join('')}</div>`;
+    $$('#pl-body [data-amt]').forEach(b=>b.onclick=()=>{closeModal('#m-player');act({type:'spray',to:pid,amt:+b.dataset.amt})});SND('flick')};
+  const tb=$('#pl-treat');if(tb)tb.onclick=()=>{closeModal('#m-player');openTreats(pid)};
+  openModal('#m-player');SND('flick')}
 function onPresence(list){const first=!PRES_READY;PRES_READY=true;const lobby=$('#lobby').classList.contains('on');
   for(const p of list){const was=PRES[p.id];PRES[p.id]={on:!!p.on,room:p.room||null};const f=FR()[p.id];if(!f)continue;
     if(p.on){f.seen=Date.now();if(p.name)f.name=p.name;if(p.av!==undefined)f.av=p.av;if(!first&&lobby&&(!was||!was.on)){toast(`${f.name||'A friend'} is online`,2200);SND('pop')}}
@@ -484,7 +488,7 @@ function celebrate(amount,title,sub){
 function applyState(o,fx){
   const prev=S;const before=prev&&prev.players&&prev.players.length?snapCards():new Map();
   S={tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,
-    players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555'})),
+    players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||''})),
     sideBets:o.sbs.map(a=>({id:a[0],a:a[1],b:a[2],type:a[3],amt:a[4],mine:a[5],theirs:a[6],status:a[7],result:a[8],winner:a[9],desc:sbDesc(a[3],a[5],a[6])}))};
   ME=o.me;HOST=o.host===ME;
   $('#t-name').textContent=S.tableName;$('#t-wager').textContent=S.wager;$('#t-decks').textContent=`${S.decks} deck${S.decks>1?'s':''} · ${36*S.decks} cards`;
@@ -533,6 +537,8 @@ function runFx(e){
     case 'series':drama('series',e);break;
     case 'sel':if(e.pid===ME){const el=$(`#myhand .card[data-id="${e.id}"]`);el&&el.classList.add('pop')}break;
     case 'shuffle':shuffleFx();break;
+    case 'spray':sprayFx(e.from,e.to,e.amt);break;
+    case 'treat':treatFx(e.from,e.to,e.item);break;
   }
 }
 
@@ -547,9 +553,9 @@ function renderPhases(){$('#phases').innerHTML=PHASES.map((p,i)=>`<span class="p
 function renderSeats(fresh){
   const n=S.players.length, root=$('#seats');const meIdx=Math.max(0,ME);
   if(fresh||lastCount!==n||lastME!==ME){lastCount=n;lastME=ME;const L=seatLayout(n);const D=$('.dealer');D.style.left=L.dealer.left+'%';D.style.top=L.dealer.top+'%';D.style.right='auto';D.style.transform=`translate(${L.dealer.tx}%,${L.dealer.ty}%)`;root.innerHTML=S.players.map((p,i)=>{const pos=L.seat((i-meIdx+n)%n);const a=p.isBot?{style:`background:${p.color}`,text:p.name[0].toUpperCase()}:(p.id===ME?avStyle(AV,p.name[0].toUpperCase()):avStyle(p.av,p.name[0].toUpperCase()));
-    return`<div class="seat" id="seat-${p.id}" data-side="${pos.side}" style="left:${pos.left}%;top:${pos.top}%;transform:translate(${pos.tx}%,${pos.ty}%);animation:seatin .6s ${i*.08}s both"><div class="av" style="${a.style}" ${p.id===ME?'title="Change your avatar"':''}>${a.text}<div class="vid"><video autoplay playsinline ${p.id===ME?'muted':''}></video></div><span class="rec"></span><span class="mic"></span><div class="ring" hidden></div><div class="tleft" hidden></div></div><div class="nm"></div><div class="chips"><span class="chip s c25"></span><span class="num"></span></div><div class="mini"></div><div class="tot"></div></div>`}).join('');
+    return`<div class="seat" id="seat-${p.id}" data-side="${pos.side}" style="left:${pos.left}%;top:${pos.top}%;transform:translate(${pos.tx}%,${pos.ty}%);animation:seatin .6s ${i*.08}s both"><div class="av" style="${a.style}" ${p.id===ME?'title="Change your avatar"':''}>${a.text}<div class="vid"><video autoplay playsinline ${p.id===ME?'muted':''}></video></div><span class="rec"></span><span class="mic"></span><span class="treat"></span><div class="ring" hidden></div><div class="tleft" hidden></div></div><div class="nm"></div><div class="chips"><span class="chip s c25"></span><span class="num"></span></div><div class="mini"></div><div class="tot"></div></div>`}).join('');
     if(ME>=0){const me=$('#seat-'+ME+' .av');if(me)me.onclick=openAv}
-    S.players.forEach(p=>{if(p.isBot||p.id===ME)return;const el=$('#seat-'+p.id);if(!el)return;el.classList.add('human');el.querySelector('.av').onclick=()=>openPlayer(p.id)});
+    S.players.forEach(p=>{if(p.id===ME)return;const el=$('#seat-'+p.id);if(!el)return;el.classList.add('human');el.querySelector('.av').onclick=()=>openPlayer(p.id)});
     rtcAttachAll();
   }
   S.players.forEach(p=>{
@@ -557,6 +563,7 @@ function renderSeats(fresh){
     el.classList.toggle('friend',!p.isBot&&p.id!==ME&&!!IDS[p.id]&&!!FR()[IDS[p.id]]);el.classList.toggle('turn',S.turn===p.id);el.classList.toggle('sitout',p.sitout||p.gone||p.away||(S.started&&!S.participants.includes(p.id)));
     const mic=p.id===ME?AVS.mic:p.mic,cam=p.id===ME?AVS.cam:p.cam;el.classList.toggle('video',!!cam&&!p.isBot);el.classList.toggle('mic-on',!!mic);el.classList.toggle('mic-off',!mic);
     let btn=el.querySelector('.btn-d');if(S.dealer===p.id&&S.started){if(!btn){btn=document.createElement('div');btn.className='btn-d';btn.textContent='D';el.querySelector('.av').appendChild(btn)}}else if(btn)btn.remove();
+    const tr=el.querySelector('.treat'),te=p.treat&&TREATS[p.treat]?TREATS[p.treat].e:'';if(tr&&tr.textContent!==te)tr.textContent=te;
     const mini=el.querySelector('.mini');
     const showDrop=p.dropped&&S.phase>=3&&S.phase<=4;const dropHTML=showDrop?`<div class="dropwrap ${S.trickWinner===p.id?'win':''}">${cardHTML(p.dropped,FLY.has(p.dropped.id)?'incoming':'')}<small>drop</small></div>`:'';
     if(p.id!==ME){const show=p.revealed;mini.innerHTML=dropHTML+p.hand.map(c=>show&&c.r!==undefined?cardHTML(c,FLY.has(c.id)?'incoming':''):`<div class="card back" data-id="${c.id}"></div>`).join('');
@@ -727,6 +734,33 @@ function motion(prev,before){
     setCount(p.id)}
   for(const t of taken){const to=avRect(S.turn>=0?S.turn:prev.turn);if(to)ghost({from:t.r,to,c:t.c,w:t.r.width,h:t.r.height,dur:460,endScale:.45,fade:true})}
 }
+// ---------- spray money and treats ----------
+const TREATS=(window.TeteEngine&&window.TeteEngine.TREATS)||{};
+let TREAT_TO='all';
+function openTreats(to){if(!S||!S.started||ME<0){toast('Treats are for when the game is on');return}TREAT_TO=to===undefined?'all':to;renderTreats();openModal('#m-treat');SND('flick')}
+function renderTreats(){const others=S.players.filter(p=>!p.gone&&p.id!==ME),n=S.players.filter(p=>!p.gone).length,mine=S.players[ME]?S.players[ME].chips:0;
+  const who=[[ME,'Me']].concat(others.map(p=>[p.id,p.name])).concat([['all',`Everyone (${n})`]]);
+  $('#treat-who').innerHTML=who.map(([v,l])=>`<button type="button" data-to="${v}" class="${String(v)===String(TREAT_TO)?'on':''}">${esc(l)}</button>`).join('');
+  $$('#treat-who button').forEach(b=>b.onclick=()=>{TREAT_TO=b.dataset.to==='all'?'all':+b.dataset.to;renderTreats();SND('flick')});
+  const k=TREAT_TO==='all'?n:1;
+  $('#treats').innerHTML=Object.entries(TREATS).map(([id,t])=>`<button class="tbtn" type="button" data-item="${id}" ${t.price*k>mine?'disabled':''}><span class="e">${t.e}</span><b>${esc(t.n)}</b><small>${fmt(t.price*k)}</small></button>`).join('');
+  $$('#treats .tbtn').forEach(b=>b.onclick=()=>{closeModal('#m-treat');act({type:'treat',item:b.dataset.item,to:TREAT_TO})})}
+$('#btn-treat').onclick=()=>openTreats('all');
+function seatCenterRect(pid){return rectOf($(`#seat-${pid} .av`))}
+function sprayFx(from,to,amt){const a=seatCenterRect(from),b=seatCenterRect(to);SND('spray',{bg:true});if(S.players[from])bubble(from,'Oya! 💸',1500);
+  if(!a||!b||document.hidden)return;const w=S.wager||50,n=Math.max(6,Math.min(18,Math.round(4+amt/w*2)));
+  for(let i=0;i<n;i++){const e=document.createElement('div');e.className='naira';e.textContent=fmt(Math.max(1,Math.round(amt/n)));layer().appendChild(e);
+    const sx=a.left+a.width/2-19,sy=a.top+a.height/2-10,ex=b.left+b.width/2-19+(Math.random()-.5)*46,ey=b.top+b.height/2-10+(Math.random()-.5)*30;e.style.left=sx+'px';e.style.top=sy+'px';
+    const dx=ex-sx,dy=ey-sy,lift=60+Math.random()*60,r1=(Math.random()-.5)*120,r2=(Math.random()-.5)*360;
+    const an=e.animate([{transform:'translate(0px,0px) rotate(0deg) rotateY(0deg) scale(.5)',opacity:0},{offset:.12,opacity:1},{offset:.5,transform:`translate(${(dx*.5+(Math.random()-.5)*60).toFixed(1)}px,${(dy*.5-lift).toFixed(1)}px) rotate(${r1.toFixed(0)}deg) rotateY(180deg) scale(1.05)`},{offset:.85,transform:`translate(${dx.toFixed(1)}px,${dy.toFixed(1)}px) rotate(${r2.toFixed(0)}deg) rotateY(360deg) scale(.9)`,opacity:1},{transform:`translate(${dx.toFixed(1)}px,${(dy+14).toFixed(1)}px) rotate(${(r2+30).toFixed(0)}deg) rotateY(360deg) scale(.8)`,opacity:0}],{duration:1150+Math.random()*350,delay:i*75,easing:'cubic-bezier(.3,.6,.4,1)',fill:'backwards'});
+    an.onfinish=()=>e.remove();setTimeout(()=>e.remove(),3200)}
+  const tel=$('#seat-'+to);if(tel)setTimeout(()=>{tel.classList.add('winner');setTimeout(()=>tel.classList.remove('winner'),1400)},700);buzz(30)}
+function treatFx(from,to,item){const t=TREATS[item];if(!t)return;SND('pour',{bg:true});if(to.length>1)bubble(from,'Round on me! 🥂',1800);
+  const a=seatCenterRect(from);let landed=false;
+  to.forEach((pid,i)=>{const b=seatCenterRect(pid);if(!a||!b||document.hidden)return;const e=document.createElement('div');e.className='flytreat';e.textContent=t.e;layer().appendChild(e);
+    const sx=a.left+a.width/2-15,sy=a.top+a.height/2-15,ex=b.left-6,ey=b.top-8;e.style.left=sx+'px';e.style.top=sy+'px';const dx=ex-sx,dy=ey-sy;
+    const an=e.animate([{transform:'translate(0px,0px) scale(.4) rotate(-20deg)',opacity:0},{offset:.15,opacity:1},{offset:.55,transform:`translate(${(dx*.5).toFixed(1)}px,${(dy*.5-70).toFixed(1)}px) scale(1.5) rotate(12deg)`},{transform:`translate(${dx.toFixed(1)}px,${dy.toFixed(1)}px) scale(.7) rotate(0deg)`,opacity:1}],{duration:900,delay:i*130,easing:'cubic-bezier(.3,.7,.35,1)',fill:'backwards'});
+    an.onfinish=()=>{e.remove();if(!landed){landed=true;SND('clink',{bg:true})}const tr=$(`#seat-${pid} .treat`);if(tr)tr.animate([{transform:'scale(2.2)'},{transform:'scale(1)'}],{duration:380,easing:'cubic-bezier(.2,1.4,.4,1)'})};setTimeout(()=>e.remove(),2500)})}
 // the dealer riffles the deck in the middle of the felt before each deal
 function shuffleFx(){
   if(document.hidden||matchMedia('(prefers-reduced-motion: reduce)').matches){SND('shuffle');return}

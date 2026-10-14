@@ -23,6 +23,9 @@ function cleanAv(av) {
   return null;
 }
 function newToken() { return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
+// treats you can buy for your seat, a friend or the whole table (play chips go to the house)
+const TREATS = { chapman: { e: '🍹', n: 'Chapman', price: 30 }, palm: { e: '🥥', n: 'Palm wine', price: 40 }, zobo: { e: '🍷', n: 'Zobo', price: 25 }, malt: { e: '🍺', n: 'Malt', price: 30 }, suya: { e: '🍢', n: 'Suya', price: 60 }, puff: { e: '🍩', n: 'Puff-puff', price: 20 }, jollof: { e: '🍛', n: 'Jollof', price: 80 }, pepper: { e: '🍲', n: 'Pepper soup', price: 70 } };
+const THANKS = ['E se o! 🙏', 'Thank you o!', 'Ah, my person!', 'Oya, more!', 'Big man! 🔥'];
 function sbDesc(type, mine, theirs) { return type === 'first' ? '1st card flushed beats the 2nd' : type === 'cardvcard' ? `board card #${mine + 1} beats #${theirs + 1}` : "final total beats the other's"; }
 
 class Table {
@@ -147,7 +150,7 @@ class Table {
     const S = this;
     return {
       now: Date.now(), tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0,
-      pl: S.players.map(p => { const show = p.id === forId || S.phase >= 6 || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0, p.away ? 1 : 0, p.color]; }),
+      pl: S.players.map(p => { const show = p.id === forId || S.phase >= 6 || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0, p.away ? 1 : 0, p.color, p.treat || '']; }),
       sbs: S.sideBets.slice(-8).map(b => [b.id, b.a, b.b, b.type, b.amt, b.mine, b.theirs, b.status, b.result || '', b.winner ?? -1]),
     };
   }
@@ -175,6 +178,8 @@ class Table {
       case 'sb': this.proposeSB(pid, a); break;
       case 'sb_ans': this.answerSB(pid, a); break;
       case 'rebuy_all': if (pid === this.hostId && P && P.kinds.includes('rebuy_all')) P.done(a); break;
+      case 'spray': this.spray(pid, a); break;
+      case 'treat': this.treat(pid, a); break;
     }
     this.sync();
   }
@@ -317,6 +322,33 @@ class Table {
   }
   // the table is closing in the middle of a hand: give everyone back what they put in this hand
   abandon() { const start = this.handStart; this.handStart = null; if (start) for (const [p, c0] of start) p.chips = c0; this.closed = true; if (this.pend) this.pend.done(null); }
+  // chips that change hands outside the pot settle at once; the hand's books stay straight
+  moved(p, delta, why, other) {
+    if (this.handStart && this.handStart.has(p)) this.handStart.set(p, this.handStart.get(p) + delta);
+    if (this.onMoved) try { this.onMoved(p, delta, why, other); } catch (e) { console.error('moved hook', e); }
+  }
+  // spray money: notes from your stack onto another player's
+  spray(from, a) {
+    const S = this, A = S.players[from], B = S.players[+a.to]; if (!A || !B || A === B || A.gone || B.gone || !S.started) return;
+    const amt = Math.floor(+a.amt || 0); if (!(amt >= 5)) return;
+    if (amt > A.chips) { S.fx({ k: 'toast', pid: from, t: 'Not enough chips in front of you to spray that much.' }); return; }
+    A.chips -= amt; B.chips += amt; S.moved(A, -amt, 'spray', B); S.moved(B, amt, 'spray', A);
+    S.fx({ k: 'spray', from, to: B.id, amt }); S.log(`${esc(A.name)} sprays ${esc(B.name)} ${fmt(amt)}`, 'hi');
+    if (B.isBot) setTimeout(() => S.fx({ k: 'bubble', pid: B.id, t: THANKS[Math.floor(Math.random() * THANKS.length)], ms: 1800 }), 1300);
+    S.sync(); if (S.onSave) S.onSave();
+  }
+  // a drink or small chops for yourself, one player, or a round for everyone
+  treat(from, a) {
+    const S = this, A = S.players[from], item = TREATS[a.item]; if (!A || A.gone || !item) return;
+    const to = a.to === 'all' ? S.players.filter(p => !p.gone).map(p => p.id) : [+a.to].filter(id => S.players[id] && !S.players[id].gone);
+    if (!to.length) return; const cost = item.price * to.length;
+    if (cost > A.chips) { S.fx({ k: 'toast', pid: from, t: `That costs ${fmt(cost)}. Not enough chips in front of you.` }); return; }
+    A.chips -= cost; S.moved(A, -cost, 'treat'); to.forEach(id => (S.players[id].treat = a.item));
+    S.fx({ k: 'treat', from, to, item: a.item });
+    S.log(a.to === 'all' ? `${esc(A.name)} buys the table a round of ${item.n} ${item.e}` : to[0] === from ? `${esc(A.name)} gets a ${item.n} ${item.e}` : `${esc(A.name)} sends ${esc(S.players[to[0]].name)} a ${item.n} ${item.e}`, 'hi');
+    if (a.to !== 'all' && to[0] !== from && S.players[to[0]].isBot) setTimeout(() => S.fx({ k: 'bubble', pid: to[0], t: THANKS[Math.floor(Math.random() * THANKS.length)], ms: 1800 }), 1200);
+    S.sync(); if (S.onSave) S.onSave();
+  }
   strike(p) { if (p.away) return; p.strikes++; if (p.strikes >= 3) { p.sitout = true; p.satOutByTimer = true; this.fx({ k: 'toast', pid: p.id, t: 'Three timeouts in a row — you are sat out. Tap "Rejoin" to come back.', ms: 4000 }); this.log(`${esc(p.name)} is sat out (timed out 3 times)`); } else this.fx({ k: 'toast', pid: p.id, t: `Time's up — the game acted for you (${p.strikes}/3)`, ms: 2600 }); }
   async humanDrop(p) {
     const S = this; const ms = S.timer ? S.timer * 1000 : 0; S.deadline = ms ? Date.now() + ms : 0; S.sync(); const end = Date.now() + ms;
@@ -402,5 +434,5 @@ class Table {
   }
 }
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { Table, cleanName, cleanAv };
-else if (typeof window !== 'undefined') window.TeteEngine = { Table, cleanName, cleanAv };
+if (typeof module !== 'undefined' && module.exports) module.exports = { Table, cleanName, cleanAv, TREATS };
+else if (typeof window !== 'undefined') window.TeteEngine = { Table, cleanName, cleanAv, TREATS };

@@ -81,6 +81,8 @@
     join(t) { tone(t, { f: N.C6, dur: 0.18, gain: 0.1, wet: 0.4 }); tone(t + 0.1, { f: N.G6, dur: 0.3, gain: 0.08, wet: 0.5 }); },
     spray(t) { for (let i = 0; i < 18; i++) burst(t + i * 0.035 + Math.random() * 0.02, { dur: 0.04, freq: 1500 + Math.random() * 1500, q: 1.5, gain: 0.12 }); for (let i = 0; i < 5; i++) clink(t + 0.1 + i * 0.08, 0.12); },
     whoosh(t) { burst(t, { dur: 0.25, freq: 600, q: 0.7, gain: 0.18, sweepTo: 3000 }); },
+    clink(t) { [2637, 3951, 5274].forEach((f, i) => tone(t + i * 0.004, { f: f * (0.99 + Math.random() * 0.02), dur: 0.5 - i * 0.12, gain: 0.09 / (i + 1), wet: 0.6 })); tone(t + 0.09, { f: 3136, dur: 0.35, gain: 0.05, wet: 0.6 }); },
+    pour(t) { burst(t, { dur: 0.5, freq: 900, q: 2, gain: 0.08, sweepTo: 1800 }); for (let i = 0; i < 6; i++) tone(t + 0.05 + i * 0.07, { f: 500 + i * 90 + Math.random() * 60, dur: 0.05, gain: 0.03 }); },
     // launch intro
     boom(t) { tone(t, { f: 72, dur: 0.9, gain: 0.55, slideTo: 32 }); tone(t, { f: 144, dur: 0.22, gain: 0.18, slideTo: 60 }); burst(t, { dur: 0.35, freq: 190, q: 0.7, gain: 0.5, type: 'lowpass' }); burst(t, { dur: 0.7, freq: 2600, q: 0.5, gain: 0.08, sweepTo: 380, wet: 0.6 }); },
     riser(t, d = 0.9) {

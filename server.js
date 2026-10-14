@@ -106,6 +106,7 @@ function sitError(ws, t) {
 function hookTable(t) {
   t.canBuy = (p, amount) => !p.uid || freeChips(p.uid) >= amount;
   t.onHandEnd = res => { for (const r of res) if (r.p.uid) { accounts.settle(r.p.uid, { delta: r.delta, played: r.played, won: r.won, adasi: r.adasi, total: r.total, table: t.tableName }); pushAccount(r.p.uid); } };
+  t.onMoved = (p, delta, why, other) => { if (p.uid && delta) { accounts.settle(p.uid, { delta, played: false, won: false, table: why === 'spray' ? (delta > 0 ? `Spray from ${other.name}` : `You sprayed ${other.name}`) : `Treats at ${t.tableName}` }); pushAccount(p.uid); } };
   t.onLeave = (p, delta) => { if (p.uid && delta) { accounts.settle(p.uid, { delta, played: true, won: false, table: t.tableName }); setTimeout(() => pushAccount(p.uid), 50); } };
 }
 // balance and stats after something changed (no database reads, so it is quick)

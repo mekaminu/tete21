@@ -465,6 +465,21 @@ details.more summary small{color:var(--fg-dim);font-weight:400;font-size:12.5px}
 .celebrate .cel-s{color:var(--fg-dim);font-size:15px;margin-top:6px}
 .celebrate .rain{position:absolute;top:-30px;z-index:1}
 
+/* ---------- spray money and treats ---------- */
+.naira{width:38px;height:20px;border-radius:3px;background:linear-gradient(135deg,#3d8b5a,#1f5e3a 55%,#4f2f74);border:1px solid rgba(255,255,255,.55);color:#f6efdc;font:700 11px/18px var(--body);text-align:center;box-shadow:0 3px 8px rgba(0,0,0,.45);will-change:transform,opacity}
+.naira::before{content:"\20A6";margin-right:1px}
+.seat .av .treat{position:absolute;left:-15px;top:-13px;font-size:21px;line-height:1;z-index:3;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));animation:bob 2.6s ease-in-out infinite;pointer-events:none}
+.seat .av .treat:empty{display:none}
+@keyframes bob{50%{transform:translateY(-3px) rotate(-6deg)}}
+.flytreat{font-size:30px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,.6));will-change:transform,opacity}
+.treats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:4px}
+.tbtn{display:grid;justify-items:center;gap:2px;padding:10px 4px 8px;border-radius:14px;border:1px solid #3e2c34;background:linear-gradient(160deg,#2c1e25,#170f13);color:var(--fg);transition:transform .15s,border-color .15s}
+.tbtn:hover{border-color:var(--gold-dim);transform:translateY(-2px)}
+.tbtn .e{font-size:30px;line-height:1.1}
+.tbtn b{font-size:12.5px;font-weight:600}
+.tbtn small{font-size:12px;color:var(--gold-hi);font-variant-numeric:tabular-nums}
+.tbtn:disabled{opacity:.4}
+.sprayopts{margin-top:10px}
 .flylayer{position:fixed;inset:0;pointer-events:none;z-index:46}
 .flylayer>*{position:absolute}
 .flycard{margin:0;will-change:transform,opacity}
@@ -699,7 +714,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
     <div class="info">
       <div><span class="eyebrow">Your total</span> <span class="big num" id="mytotal">–</span> <span class="eyebrow" style="margin-left:14px">Chips</span> <span class="big num" id="mychips">0</span></div>
       <div class="msg" id="msg">Welcome to the table.</div>
-      <div class="avbar"><button class="avbtn off" id="btn-mic" title="Microphone">🎤<span class="lbl">Mic</span></button><button class="avbtn off" id="btn-cam" title="Camera">📷<span class="lbl">Camera</span></button><button class="avbtn on" id="btn-spk" title="Hear the other players">🔊<span class="lbl">Voices</span></button><button class="avbtn sndbtn" id="btn-fx" type="button" title="Game sounds"><span class="ico"></span><span class="lbl">Sounds</span></button><span class="roomav" id="roomav"></span></div>
+      <div class="avbar"><button class="avbtn off" id="btn-mic" title="Microphone">🎤<span class="lbl">Mic</span></button><button class="avbtn off" id="btn-cam" title="Camera">📷<span class="lbl">Camera</span></button><button class="avbtn on" id="btn-spk" title="Hear the other players">🔊<span class="lbl">Voices</span></button><button class="avbtn sndbtn" id="btn-fx" type="button" title="Game sounds"><span class="ico"></span><span class="lbl">Sounds</span></button><button class="avbtn" id="btn-treat" type="button" title="Drinks and small chops">🍹<span class="lbl">Treats</span></button><span class="roomav" id="roomav"></span></div>
     </div>
     <div class="actions" id="actions"></div>
   </div>
@@ -859,6 +874,13 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <div class="modal" id="m-addfriend"><div class="box invited"><div class="bigav" id="af-av"></div><h2 id="af-title">Add a friend?</h2><p>You'll see when they're online and can invite each other to tables.</p><div class="actions"><button class="btn btn-ghost" id="af-no">No thanks</button><button class="btn btn-gold" id="af-yes">Add friend</button></div></div></div>
 
 <div class="modal" id="m-player"><div class="box invited"><div class="bigav" id="pl-av"></div><h2 id="pl-name">Player</h2><p id="pl-body"></p><div class="actions" id="pl-actions"></div></div></div>
+
+<div class="modal sheet" id="m-treat"><div class="box"><div class="grab"></div>
+<h2>Drinks &amp; small chops</h2>
+<p class="note" style="margin-top:0">Paid from the chips in front of you. It sits by their seat for the whole table to see.</p>
+<div class="field"><label>Who is it for?</label><div class="opts" id="treat-who"></div></div>
+<div class="treats" id="treats"></div>
+<div class="actions"><button class="btn btn-ghost" data-close type="button">Close</button></div></div></div>
 
 <div class="modal" id="m-info"><div class="box"><h2 id="info-title"></h2><p id="info-body"></p><div class="actions"><button class="btn btn-gold" data-close>OK</button></div></div></div>
 
