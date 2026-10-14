@@ -88,7 +88,8 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
 .phase.now{color:var(--ink);background:var(--gold);border-color:var(--gold);font-weight:700;animation:pulse 1.6s infinite}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(217,178,95,.5)}50%{box-shadow:0 0 0 6px rgba(217,178,95,0)}}
 
-.room{flex:1;display:grid;grid-template-columns:1fr 280px;gap:0;min-height:0;grid-template-rows:minmax(0,1fr)}
+.room{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 0px;gap:0;min-height:0;grid-template-rows:minmax(0,1fr);transition:grid-template-columns .35s ease}
+.room.with-side{grid-template-columns:minmax(0,1fr) 290px}
 .table-wrap{position:relative;padding:34px 16px 10px;display:flex;align-items:stretch;justify-content:center;min-width:0;min-height:0;overflow:hidden}
 .table{position:relative;width:100%;max-width:980px;min-height:0;animation:tablein .8s cubic-bezier(.2,.8,.2,1) both}
 @keyframes tablein{from{transform:scale(.94) translateY(20px);opacity:0}}
@@ -114,7 +115,10 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
 
 .board{position:absolute;left:50%;top:50%;transform:translate(-50%,-52%);display:flex;flex-direction:column;align-items:center;gap:6px;z-index:2}
 .board .lbl{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.55)}
-.board .slots{display:flex;gap:6px;align-items:flex-end;flex-wrap:nowrap;max-width:88vw}
+.board .slots{display:flex;gap:0;align-items:flex-end;flex-wrap:nowrap}
+.slot+.slot{margin-left:calc(var(--step,calc(var(--card-w) + 6px)) - var(--card-w))}
+.slots.fan .slot{box-shadow:-3px 0 6px rgba(0,0,0,.25)}
+.slots.fan .slot:not(:has(.card)){border-color:rgba(255,255,255,.12)}
 .slot{position:relative;width:var(--card-w);aspect-ratio:5/7;border-radius:6px;border:1.5px dashed rgba(255,255,255,.25)}
 .slot .idx{position:absolute;left:50%;bottom:-16px;transform:translateX(-50%);font-size:10px;color:rgba(255,255,255,.5)}
 .slot.next{border-color:var(--gold-hi);box-shadow:0 0 0 2px rgba(243,217,144,.35),0 0 18px rgba(243,217,144,.35);animation:pulse 1.4s infinite}
@@ -261,7 +265,16 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
 @keyframes shake{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 
 /* side panel */
-.side{border-left:1px solid #2a1c22;background:rgba(0,0,0,.25);display:flex;flex-direction:column;min-height:0}
+.side{border-left:1px solid #2a1c22;background:#160e12;display:flex;flex-direction:column;min-height:0;overflow:hidden;visibility:hidden;transition:visibility 0s .35s}
+.room.with-side .side{visibility:visible;transition:none}
+.side-backdrop{display:none}
+@media (max-width:900px){.room.with-side .side-backdrop{display:block;position:fixed;inset:0;z-index:61;background:rgba(0,0,0,.45);animation:dramain .3s both}}
+.side-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px 8px 14px;border-bottom:1px solid #2a1c22}
+.side-head h3{border:0!important;padding:0!important}
+.iconbtn{width:32px;height:32px;border-radius:50%;border:1px solid #4a3640;background:#2b1f25;color:var(--fg);font-size:18px;line-height:1;display:grid;place-items:center;cursor:pointer}
+.side .sb{animation:rowin .35s both}
+.side .sb.mine{border-color:var(--gold-dim)}
+#btn-side{position:relative}
 .side h3{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);padding:10px 14px;border-bottom:1px solid #2a1c22}
 .log{flex:1;overflow:auto;padding:8px 14px;font-size:13px;display:flex;flex-direction:column;gap:4px;min-height:120px}
 .log div{color:var(--fg-dim);border-left:2px solid #3a2a31;padding-left:8px}
@@ -289,7 +302,7 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
 .rules li{margin:3px 0}
 .rules .ass{background:#1b1419;border-left:3px solid var(--warn);padding:8px 12px;border-radius:0 8px 8px 0;margin-top:10px;font-size:13px}
 .drawer-scroll{max-height:70vh;overflow:auto}
-@media (max-width:900px){.seat .mini .card{width:calc(var(--card-w)*.5)}.seat .dropwrap .card{width:calc(var(--card-w)*.7)}.seat{max-width:110px}.dealer .nm{display:none}.room{grid-template-columns:1fr}.side{display:none}.topbar{padding:6px 12px;gap:6px}.topbar .meta{display:none}.topbar h1{font-size:15px}.topbar .btn{padding:6px 9px;font-size:12px}.phases{padding:4px 12px;gap:3px}.phase{font-size:9px;padding:2px 6px}.table-wrap{padding:26px 10px 6px}}
+@media (max-width:900px){.dealer .nm{display:none}.room,.room.with-side{grid-template-columns:minmax(0,1fr)}.side{position:fixed;top:0;right:0;bottom:0;width:min(330px,88vw);z-index:62;transform:translateX(105%);transition:transform .35s cubic-bezier(.2,.8,.2,1),visibility 0s .35s;box-shadow:-20px 0 50px rgba(0,0,0,.6);padding-top:env(safe-area-inset-top,0px)}.room.with-side .side{transform:none;transition:transform .35s cubic-bezier(.2,.8,.2,1)}#btn-rules2{display:none}.topbar{padding:6px 12px;gap:6px}.topbar .meta{display:none}.topbar h1{font-size:15px}.topbar .btn{padding:6px 9px;font-size:12px}.phases{padding:4px 12px;gap:3px}.phase{font-size:9px;padding:2px 6px}.table-wrap{padding:26px 10px 6px}}
 [hidden]{display:none!important}
 .pill:empty{display:none}
 @media (max-width:520px){.row>.field:has(.seg){min-width:100%}}
@@ -363,35 +376,35 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 @media (max-width:700px){.long{display:none}.short{display:inline}}
 .seat.friend .nm::before{content:'\2605  ';color:var(--gold)}
 .seat.human .av{cursor:pointer}
-/* phones: compact seats with cards tucked toward the middle, board in two rows */
+/* seats are compact at every size: hidden cards show as a count badge, a dropped card sits beside the seat toward the middle */
+.seat{--avsz:clamp(44px,4.6vw,56px)}
+.seat .av{width:var(--avsz);height:var(--avsz)}
+.seat .mini{position:absolute;display:flex;align-items:flex-end;gap:0;--card-w:clamp(26px,3vw,38px);z-index:1}
+.seat .mini .card{width:var(--card-w)}
+.seat .mini .card.back{display:none}
+.seat .mini .card:not(.back)+.card:not(.back){margin-left:calc(var(--card-w) * -.3)}
+.seat .dropwrap{margin-right:6px}
+.seat .dropwrap .card{width:calc(var(--card-w) * 1.2)}
+.seat .dropwrap small{display:none}
+.seat[data-side="l"] .mini{left:calc(100% + 6px);top:4px}
+.seat[data-side="r"] .mini{right:calc(100% + 6px);top:4px;flex-direction:row-reverse}
+.seat[data-side="r"] .dropwrap{margin-right:0;margin-left:6px}
+.seat[data-side="t"] .mini{top:calc(100% + 4px);left:50%;transform:translateX(-50%)}
+.seat[data-side="b"] .mini{bottom:calc(100% + 4px);left:50%;transform:translateX(-50%)}
+.seat .tot{position:absolute;top:-6px;left:calc(50% + var(--avsz) / 2 - 12px);z-index:2;min-height:0;padding:0 6px}
+.seat .tot.count{left:auto;right:calc(50% + var(--avsz) / 2 - 12px);top:calc(var(--avsz) - 16px);font-size:10px;padding:0 5px 0 4px;background:var(--cream);color:var(--ink);border-color:var(--ink);font-weight:700}
+.seat .tot.count::after{content:''}
+.seat .tot.count::before{content:'\1F0A0';font-size:10px;margin-right:2px}
 @media (max-width:700px){
-  .seat{gap:2px;max-width:none}
-  .seat .av{width:40px;height:40px;font-size:14px}
+  .seat{gap:2px;max-width:none;--avsz:40px}
+  .seat .av{font-size:14px}
   .seat.video .av{width:56px;height:42px}
   .seat .nm{font-size:11px;padding:1px 7px;max-width:96px}
   .seat .chips{font-size:11px;gap:3px}
   .seat .chips .chip.s{width:11px;height:11px}
-  .seat .mini{position:absolute;display:flex;align-items:flex-end;--card-w:24px;z-index:1}
-  .seat .mini .card{width:var(--card-w)}
-  .seat .mini .card.back{width:17px;border-width:2px;margin-left:-9px}
-  .seat .mini .card.back:first-child,.seat .mini .dropwrap+.card.back{margin-left:0}
-  .seat .mini .card:not(.back)+.card:not(.back){margin-left:-8px}
-  .seat .dropwrap{margin-right:4px}
-  .seat .dropwrap .card{width:30px}
-  .seat .dropwrap small{display:none}
-  .seat[data-side="l"] .mini{left:calc(100% + 4px);top:4px}
-  .seat[data-side="r"] .mini{right:calc(100% + 4px);top:4px;flex-direction:row-reverse}
-  .seat[data-side="r"] .dropwrap{margin-right:0;margin-left:4px}
-  .seat[data-side="t"] .mini{top:calc(100% + 3px);left:50%;transform:translateX(-50%)}
-  .seat[data-side="b"] .mini{bottom:calc(100% + 3px);left:50%;transform:translateX(-50%)}
-  .seat .mini .card.back{display:none}
-  .seat .tot{position:absolute;top:-6px;left:calc(50% + 12px);font-size:11px;padding:0 6px;z-index:2;min-height:0}
-  .seat .tot.count{left:auto;right:calc(50% + 10px);top:auto;bottom:calc(100% - 44px);font-size:10px;padding:0 5px 0 4px;background:var(--cream);color:var(--ink);border-color:var(--ink);font-weight:700}
-  .seat .tot.count::after{content:''}
-  .seat .tot.count::before{content:'\1F0A0';font-size:10px;margin-right:2px}
-  .board{--card-w:36px;gap:4px}
+  .seat .mini{--card-w:24px}
+  .board{gap:4px}
   .board .lbl{display:none}
-  .board .slots{flex-wrap:wrap;justify-content:center;max-width:170px;row-gap:15px}
   .pot{margin-top:10px}
 }
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition-duration:.01s!important}}
@@ -483,6 +496,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
     <span class="spacer"></span>
     <button class="btn btn-gold" id="btn-invite">Invite<span class="badge" id="invite-badge" hidden></span></button>
     <button class="btn btn-ghost" id="btn-sidebet"><span class="long">Propose side bet</span><span class="short">Side bet</span></button>
+    <button class="btn btn-ghost" id="btn-side"><span class="long">Bets &amp; log</span><span class="short">Log</span><span class="badge" id="side-badge" hidden></span></button>
     <button class="btn btn-ghost" id="btn-rules2">Rules</button>
     <button class="btn btn-dark" id="btn-close" hidden>Close room</button><button class="btn btn-dark" id="btn-leave">Leave table</button>
   </div>
@@ -510,8 +524,9 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
         <div class="reqs" id="reqs"></div>
       </div>
     </div>
-    <aside class="side">
-      <h3>Side bets</h3>
+    <div class="side-backdrop" id="side-backdrop"></div>
+    <aside class="side" id="side">
+      <div class="side-head"><h3>Side bets</h3><span class="spacer"></span><button class="linkbtn" id="side-rules">Rules</button><button class="iconbtn" id="side-close" aria-label="Hide the side panel">&times;</button></div>
       <div class="sbs" id="sbs"><div class="note" style="margin:0">No side bets yet. Propose one from the top bar.</div></div>
       <h3>Hand log</h3>
       <div class="log" id="log"></div>

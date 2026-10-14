@@ -79,7 +79,7 @@ try{CURRENT=localStorage.getItem('tete.current')}catch{}
 for(const k of Object.keys(SEATS)){const s=SEATS[k];if(!s||!s.token||(!s.keep&&Date.now()-(s.t||0)>6*3600e3))delete SEATS[k]}
 function saveSeats(){try{localStorage.setItem('tete.seats',JSON.stringify(SEATS))}catch{}}
 function setCurrent(c){CURRENT=c;try{c?localStorage.setItem('tete.current',c):localStorage.removeItem('tete.current')}catch{}}
-function backToLobby(){rtcLeaveAll();S=null;ME=-1;IDS=[];REQS=[];$('#reqs').innerHTML='';setTimeout(()=>{renderRooms();renderFriends()},0);$('#game').classList.remove('on');$('#lobby').classList.add('on');$('#btn-join').disabled=false;$('#join-note').textContent='Enter the code the host sent you.'}
+function backToLobby(){rtcLeaveAll();S=null;ME=-1;SIDE_MANUAL=null;SIDE_HOLD=-1;$('.room').classList.remove('with-side');IDS=[];REQS=[];$('#reqs').innerHTML='';setTimeout(()=>{renderRooms();renderFriends()},0);$('#game').classList.remove('on');$('#lobby').classList.add('on');$('#btn-join').disabled=false;$('#join-note').textContent='Enter the code the host sent you.'}
 function onMessage(m){
   if(m.type==='joined'){hideReqbar();PENDING_JOIN=null;ME=m.id;if(m.token&&m.code!=='PRACTICE'){SEATS[m.code]=Object.assign({},SEATS[m.code],{token:m.token,rid:m.rid,keep:!!m.keep,t:Date.now()});saveSeats();setCurrent(m.code)}if(!S||$('#lobby').classList.contains('on')){S={code:m.code,players:[],sideBets:[],board:[],participants:[]};enterGame()}if(m.resumed)toast('Back at your seat');return}
   if(m.type==='gone'){if(PENDING_JOIN&&m.code===PENDING_JOIN.code){const pj=PENDING_JOIN;PENDING_JOIN=null;if(SEATS[m.code]){delete SEATS[m.code];saveSeats()}send(pj.msg);return}if(m.code&&SEATS[m.code]){delete SEATS[m.code];saveSeats()}if(!m.code||CURRENT===m.code)setCurrent(null);if(!LOCALT){toast(m.msg,3500);if($('#game').classList.contains('on'))backToLobby()}return}
@@ -133,6 +133,27 @@ $('#btn-rules2').onclick=()=>openModal('#m-rules');
 // code in URL: ?t=TETE-XXXX pre-fills join
 try{const u=new URL(location.href);const t=u.searchParams.get('t');if(t)$('#f-join').value=t.toUpperCase()}catch{}
 
+
+// ---------- side panel: opens by itself when you're in a side bet; hide it any time ----------
+let SIDE_MANUAL=null,SIDE_HOLD=-1,SIDE_HAND=-1;const SIDE_SEEN=new Set();
+function myBets(){return S&&ME>=0?S.sideBets.filter(b=>b.a===ME||b.b===ME):[]}
+function updateSide(){
+  if(!S){$('.room').classList.remove('with-side');return}
+  const mine=myBets(),active=mine.filter(b=>b.status==='open'||b.status==='pending');
+  if(S.handNo!==SIDE_HAND){SIDE_HAND=S.handNo;SIDE_HOLD=-1;if(SIDE_MANUAL===false)SIDE_MANUAL=null}
+  if(mine.some(b=>(b.status==='won'||b.status==='push')&&!SIDE_SEEN.has('r'+b.id))){mine.forEach(b=>{if(b.status==='won'||b.status==='push')SIDE_SEEN.add('r'+b.id)});SIDE_HOLD=S.handNo}
+  if(active.some(b=>!SIDE_SEEN.has(b.id))&&SIDE_MANUAL===false)SIDE_MANUAL=null;
+  const auto=active.length>0||SIDE_HOLD===S.handNo;
+  const open=SIDE_MANUAL!==null?SIDE_MANUAL:auto;
+  $('.room').classList.toggle('with-side',open);
+  const bd=$('#side-badge');bd.hidden=!active.length;bd.textContent=active.length;
+}
+function closeSide(){SIDE_MANUAL=false;myBets().forEach(b=>SIDE_SEEN.add(b.id));updateSide()}
+$('#btn-side').onclick=()=>{const open=$('.room').classList.contains('with-side');if(open)closeSide();else{SIDE_MANUAL=true;updateSide()}};
+$('#side-close').onclick=closeSide;
+$('#side-backdrop').onclick=closeSide;
+$('#side-rules').onclick=()=>openModal('#m-rules');
+if(window.ResizeObserver)new ResizeObserver(()=>{if(S)sizeBoard()}).observe($('#table'));
 
 // ---------- identity, friends, rooms list, invites ----------
 let SECRET=null,MYID=null,FRIENDS={},ROOMS=[],REQS=[],IDS=[],PENDING_FRIEND=null,FEDIT=false,PRES_READY=false,PENDING_JOIN=null;
@@ -292,7 +313,7 @@ function runFx(e){
 function renderAll(){const sig=S.players.map(p=>p.id+(p.isBot?'b':'h')+p.name+(p.av?JSON.stringify(p.av):'')).join('|')+'#'+ME;const fresh=sig!==lastSig;lastSig=sig;renderSeats(fresh||lastCount!==S.players.length||lastME!==ME);renderBoard();renderSide();renderMe();renderPhases()}
 function seatLayout(n){
   const N=n+1,step=360/N,d=Math.round(N/2),sq=v=>Math.sign(v)*Math.pow(Math.abs(v),.62);
-  const at=j=>{const a=(90+j*step)*Math.PI/180,c=sq(Math.cos(a)),s=sq(Math.sin(a));return{left:50+44*c,top:50+44*s,tx:-(1+c)*50,ty:-(1+s)*50,side:Math.abs(s)>=Math.abs(c)*.8?(s>0?'b':'t'):(c>0?'r':'l')}};
+  const at=j=>{const a=(90+j*step)*Math.PI/180,c=sq(Math.cos(a)),s=sq(Math.sin(a));return{left:50+44*c,top:50+44*s,tx:-(1+c)*50,ty:-(1+s)*50,side:s>0.6?'b':(c>0.05?'r':'l')}};
   return{seat:k=>at(k<d?k:k+1),dealer:at(d)};
 }
 function renderPhases(){$('#phases').innerHTML=PHASES.map((p,i)=>`<span class="phase ${i<S.phase?'done':i===S.phase?'now':''}">${p}</span>`).join('')}
@@ -321,14 +342,25 @@ function renderSeats(fresh){
   $('#t-hand').textContent=S.handNo;
   const live=S.players.filter(p=>!p.isBot&&!p.gone&&(p.cam||p.mic)).length;$('#roomav').textContent=live?`${live} on video/voice`:'Join the room with voice or video';
 }
+// the flushed cards always sit in one row: shrink to fit, then fan (overlap) so every corner index stays readable
+function sizeBoard(){
+  const slots=$('#slots');const n=(S&&S.boardSize)||0;if(!slots||!n)return;
+  const tw=$('#table').clientWidth||360,phone=matchMedia('(max-width:700px)').matches;
+  const avail=tw*(phone?(n>=7?0.6:0.8):0.78);
+  const maxW=phone?50:70,minW=phone?36:46;
+  let w=Math.min(maxW,Math.floor((avail-(n-1)*6)/n)),step=w+6;
+  if(w<minW){w=minW;step=Math.max(17,Math.floor((avail-w)/Math.max(1,n-1)))}
+  slots.style.setProperty('--card-w',w+'px');slots.style.setProperty('--step',step+'px');slots.classList.toggle('fan',step<w);
+}
+window.addEventListener('resize',()=>{if(S)sizeBoard()});
 function renderBoard(){
   const n=S.boardSize||0;
   $('#slots').innerHTML=Array.from({length:n},(_,i)=>{const c=S.board[i];return`<div class="slot ${S.phase===5&&i===S.boardTop?'next':''}">${c&&!c.taken?cardHTML(c,rendered.has(c.id)?'':'flip'):''}<span class="idx">${i+1}</span></div>`}).join('');
-  S.board.forEach(c=>rendered.add(c.id));
+  S.board.forEach(c=>rendered.add(c.id));sizeBoard();
 }
-function renderSide(){
+function renderSide(){setTimeout(updateSide,0);
   const el=$('#sbs');const bets=S.sideBets.filter(b=>b.status!=='pending');if(!bets.length){el.innerHTML='<div class="note" style="margin:0">No side bets yet. Propose one from the top bar.</div>';return}
-  el.innerHTML=bets.slice().reverse().map(b=>{const A=S.players[b.a],B=S.players[b.b];let st=b.status;if(st==='won')st=b.winner===ME?'won':(b.a===ME||b.b===ME?'lost':'won');return`<div class="sb"><span class="st ${st}">${st}</span><b>${esc(A?A.name:'?')}</b> vs <b>${esc(B?B.name:'?')}</b> · ${fmt(b.amt)}<br><span style="color:var(--fg-dim)">${esc(b.desc)}</span>${b.result?`<br><span>${esc(b.result)}</span>`:''}</div>`}).join('');
+  el.innerHTML=bets.slice().reverse().map(b=>{const A=S.players[b.a],B=S.players[b.b];let st=b.status;if(st==='won')st=b.winner===ME?'won':(b.a===ME||b.b===ME?'lost':'won');return`<div class="sb ${b.a===ME||b.b===ME?'mine':''}"><span class="st ${st}">${st}</span><b>${esc(A?A.name:'?')}</b> vs <b>${esc(B?B.name:'?')}</b> · ${fmt(b.amt)}<br><span style="color:var(--fg-dim)">${esc(b.desc)}</span>${b.result?`<br><span>${esc(b.result)}</span>`:''}</div>`}).join('');
 }
 let NUDGE=null;
 function msg(t){if(NUDGE)return;$('#msg').innerHTML=t}
