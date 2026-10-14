@@ -543,6 +543,7 @@ function runFx(e){
     case 'spray':sprayFx(e.from,e.to,e.amt);break;
     case 'treat':treatFx(e.from,e.to,e.item);break;
     case 'react':reactFx(e.pid,e.r);break;
+    case 'chat':bubble(e.pid,e.t,Math.min(6500,2200+e.t.length*55),'chat');if(e.pid!==ME)SND('pop');break;
     case 'streak':streakFx(e.pid,e.run);break;
     case 'streakend':streakEndFx(e.pid,e.run);break;
   }
@@ -655,7 +656,10 @@ function renderMe(){
     }
   }
 }
-function bubble(pid,text,ms=1400){const el=$('#seat-'+pid);if(!el)return;const p=S.players[pid];if(p&&p.isBot&&p.mic)fakeSpeak(pid,ms);const b=document.createElement('div');b.className='bubble';b.textContent=text;el.appendChild(b);setTimeout(()=>b.remove(),ms)}
+function bubble(pid,text,ms=1400,cls){const el=$('#seat-'+pid);if(!el)return;const p=S.players[pid];if(p&&p.isBot&&p.mic)fakeSpeak(pid,ms);if(cls)el.querySelectorAll('.bubble.'+cls).forEach(x=>x.remove());const b=document.createElement('div');b.className='bubble'+(cls?' '+cls:'');b.textContent=text;el.appendChild(b);
+  // keep it on screen: seats at the edge of a phone push their bubble inwards
+  const sr=el.getBoundingClientRect(),w=b.offsetWidth,l=sr.left+sr.width/2-w/2;let dx=0;if(l<6)dx=6-l;else if(l+w>innerWidth-6)dx=innerWidth-6-(l+w);if(dx)b.style.marginLeft=dx.toFixed(0)+'px';
+  setTimeout(()=>b.remove(),ms)}
 function fakeSpeak(pid,ms){const el=$('#seat-'+pid);if(!el||!AVS.spk)return;el.classList.add('speaking');setTimeout(()=>el.classList.remove('speaking'),ms)}
 function center(el){const r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}}
 function drama(kind,e){
@@ -760,8 +764,9 @@ $('#btn-treat').onclick=()=>openTreats('all');
 // quick reactions
 const REACTS=(window.TeteEngine&&window.TeteEngine.REACTS)||[];const isEmo=t=>!/[A-Za-z]/.test(t);
 function toggleReacts(){const bar=$('#reactbar');if(!bar.hidden){bar.hidden=true;return}if(!S||!S.started||ME<0){toast('Reactions are for when the game is on');return}
-  bar.innerHTML=REACTS.map((t,i)=>`<button type="button" data-r="${i}" class="${isEmo(t)?'em':''}">${esc(t)}</button>`).join('');bar.hidden=false;
-  bar.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{bar.hidden=true;act({type:'react',r:+b.dataset.r})});SND('flick')}
+  bar.innerHTML=REACTS.map((t,i)=>`<button type="button" data-r="${i}" class="${isEmo(t)?'em':''}">${esc(t)}</button>`).join('')+'<form class="chatrow" id="chatrow" autocomplete="off"><input id="chat-in" maxlength="120" placeholder="Say something to the table…" enterkeyhint="send" aria-label="Message to the table"><button type="submit" class="send">Send</button></form>';bar.hidden=false;
+  bar.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{bar.hidden=true;act({type:'react',r:+b.dataset.r})});
+  $('#chatrow').onsubmit=e=>{e.preventDefault();const t=$('#chat-in').value.trim();if(!t)return;act({type:'chat',t});bar.hidden=true;SND('flick')};SND('flick')}
 $('#btn-react').onclick=e=>{e.stopPropagation();toggleReacts()};
 document.addEventListener('pointerdown',e=>{const bar=$('#reactbar');if(!bar.hidden&&!e.target.closest('#reactbar')&&!e.target.closest('#btn-react'))bar.hidden=true});
 function reactFx(pid,r){const t=REACTS[r];if(t===undefined)return;const a=seatCenterRect(pid);SND('pop',{bg:true});if(!a||document.hidden)return;

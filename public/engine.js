@@ -27,6 +27,7 @@ function newToken() { return Math.random().toString(36).slice(2) + Math.random()
 const TREATS = { chapman: { e: '🍹', n: 'Chapman', price: 30 }, palm: { e: '🥥', n: 'Palm wine', price: 40 }, zobo: { e: '🍷', n: 'Zobo', price: 25 }, malt: { e: '🍺', n: 'Malt', price: 30 }, suya: { e: '🍢', n: 'Suya', price: 60 }, puff: { e: '🍩', n: 'Puff-puff', price: 20 }, jollof: { e: '🍛', n: 'Jollof', price: 80 }, pepper: { e: '🍲', n: 'Pepper soup', price: 70 } };
 const REACTS = ['Oya!', 'Chai!', 'Na wa o!', 'E choke!', 'Wahala!', 'Ehen!', 'Abeg!', '🔥', '😂', '👏', '🙏', '😱'];
 const THANKS = ['E se o! 🙏', 'Thank you o!', 'Ah, my person!', 'Oya, more!', 'Big man! 🔥'];
+const BOT_CHAT = ['Ehen?', 'No wahala 👍', 'Abeg, focus on the game 😂', 'I hear you o', 'We go see 😏', 'Oya, deal!', 'You dey whine me?', 'E go better'];
 function sbDesc(type, mine, theirs) { return type === 'first' ? '1st card flushed beats the 2nd' : type === 'cardvcard' ? `board card #${mine + 1} beats #${theirs + 1}` : "final total beats the other's"; }
 
 class Table {
@@ -182,6 +183,7 @@ class Table {
       case 'spray': this.spray(pid, a); break;
       case 'treat': this.treat(pid, a); break;
       case 'react': this.react(pid, a); break;
+      case 'chat': this.chat(pid, a); break;
     }
     this.sync();
   }
@@ -349,6 +351,17 @@ class Table {
   }
   // quick reactions that float up from your seat
   react(pid, a) { const p = this.players[pid], i = +a.r; if (!p || p.gone || !(i >= 0 && i < REACTS.length)) return; const now = Date.now(); if (now - (p.lastReact || 0) < 1200) return; p.lastReact = now; this.fx({ k: 'react', pid, r: i }); }
+  // a few words to the table: a bubble over your seat and a line in the log (five per ten seconds at most)
+  chat(pid, a) {
+    const S = this, p = S.players[pid]; if (!p || p.gone) return;
+    const t = String(a.t || '').replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120); if (!t) return;
+    const now = Date.now(); p.chatAt = (p.chatAt || []).filter(x => now - x < 10000);
+    if (p.chatAt.length >= 5 || now - (p.chatAt[p.chatAt.length - 1] || 0) < 800) return; p.chatAt.push(now);
+    S.fx({ k: 'chat', pid, t }); S.log(`<b>${esc(p.name)}:</b> ${esc(t)}`, 'chat');
+    // playing alone with the computer: now and then one of them answers
+    const bots = S.players.filter(x => x.isBot && !x.gone);
+    if (!p.isBot && bots.length && S.humansPresent() === 1 && Math.random() < 0.4) { const b = bots[Math.floor(Math.random() * bots.length)]; setTimeout(() => { if (!b.gone && !S.closed) S.fx({ k: 'bubble', pid: b.id, t: BOT_CHAT[Math.floor(Math.random() * BOT_CHAT.length)], ms: 2200 }); }, 1200 + Math.random() * 900); }
+  }
   botReact(not, list) { const bots = this.players.filter(p => p.isBot && !p.gone && p.id !== not); if (!bots.length || Math.random() > 0.55) return; const b = bots[Math.floor(Math.random() * bots.length)]; setTimeout(() => this.fx({ k: 'react', pid: b.id, r: list[Math.floor(Math.random() * list.length)] }), 900 + Math.random() * 900); }
   // spray money: notes from your stack onto another player's
   spray(from, a) {
