@@ -38,6 +38,7 @@ class Table {
     this.fill = cfg.fill !== false;
     this.side = cfg.side !== false;
     this.series = !!cfg.series;
+    this.tieSplit = cfg.tie === 'split';
     this.dealer = -1; this.handNo = 0; this.pot = 0; this.deck = []; this.board = [];
     this.leadSuit = null; this.phase = -1; this.turn = -1; this.deadline = 0;
     this.sideBets = []; this.participants = []; this.busy = false; this.started = false;
@@ -91,7 +92,7 @@ class Table {
   snapshot(forId) {
     const S = this;
     return {
-      now: Date.now(), tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1,
+      now: Date.now(), tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0,
       pl: S.players.map(p => { const show = p.id === forId || S.phase >= 6 || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0]; }),
       sbs: S.sideBets.slice(-8).map(b => [b.id, b.a, b.b, b.type, b.amt, b.mine, b.theirs, b.status, b.result || '', b.winner ?? -1]),
     };
@@ -213,7 +214,14 @@ class Table {
         S.msgHost = `<b>${esc(w.name)}</b> wins the pot with ${best}.`; S.log(`${esc(w.name)} wins ${fmt(S.pot)} with ${best}`, 'win');
         S.fx({ k: 'chip', from: 'pot', to: w.id, cls: 'c100', n2: Math.min(6, Math.ceil(S.pot / S.wager)) }); await sleep(700); w.chips += S.pot; S.pot = 0; S.sync(); await sleep(300);
         next = S.players.map(p => p.id);
-      } else { S.tiebreak = true; const names = tied.map(p => p.name).join(' and '); S.fx({ k: 'banner', t: 'TIE!' }); S.msgHost = `${esc(names)} tie on ${best}. They go again with a bigger pot.`; S.log(`Tie on ${best}: ${esc(names)} play off`, 'hi'); S.sync(); await sleep(1800); next = tied.map(p => p.id); }
+      } else if (S.tieSplit) {
+        const names = tied.map(p => p.name).join(' & '); const share = Math.floor(S.pot / tied.length); const rem = S.pot - share * tied.length;
+        S.fx({ k: 'banner', t: `TIE — ${names} share ${fmt(S.pot)}` }); tied.forEach(w => S.fx({ k: 'win', pid: w.id }));
+        S.msgHost = `<b>${esc(names)}</b> tie on ${best} and share the pot${rem ? ` (${fmt(rem)} stays on the table)` : ''}.`; S.log(`Tie on ${best}: ${esc(names)} share ${fmt(S.pot)}`, 'win');
+        for (const w of tied) S.fx({ k: 'chip', from: 'pot', to: w.id, cls: 'c100', n2: Math.min(6, Math.ceil(share / S.wager)) });
+        await sleep(700); for (const w of tied) w.chips += share; S.pot = rem; S.sync(); await sleep(300);
+        next = S.players.map(p => p.id);
+      } else { S.tiebreak = true; const names = tied.map(p => p.name).join(' and '); S.fx({ k: 'banner', t: 'TIE!' }); S.msgHost = `${esc(names)} tie on ${best}. They top up and go again.`; S.log(`Tie on ${best}: ${esc(names)} play off`, 'hi'); S.sync(); await sleep(1800); next = tied.map(p => p.id); }
     }
     await S.settleSideBets('reveal');
     S.busy = false; S.next = next; S.msgHost = ''; S.sync();

@@ -321,6 +321,8 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
       <div class="row">
         <div class="field"><label>Series rule (three of a kind voids the hand)</label>
           <div class="seg"><button type="button" id="sr-off" class="on">Off</button><button type="button" id="sr-on">On</button></div></div>
+        <div class="field"><label>Tie rule (two players on the same total)</label>
+          <div class="seg"><button type="button" id="tie-playoff" class="on">Top up &amp; play off</button><button type="button" id="tie-split">Split the pot</button></div></div>
       </div>
       <button class="btn btn-gold btn-wide" id="btn-start">Open the table</button>
       <p class="note">You get a table code to send to friends. Everyone gets the same stack of play chips, and every seated player puts the agreed wager into the pot each hand. Chips are dummy money in this version.</p>
@@ -406,7 +408,7 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.04em;margin:
 <li><b>Trick.</b> Highest card of the lead suit wins (Ace &gt; 10 &gt; 9 … &gt; 3). The winner picks first.</li>
 <li><b>Pick.</b> On your turn you take from the top of the board, one card at a time, as many as you like. You can't pass 21: if the next card would bust you the game stops you and you stay where you are. Then the next player clockwise picks.</li>
 <li><b>Reveal.</b> Closest to 21 wins the pot.</li>
-<li><b>Tie.</b> Only the tied players go again, each adds another wager, and the winner takes everything.</li>
+<li><b>Tie.</b> Agreed when the table is set up: either the tied players each top up another wager and play off (winner takes everything), or they split the pot.</li>
 <li><b>Adasi.</b> Two Aces in your dealt hand wins the pot outright. When the drop reaches you, declare it (or the timer declares it for you), your Aces are shown to the table and the hand ends.</li>
 <li><b>Series</b> (table option, off by default). If anyone is dealt three of the same number, or three of the same number land on the flushed board, the hand is void: the dealer redeals and the pot stays.</li>
 <li><b>Playing with friends.</b> The host opens a table and gets a code. Friends open the same link on any phone or computer and enter the code. The game runs on the server, so the table stays open as long as someone is seated. People who join mid-hand sit in from the next hand.</li>
@@ -467,7 +469,7 @@ const fmt=n=>(+n||0).toLocaleString('en-GB');
 
 let S=null, ME=-1, WS=null, CONNECTED=false, HOST=false;
 let rendered=new Set(), lastCount=0, lastME=null, LASTFX=0;
-let cfg={fill:true,side:true,series:false};
+let cfg={fill:true,side:true,series:false,tie:'playoff'};
 const LOG=[];
 
 // ---------- helpers ----------
@@ -530,10 +532,10 @@ function enterGame(){
   $('#wait').hidden=false;$('#wait-code').textContent=S.code||'…';avUI();
 }
 $('#btn-start').onclick=()=>{if(!CONNECTED){toast('Not connected yet');return}
-  const cfgT={seats:+$('#f-seats').value,buyIn:+$('#f-buyin').value,wager:+$('#f-wager').value,tableName:$('#f-table').value,timer:+$('#f-timer').value,fill:cfg.fill,side:cfg.side,series:cfg.series};
+  const cfgT={seats:+$('#f-seats').value,buyIn:+$('#f-buyin').value,wager:+$('#f-wager').value,tableName:$('#f-table').value,timer:+$('#f-timer').value,fill:cfg.fill,side:cfg.side,series:cfg.series,tie:cfg.tie};
   HOST=true;send({type:'host',cfg:cfgT,name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam})};
 $('#btn-solo').onclick=()=>{if(!CONNECTED){toast('Not connected yet');return}
-  const cfgT={seats:+$('#f-seats').value,buyIn:+$('#f-buyin').value,wager:+$('#f-wager').value,tableName:$('#f-table').value,timer:+$('#f-timer').value,fill:true,side:cfg.side,series:cfg.series};
+  const cfgT={seats:+$('#f-seats').value,buyIn:+$('#f-buyin').value,wager:+$('#f-wager').value,tableName:$('#f-table').value,timer:+$('#f-timer').value,fill:true,side:cfg.side,series:cfg.series,tie:cfg.tie};
   HOST=true;send({type:'host',cfg:cfgT,name:myName(),av:publicAv(),mic:false,cam:false});setTimeout(()=>act({type:'start'}),400)};
 $('#btn-join').onclick=()=>{const code=($('#f-join').value||'').trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
   if(!/^tete-[a-z0-9]{4}$/.test(code)){toast('Enter a code like TETE-AB12');return}
@@ -546,6 +548,8 @@ $('#sb-on').onclick=()=>{cfg.side=true;$('#sb-on').classList.add('on');$('#sb-of
 $('#sb-off').onclick=()=>{cfg.side=false;$('#sb-off').classList.add('on');$('#sb-on').classList.remove('on')};
 $('#sr-on').onclick=()=>{cfg.series=true;$('#sr-on').classList.add('on');$('#sr-off').classList.remove('on')};
 $('#sr-off').onclick=()=>{cfg.series=false;$('#sr-off').classList.add('on');$('#sr-on').classList.remove('on')};
+$('#tie-split').onclick=()=>{cfg.tie='split';$('#tie-split').classList.add('on');$('#tie-playoff').classList.remove('on')};
+$('#tie-playoff').onclick=()=>{cfg.tie='playoff';$('#tie-playoff').classList.add('on');$('#tie-split').classList.remove('on')};
 $('#btn-rules').onclick=()=>openModal('#m-rules');
 $('#btn-rules2').onclick=()=>openModal('#m-rules');
 // code in URL: ?t=TETE-XXXX pre-fills join
