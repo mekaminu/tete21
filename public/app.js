@@ -891,11 +891,11 @@ function voicesFor(){if(!('speechSynthesis' in window))return[];const vs=speechS
   const tiers=[v=>/^en[-_]NG/i.test(v.lang)||/nigeria/i.test(v.name),v=>/^en[-_](GH|KE|ZA|TZ|UG)/i.test(v.lang),v=>/^en[-_]GB/i.test(v.lang),v=>/^en/i.test(v.lang)];
   for(const f of tiers){const m=vs.filter(f);if(m.length)return m}return vs.slice(0,1)}
 if('speechSynthesis' in window)speechSynthesis.onvoiceschanged=()=>{VOICES=voicesFor()};
-// the house voice: every shout in one Nigerian voice, the same on every phone and laptop
-// (clips made once with Microsoft Azure's Nigerian English voice "Abeo" by tools/make-shouts.mjs)
+// the house voice: every shout in one real Nigerian voice, the same on every phone and laptop
+// (Meka's own, cut from one voice note by tools/house-voice.py; index.json names whose voice it is)
 let HV=null;
-function loadHouseVoice(){fetch('/shouts/abeo/index.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(!j||!(j.n>0))return;HV=j;renderShoutList();if(S)prefetchHouse()}).catch(()=>{})}
-function houseUrl(r){return`/shouts/abeo/${r}.mp3?v=${HV.v}`}
+function loadHouseVoice(){fetch('/shouts/house/index.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(!j||!(j.n>0))return;HV=j;renderShoutList();if(S)prefetchHouse()}).catch(()=>{})}
+function houseUrl(r){return`/shouts/house/${r}.mp3?v=${HV.v}`}
 function playHouse(r){if(!HV||!(r>=0&&r<HV.n)||!window.TeteSound||!TeteSound.clip)return false;TeteSound.clip(houseUrl(r),{gain:1.4});return true}
 function prefetchHouse(){if(!HV||!window.TeteSound||!TeteSound.loadClip)return;for(let r=0;r<HV.n;r++)TeteSound.loadClip(houseUrl(r)).catch(()=>{})}
 loadHouseVoice();
@@ -919,8 +919,10 @@ function prefetchVoices(){if(!S)return;prefetchHouse();if(HV)return;for(const p 
 // ---------- record your own shouts ----------
 let REC=null;
 function renderShoutList(){const box=$('#shoutlist');if(!box)return;const words=REACTS.map((t,i)=>i).filter(i=>!isEmo(REACTS[i]));
-  const hh=$('#shout-h');if(hh)hh.innerHTML=HV?'Shouts <small>in the house voice, Abeo</small>':'My shouts <small>in your own voice</small>';
-  if(HV){box.innerHTML=REACTS.map((t,i)=>`<div class="shrow house"><b>${esc(t)}</b><span class="who">Abeo</span><button type="button" class="sh-play" data-i="${i}" aria-label="Hear ${esc(t)}">▶</button></div>`).join('');
+  const who=HV&&HV.voice?esc(HV.voice):'';
+  const hh=$('#shout-h');if(hh)hh.innerHTML=HV?`Shouts <small>${who?`in ${who}'s voice`:'in the house voice'}</small>`:'My shouts <small>in your own voice</small>';
+  const nn=$('#shout-note');if(nn)nn.textContent=HV?`Everyone hears every shout in ${who?`${HV.voice}'s`:'the house'} voice, at every table. Tap ▶ to hear one.`:'Record each shout once and everyone at your table hears you say it. Tap the red dot, shout, and it stops by itself after two seconds.';
+  if(HV){box.innerHTML=REACTS.map((t,i)=>`<div class="shrow house"><b>${esc(t)}</b><span class="who">${who||'House voice'}</span><button type="button" class="sh-play" data-i="${i}" aria-label="Hear ${esc(t)}">▶</button></div>`).join('');
     box.querySelectorAll('.sh-play').forEach(b=>b.onclick=()=>{if(window.TeteSound)TeteSound.unlock();playHouse(+b.dataset.i)});return}
   box.innerHTML=words.map(i=>{const mine=MYVOICE&&((MYVOICE[1]>>i)&1);return`<div class="shrow${mine?' mine':''}"><b>${esc(REACTS[i])}</b><span class="who">${mine?'Your voice':'Phone voice'}</span><button type="button" class="sh-play" data-i="${i}" aria-label="Hear ${esc(REACTS[i])}">▶</button><button type="button" class="sh-rec" data-i="${i}" aria-label="Record ${esc(REACTS[i])}"><i></i></button>${mine?`<button type="button" class="sh-del" data-i="${i}" aria-label="Go back to the phone voice">✕</button>`:'<span class="sh-gap"></span>'}</div>`}).join('');
   box.querySelectorAll('.sh-play').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;if(!playRecorded(ME>=0?ME:-1,i)){const v=MYVOICE;if(v&&((v[1]>>i)&1))return;const was=SPEAK;SPEAK=true;sayShout(ME>=0?ME:0,i);SPEAK=was}});

@@ -1,8 +1,10 @@
-// The house voice: every shout spoken by Microsoft Azure's Nigerian English voice, Abeo (en-NG-AbeoNeural).
+// A computer house voice: every shout spoken by Microsoft Azure's Nigerian English voice, Abeo (en-NG-AbeoNeural).
+// The game now uses Meka's own voice instead (tools/house-voice.py); this stays for making the Azure clips again.
 // Run by the "Make the shout clips" GitHub Action, which keeps the Azure key in the repository's secrets
 // (AZURE_SPEECH_KEY, AZURE_SPEECH_REGION).
 //   MODE=lab   three versions of every shout (a, b, c), slower and more dragged out each time, into public/shouts/lab
-//   MODE=final the chosen version of each shout (tools/voice-picks.json) into public/shouts/abeo, which the game plays
+//   MODE=final the chosen version of each shout (tools/voice-picks.json) into public/shouts/house, which the game
+//              plays; the clips land on the voice-clips branch, so nothing changes in the game until they're merged
 // Nigerians drag the words out ("Chhhaaaaiiii!", "Waaahaaalaaa!"), so the words are spelled long and spoken slowly,
 // with the voice rising and then falling across the long vowels.
 import { createRequire } from 'node:module';
@@ -60,12 +62,12 @@ if (MODE === 'lab') {
 } else {
   // the chosen version for each shout: {"default":"b","4":"c"} (by position in REACTS)
   let picks = { default: 'b' }; try { picks = JSON.parse(await readFile('tools/voice-picks.json', 'utf8')); } catch {}
-  const DIR = 'public/shouts/abeo'; await mkdir(DIR, { recursive: true });
+  const DIR = 'public/shouts/house'; await mkdir(DIR, { recursive: true });
   for (let i = 0; i < REACTS.length; i++) {
     const v = Math.max(0, 'abc'.indexOf(picks[i] || picks[REACTS[i]] || picks.default || 'b')), text = words(REACTS[i])[v];
     const buf = await speak(text, HOW[v]); await writeFile(`${DIR}/${i}.mp3`, buf);
     console.log(`${i}. ${REACTS[i]} -> "${text}" (version ${'abc'[v]}, ${buf.length} bytes)`);
   }
-  await writeFile(`${DIR}/index.json`, JSON.stringify({ voice: VOICE, n: REACTS.length, v: Date.now().toString(36) }) + '\n');
+  await writeFile(`${DIR}/index.json`, JSON.stringify({ voice: VOICE.replace(/^[a-z]{2}-[A-Z]{2}-|Neural$/g, ''), n: REACTS.length, v: Date.now().toString(36) }) + '\n');
   console.log(`Done: ${REACTS.length} clips in ${DIR}`);
 }
