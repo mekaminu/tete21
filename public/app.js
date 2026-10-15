@@ -76,13 +76,27 @@ $('#av-file').onchange=()=>{const f=$('#av-file').files[0];if(!f)return;const im
 const SPK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
 const SPKX='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></svg>';
 function renderSound(){const T=window.TeteSound,m=!T||T.muted;$$('.sndbtn').forEach(b=>{const ico=b.querySelector('.ico')||b;ico.innerHTML=m?SPKX:SPK;b.classList.toggle('off',m);b.setAttribute('aria-label',m?'Game sounds are off':'Game sounds are on');b.title=m?'Game sounds: off':'Game sounds: on'})}
-function renderSoundSettings(){const T=window.TeteSound,m=!T||T.muted;$('#snd-on').classList.toggle('on',!m);$('#snd-off').classList.toggle('on',m);$('#snd-vol').value=Math.round((T?T.volume:.7)*100);let io=true;try{io=localStorage.getItem('tete.intro')!=='off'}catch{}$('#intro-on').classList.toggle('on',io);$('#intro-off').classList.toggle('on',!io);$('#say-on').classList.toggle('on',SPEAK);$('#say-off').classList.toggle('on',!SPEAK)}
+function renderSoundSettings(){const T=window.TeteSound,m=!T||T.muted;if(T&&T.setMusic){$('#mus-on').classList.toggle('on',!!T.musicOn);$('#mus-off').classList.toggle('on',!T.musicOn);$('#mus-vol').value=Math.round(T.musicVolume*100)}$('#snd-on').classList.toggle('on',!m);$('#snd-off').classList.toggle('on',m);$('#snd-vol').value=Math.round((T?T.volume:.7)*100);let io=true;try{io=localStorage.getItem('tete.intro')!=='off'}catch{}$('#intro-on').classList.toggle('on',io);$('#intro-off').classList.toggle('on',!io);$('#say-on').classList.toggle('on',SPEAK);$('#say-off').classList.toggle('on',!SPEAK)}
 $('#say-on').onclick=()=>{SPEAK=true;try{localStorage.removeItem('tete.speak')}catch{}renderSoundSettings();sayShout(ME>=0?ME:0,0)};
 $('#say-off').onclick=()=>{SPEAK=false;try{localStorage.setItem('tete.speak','off')}catch{}try{speechSynthesis.cancel()}catch{}renderSoundSettings()};
 function setMuted(m){const T=window.TeteSound;if(!T)return;T.setMuted(m);if(!m)T.unlock();renderSound();renderSoundSettings();if(!m)setTimeout(()=>SND('chips'),80)}
 function toggleSound(){const T=window.TeteSound;if(!T)return;setMuted(!T.muted);toast(T.muted?'Game sounds off':'Game sounds on',1400)}
-$('#btn-sound').onclick=toggleSound;$('#btn-fx').onclick=toggleSound;
+$('#btn-sound').onclick=toggleSound;
 $('#snd-on').onclick=()=>setMuted(false);$('#snd-off').onclick=()=>setMuted(true);
+// ---------- music at the table: an original Afrobeat / highlife groove (sound.js), quiet, and it steps back when people talk ----------
+function musicSync(){const T=window.TeteSound;if(!T||!T.music)return;T.music(!!S&&$('#game').classList.contains('on'))}
+function setMusicOn(on){const T=window.TeteSound;if(!T||!T.setMusic)return;T.setMusic(on);if(on)T.unlock();musicSync();renderSoundSettings();renderSndPop();toast(on?'Music on 🎶':'Music off',1300)}
+function renderSndPop(){const T=window.TeteSound;if(!T||!T.setMusic)return;$('#sp-snd-on').classList.toggle('on',!T.muted);$('#sp-snd-off').classList.toggle('on',T.muted);$('#sp-mus-on').classList.toggle('on',!!T.musicOn);$('#sp-mus-off').classList.toggle('on',!T.musicOn);$('#sp-mvol').value=Math.round(T.musicVolume*100)}
+// the Sounds button at the table opens a small panel: game sounds, music, and how loud the music is
+function openSndPop(){const p=$('#sndpop'),b=$('#btn-fx');renderSndPop();p.hidden=false;const r=b.getBoundingClientRect(),w=p.offsetWidth,h=p.offsetHeight;p.style.left=Math.round(Math.max(10,Math.min(innerWidth-w-10,r.left+r.width/2-w/2)))+'px';p.style.top=Math.round(Math.max(10,r.top-h-10))+'px';SND('flick');
+  const close=e=>{if(e&&e.target&&(p.contains(e.target)||b.contains(e.target)))return;p.hidden=true;document.removeEventListener('pointerdown',close,true);document.removeEventListener('keydown',esc,true)},esc=e=>{if(e.key==='Escape')close()};
+  setTimeout(()=>{document.addEventListener('pointerdown',close,true);document.addEventListener('keydown',esc,true)},0)}
+$('#btn-fx').onclick=()=>{const p=$('#sndpop');if(!p.hidden){p.hidden=true;return}openSndPop()};
+$('#sp-snd-on').onclick=()=>{setMuted(false);renderSndPop()};$('#sp-snd-off').onclick=()=>{setMuted(true);renderSndPop()};
+$('#sp-mus-on').onclick=()=>setMusicOn(true);$('#sp-mus-off').onclick=()=>setMusicOn(false);
+$('#sp-mvol').oninput=()=>{if(window.TeteSound&&TeteSound.setMusicVolume)TeteSound.setMusicVolume(+$('#sp-mvol').value/100);$('#mus-vol').value=$('#sp-mvol').value};
+$('#mus-on').onclick=()=>setMusicOn(true);$('#mus-off').onclick=()=>setMusicOn(false);
+$('#mus-vol').oninput=()=>{if(window.TeteSound&&TeteSound.setMusicVolume)TeteSound.setMusicVolume(+$('#mus-vol').value/100)};
 $('#snd-vol').oninput=()=>{if(window.TeteSound)TeteSound.setVolume(+$('#snd-vol').value/100)};
 $('#snd-vol').onchange=()=>SND('chips');
 $('#intro-on').onclick=()=>{try{localStorage.removeItem('tete.intro')}catch{}renderSoundSettings()};
@@ -145,7 +159,7 @@ for(const k of Object.keys(SEATS)){const s=SEATS[k];if(!s||!s.token||(!s.keep&&D
 function saveSeats(){try{localStorage.setItem('tete.seats',JSON.stringify(SEATS))}catch{}}
 function setCurrent(c){CURRENT=c;try{c?localStorage.setItem('tete.current',c):localStorage.removeItem('tete.current')}catch{}}
 function closeSheets(){$$('.modal.on').forEach(m=>{if(m.id!=='m-invited')m.classList.remove('on')});AFTER_NAME=null}
-function backToLobby(){rtcLeaveAll();S=null;ME=-1;setTimeout(placeMarks,0);SIDE_MANUAL=null;SIDE_HOLD=-1;$('.room').classList.remove('with-side');$('.me').classList.remove('myturn');IDS=[];REQS=[];$('#reqs').innerHTML='';clearMotion();setTimeout(()=>{renderRooms();renderFriends()},0);$('#game').classList.remove('on');$('#lobby').classList.add('on');$('#btn-join').disabled=false;$('#btn-start').disabled=false;$('#join-note').textContent='Enter the code the host sent you. Just the last four letters works too.';
+function backToLobby(){rtcLeaveAll();S=null;ME=-1;setTimeout(()=>{placeMarks();musicSync()},0);SIDE_MANUAL=null;SIDE_HOLD=-1;$('.room').classList.remove('with-side');$('.me').classList.remove('myturn');IDS=[];REQS=[];$('#reqs').innerHTML='';clearMotion();setTimeout(()=>{renderRooms();renderFriends()},0);$('#game').classList.remove('on');$('#lobby').classList.add('on');$('#btn-join').disabled=false;$('#btn-start').disabled=false;$('#join-note').textContent='Enter the code the host sent you. Just the last four letters works too.';
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches)$$('.tiles .tile').forEach((el,i)=>el.animate([{transform:'translateY(-40px) rotate(-8deg) scale(.9)',opacity:0},{transform:'translateY(0px) rotate(0deg) scale(1)',opacity:1}],{duration:520,delay:i*70,easing:'cubic-bezier(.2,1.25,.35,1)',fill:'backwards'}))}
 function onMessage(m){
   if(m.type==='joined'){hideReqbar();PENDING_JOIN=null;ME=m.id;if(m.token&&m.code!=='PRACTICE'){SEATS[m.code]=Object.assign({},SEATS[m.code],{token:m.token,rid:m.rid,keep:!!m.keep,t:Date.now()});saveSeats();setCurrent(m.code)}if(!S||$('#lobby').classList.contains('on')){S={code:m.code,players:[],sideBets:[],board:[],participants:[]};enterGame()}if(m.resumed)toast('Back at your seat');return}
@@ -517,7 +531,7 @@ function applyState(o,fx){
   renderAll();
   motion(prev,before);
   placeMarks();
-  if($('#m-lend').classList.contains('on'))renderLend();renderSideLoans();
+  if($('#m-lend').classList.contains('on'))renderLend();renderSideLoans();musicSync();
   SPRAYED=new Set((fx||[]).filter(e=>e.k==='spray').map(e=>e.to));
   cues(prev);
   turnTick();requestAnimationFrame(updateTurnMark);prefetchVoices();
@@ -1296,6 +1310,7 @@ let LV_T=null;
 function levelKick(){if(!LV_T)LV_T=setTimeout(levelLoop,180)}
 function levelLoop(){LV_T=null;if(!LEVELS.size){if(ACTX&&ACTX.state==='running')ACTX.suspend().catch(()=>{});return}
   if(!document.hidden)for(const [pid,l] of LEVELS){const el=$('#seat-'+pid);if(!el)continue;l.an.getByteFrequencyData(l.buf);let s=0;for(let i=0;i<l.buf.length;i+=2)s+=l.buf[i];const avg=2*s/l.buf.length;const muted=pid===ME?!AVS.mic:(S&&S.players[pid]&&!S.players[pid].mic);el.classList.toggle('speaking',!muted&&avg>18&&AVS.spk)}
+  if(window.TeteSound&&TeteSound.duck)TeteSound.duck(!document.hidden&&!!$('#seats .seat.speaking'));
   LV_T=setTimeout(levelLoop,document.hidden?1500:200)}
 $('#btn-mic').onclick=async()=>{AVS.mic=!AVS.mic;if(ACTX&&ACTX.state==='suspended')ACTX.resume();await ensureLocal();toast(AVS.mic?'Mic on — the table can hear you':'Mic muted');avUI()};
 $('#btn-cam').onclick=async()=>{AVS.cam=!AVS.cam;await ensureLocal();toast(AVS.cam?'Camera on':'Camera off');avUI()};

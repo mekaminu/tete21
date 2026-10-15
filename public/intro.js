@@ -233,7 +233,7 @@
   SND('riser', 0, 0.75); SND('whoosh', 0.08); SND('snap', 0.79); SND('boom', 0.98); SND('shuffle', 1.01);
   SND('riser', 1.58, 0.85); SND('stamp', fanLand / 1000 - 0.03); SND('snap', fanLand / 1000 - 0.02);
   [0, 1, 2, 3].forEach(j => SND('stamp', (t.word + j * 115 + 186) / 1000));
-  SND('flip', (t.a + 150) / 1000); SND('flip', (t.ten + 150) / 1000); SND('sting', (t.n21 + 200) / 1000);
+  SND('flip', (t.a + 150) / 1000); SND('flip', (t.ten + 150) / 1000); SND('afrobreak', (t.n21 + 200) / 1000); // an Afrobeat break to land the 21
 
   // 8. fly through into the lobby (a recording can hold on the title instead)
   if (!window.__introHold) later(() => {

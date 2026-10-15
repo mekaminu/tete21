@@ -94,12 +94,16 @@
     },
     // a run goes cold
     fizzle(t) { burst(t, { dur: 0.6, freq: 2600, q: 1.1, gain: 0.12, sweepTo: 260, wet: 0.2 }); tone(t + 0.05, { f: 330, dur: 0.4, gain: 0.05, slideTo: 140 }); },
-    // twenty-one: a brass "ta-da" over bells
+    // twenty-one: an Afrobeat "ta-da" (talking drum pickup, the band hits, the guitar answers)
     twentyone(t) {
-      brass(t, N.G4, 0.12, 0.11);
-      [N.C5, N.E5, N.G5].forEach(f => brass(t + 0.14, f, 0.85, 0.09)); brass(t + 0.14, N.C4, 0.85, 0.08);
-      [N.C6, N.E6, N.G6].forEach((f, i) => tone(t + 0.14 + i * 0.07, { f, dur: 0.7, gain: 0.07, wet: 0.6 }));
-      SOUNDS.sparkle(t + 0.2); tone(t + 0.14, { f: 65, dur: 0.35, gain: 0.3, slideTo: 44 });
+      const d = master, sp = 60 / 116 / 4;
+      BAND.talk(t, d, 250, 150, 0.42); BAND.talk(t + sp, d, 210, 150, 0.38);
+      const h = t + sp * 2; BAND.kick(h, d, 0.62); BAND.clap(h, d, 0.24); BAND.bass(h, d, 36, 0.45, 0.32); BAND.bell(h, d, 1, 0.15);
+      [60, 64, 67, 72, 76].forEach((m, i) => BAND.pluck(h + i * 0.016, d, m, 0.14, { len: 1.4 }));
+      BAND.hiss(h, d, 0.22, { type: 'bandpass', freq: 3200, q: 0.6, dur: 0.35 });
+      for (let k = 1; k <= 6; k++) { const u = h + k * sp; BAND.hiss(u, d, k % 2 ? 0.1 : 0.05); if (k === 2 || k === 5) BAND.bell(u, d, k === 5, 0.13); if (k === 3) BAND.conga(u, d, 220, 0.2); }
+      [[2, 76], [3, 79], [4, 84], [6, 79]].forEach(([k, m]) => BAND.pluck(h + k * sp, d, m, 0.2, { len: 0.8 }));
+      BAND.kick(h + sp * 6, d, 0.6); BAND.bass(h + sp * 6, d, 43, 0.2, 0.36);
     },
     // launch intro
     boom(t) { tone(t, { f: 72, dur: 0.9, gain: 0.55, slideTo: 32 }); tone(t, { f: 144, dur: 0.22, gain: 0.18, slideTo: 60 }); burst(t, { dur: 0.35, freq: 190, q: 0.7, gain: 0.5, type: 'lowpass' }); burst(t, { dur: 0.7, freq: 2600, q: 0.5, gain: 0.08, sweepTo: 380, wet: 0.6 }); },
@@ -150,7 +154,8 @@
     if (muted) return; const asked = performance.now();
     loadClip(url).then(buf => {
       if (performance.now() - asked > 3000) return; // too late to still be the moment
-      run(t => { const s = ctx.createBufferSource(); s.buffer = buf; const g = ctx.createGain(); g.gain.value = opts.gain || 1; s.connect(g); out(g, opts.wet || 0); s.start(t, buf.lead || 0); }, opts);
+      run(t => { const s = ctx.createBufferSource(); s.buffer = buf; const g = ctx.createGain(); g.gain.value = opts.gain || 1; s.connect(g); out(g, opts.wet || 0); s.start(t, buf.lead || 0);
+        if (MU) try { const d = MU.dip.gain, len = Math.min(3, buf.duration - (buf.lead || 0)); d.cancelScheduledValues(t); d.setTargetAtTime(0.35, t, 0.04); d.setTargetAtTime(1, t + len, 0.3); } catch {} }, opts);
     }).catch(() => {});
   }
   function run(fn, opts = {}) {
@@ -184,7 +189,7 @@
     });
   }
   function setMuted(m) { muted = !!m; try { localStorage.setItem('tete.mute', muted ? '1' : '0'); } catch {} if (master) master.gain.value = muted ? 0 : vol; }
-  function setVolume(v) { vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('tete.vol', String(vol)); } catch {} if (master && !muted) master.gain.value = vol; }
+  function setVolume(v) { vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('tete.vol', String(vol)); } catch {} if (master && !muted) master.gain.value = vol; if (MU && ctx) try { MU.out.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.1); } catch {} }
   // render a list of [name, seconds, arg] to an audio buffer (used to give the intro video its soundtrack)
   async function renderOffline(list, seconds, rate = 44100) {
     const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OAC) return null;
@@ -193,5 +198,128 @@
     try { for (const [name, at, arg] of list) { const fn = SOUNDS[name]; if (fn) fn(at, arg); } return await ctx.startRendering(); }
     finally { [ctx, master, verb, noiseBuf] = saved; muted = wasMuted; }
   }
-  window.TeteSound = { play, clip, loadClip, stop, ready, setMuted, setVolume, unlock, renderOffline, get muted() { return muted; }, get volume() { return vol; }, get state() { return ctx ? ctx.state : 'none'; } };
+  // ---------- music: original Afrobeat / highlife, played live by the sound engine ----------
+  // Nothing here is a recording or anyone's song, so there is nothing to license. The band: kick, clap, shekere,
+  // agogo bell, congas, talking drum, a warm bass and two highlife guitars (plucked strings, Karplus-Strong).
+  const MIDI = m => 440 * Math.pow(2, (m - 69) / 12);
+  const KS = {};
+  function pluckBuf(m) { // one plucked string per note, made once
+    const c = ctx, hit = KS[m]; if (hit && hit.c === c) return hit.b;
+    const rate = Math.min(c.sampleRate, 32000), f = MIDI(m), N = Math.max(2, Math.round(rate / f)), len = Math.floor(rate * 1.5);
+    const b = c.createBuffer(1, len, rate), d = b.getChannelData(0), line = new Float32Array(N);
+    let lp = 0; for (let i = 0; i < N; i++) { lp = lp * 0.5 + (Math.random() * 2 - 1) * 0.5; line[i] = lp; } // a soft pick
+    const loss = Math.pow(0.5, 1 / (f * 0.32)); let k = 0;
+    for (let i = 0; i < len; i++) { const a = line[k], nk = k + 1 === N ? 0 : k + 1; line[k] = (a + line[nk]) * 0.5 * loss; d[i] = a; k = nk; }
+    KS[m] = { c, b }; return b;
+  }
+  const PAN = (dest, p) => { if (!p || !ctx.createStereoPanner) return dest; const n = ctx.createStereoPanner(); n.pan.value = p; n.connect(dest); return n; };
+  const BAND = {
+    pluck(t, dest, m, vel, o = {}) {
+      const s = ctx.createBufferSource(); s.buffer = pluckBuf(m);
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.mute ? 1700 : 4800; f.Q.value = 0.5;
+      const g = ctx.createGain(), end = o.mute || o.len || 1.1; g.gain.setValueAtTime(vel, t);
+      if (o.mute) g.gain.exponentialRampToValueAtTime(0.0001, t + o.mute); else g.gain.setTargetAtTime(0.0001, t + end * 0.55, end * 0.2);
+      s.connect(f); f.connect(g); g.connect(PAN(dest, o.pan)); if (o.send) g.connect(o.send); s.start(t); s.stop(t + end + 0.25);
+    },
+    bass(t, dest, m, dur, vel) {
+      const o = ctx.createOscillator(), o2 = ctx.createOscillator(), mix = ctx.createGain(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'sine'; o2.type = 'triangle'; o.frequency.value = o2.frequency.value = MIDI(m); mix.gain.value = 0.4;
+      o.connect(f); o2.connect(mix); mix.connect(f); f.type = 'lowpass'; f.frequency.value = 520; f.connect(g); g.connect(dest);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vel, t + 0.012); g.gain.setTargetAtTime(vel * 0.55, t + 0.04, 0.09); g.gain.setTargetAtTime(0.0001, t + dur, 0.04);
+      [o, o2].forEach(x => { x.start(t); x.stop(t + dur + 0.3); });
+    },
+    kick(t, dest, vel) { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(115, t); o.frequency.exponentialRampToValueAtTime(44, t + 0.12); g.gain.setValueAtTime(vel, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32); o.connect(g); g.connect(dest); o.start(t); o.stop(t + 0.35); },
+    hiss(t, dest, vel, { type = 'highpass', freq = 7000, q = 0.7, dur = 0.05, pan = 0 } = {}) {
+      const s = ctx.createBufferSource(); s.buffer = noise(); const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+      const g = ctx.createGain(); g.gain.setValueAtTime(vel, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); s.connect(f); f.connect(g); g.connect(PAN(dest, pan)); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
+    },
+    clap(t, dest, vel) { [0, 0.011, 0.023].forEach((d, i) => BAND.hiss(t + d, dest, vel * (i === 2 ? 1 : 0.6), { type: 'bandpass', freq: 1500, q: 0.9, dur: i === 2 ? 0.14 : 0.02 })); },
+    bell(t, dest, hi, vel) { const f0 = hi ? 920 : 640; [1, 2.37].forEach((k, i) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.value = f0 * k; g.gain.setValueAtTime(vel / (i + 1.5), t); g.gain.exponentialRampToValueAtTime(0.0001, t + (i ? 0.12 : 0.28)); o.connect(g); g.connect(PAN(dest, 0.35)); o.start(t); o.stop(t + 0.3); }); },
+    conga(t, dest, f0, vel, slap) { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(f0 * 1.08, t); o.frequency.exponentialRampToValueAtTime(f0, t + 0.03); g.gain.setValueAtTime(vel, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (slap ? 0.07 : 0.22)); o.connect(g); g.connect(PAN(dest, -0.3)); o.start(t); o.stop(t + 0.25); if (slap) BAND.hiss(t, dest, vel * 0.6, { type: 'bandpass', freq: 2600, q: 1.2, dur: 0.04, pan: -0.3 }); },
+    // the talking drum: squeezed as it's struck, so the note bends
+    talk(t, dest, f0, f1, vel) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + 0.16); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vel, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34); o.connect(g); g.connect(PAN(dest, 0.2)); o.start(t); o.stop(t + 0.36); BAND.hiss(t, dest, vel * 0.25, { type: 'bandpass', freq: 900, q: 1, dur: 0.03, pan: 0.2 }); },
+  };
+  // highlife in C: two guitars, bass and percussion over an eight-bar cycle
+  const CH = { C: [36, [64, 67, 72]], F: [41, [65, 69, 72]], G: [43, [62, 67, 71]] };
+  const PROG = ['C', 'F', 'C', 'G', 'C', 'F', 'G', 'C'];
+  const BASS = [[0, 0, 0.9, 2], [3, 0, 0.55, 1], [6, 7, 0.75, 2], [8, 12, 0.5, 1], [10, 7, 0.65, 2], [13, 9, 0.5, 1], [14, 7, 0.6, 1]];
+  const LEAD = [ // [step, note] per bar of the second half; each note gets a third below it, highlife style
+    [[0, 76], [2, 79], [3, 76], [4, 72], [6, 74], [7, 76], [10, 79], [11, 81], [12, 79], [14, 76]],
+    [[0, 77], [2, 81], [3, 77], [4, 72], [6, 74], [7, 77], [10, 81], [12, 79], [14, 77]],
+    [[0, 74], [2, 79], [3, 74], [4, 71], [6, 74], [7, 79], [10, 83], [11, 81], [12, 79], [14, 74]],
+    [[0, 76], [2, 72], [4, 79], [6, 76], [8, 72], [10, 67], [12, 72]],
+  ];
+  // the note a third below in C major (highlife guitars play in thirds)
+  const SCALE = [0, 2, 4, 5, 7, 9, 11], third = m => { const i = SCALE.indexOf(m % 12); if (i < 0) return 0; return m - ((m % 12) - SCALE[(i + 5) % 7] + 12) % 12; };
+  const BELL = [[0, 1], [2, 0], [5, 1], [7, 0], [9, 1], [12, 0], [14, 1]];
+  function groove(t, dest, step, cycle, echo) {
+    const bar = Math.floor(step / 16) % 8, s = step % 16, [root, tones] = CH[PROG[bar]], last = bar === 7, odd = cycle % 2;
+    // percussion
+    if (s === 0 || s === 6 || s === 10 || (s === 14 && (bar === 3 || bar === 7))) BAND.kick(t, dest, s === 0 ? 0.55 : 0.4);
+    if (s === 4 || s === 12) BAND.clap(t, dest, 0.16);
+    BAND.hiss(t, dest, s % 2 ? 0.07 : 0.035, { pan: 0.25 });
+    for (const [b, hi] of BELL) if (b === s) BAND.bell(t, dest, hi, 0.09);
+    if (s === 3 || s === 11) BAND.conga(t, dest, 220, 0.16); if (s === 7 || s === 15) BAND.conga(t, dest, 330, 0.12, true); if (s === 13) BAND.conga(t, dest, 175, 0.15);
+    if (last && s >= 8) { const tk = { 8: [240, 150], 10: [160, 150], 11: [160, 150], 12: [260, 140], 14: [150, 230], 15: [170, 150] }[s]; if (tk) BAND.talk(t, dest, tk[0], tk[1], 0.3); }
+    else if (s === 13 && bar % 2) BAND.talk(t, dest, 230, 150, 0.22);
+    // bass
+    for (const [b, iv, v, len] of BASS) if (b === s) BAND.bass(t, dest, root + iv, len * 0.13, v * 0.34);
+    // rhythm guitar: short chops on the off-beats
+    if (s === 2 || s === 6 || s === 10 || s === 14) tones.forEach((m, i) => BAND.pluck(t + i * 0.007, dest, m, 0.11, { mute: 0.12, pan: -0.4 }));
+    // lead guitar: the second half of each cycle, in thirds, with a little echo
+    if (bar >= 4) for (const [b, m] of LEAD[bar - 4]) if (b === s && !(odd && bar === 6 && b > 8)) { const m2 = m + (odd && bar === 5 ? 2 : 0); BAND.pluck(t, dest, m2, 0.16, { len: 0.7, pan: 0.35, send: echo }); const h = third(m2); if (h) BAND.pluck(t + 0.004, dest, h, 0.09, { len: 0.6, pan: 0.35 }); }
+  }
+  let MU = null, mOn = true, mVol = 0.5, duckOn = false;
+  try { mOn = localStorage.getItem('tete.music') !== 'off'; const v = parseFloat(localStorage.getItem('tete.mvol')); if (!isNaN(v)) mVol = v; } catch {}
+  const MUSIC_LEVEL = 0.42, STEP16 = 60 / 104 / 4;
+  function musicGain() { return MUSIC_LEVEL * mVol * vol; }
+  function music(want) {
+    if (want && mOn) {
+      if (MU) return; const c = ensure(); if (!c) return;
+      const out = c.createGain(), duck = c.createGain(), dip = c.createGain(), bus = c.createGain(), echo = c.createDelay(1), fb = c.createGain(), ef = c.createBiquadFilter();
+      bus.connect(duck); duck.connect(dip); dip.connect(out); out.connect(c.destination); out.gain.value = 0.0001;
+      echo.delayTime.value = STEP16 * 3; fb.gain.value = 0.28; ef.type = 'lowpass'; ef.frequency.value = 2600; echo.connect(ef); ef.connect(fb); fb.connect(echo); ef.connect(bus);
+      MU = { out, duck, dip, bus, echo, step: 0, cycle: 0, next: 0 };
+      MU.timer = setInterval(musicTick, 90); musicTick();
+    } else if (MU) {
+      const m = MU; MU = null; clearInterval(m.timer);
+      try { const t = ctx.currentTime; m.out.gain.cancelScheduledValues(t); m.out.gain.setValueAtTime(m.out.gain.value, t); m.out.gain.linearRampToValueAtTime(0.0001, t + 0.8); } catch {}
+      setTimeout(() => { try { m.out.disconnect(); } catch {} }, 1100);
+    }
+  }
+  function musicTick() {
+    const m = MU, c = ctx; if (!m || !c) return;
+    // only ever play into a running clock (nothing saved up), and rest while the app is out of sight
+    if (c.state !== 'running' || document.hidden) { m.next = 0; return; }
+    if (!m.next) { m.next = c.currentTime + 0.1; m.out.gain.cancelScheduledValues(c.currentTime); m.out.gain.setValueAtTime(0.0001, c.currentTime); m.out.gain.linearRampToValueAtTime(musicGain(), c.currentTime + 2.5); }
+    while (m.next < c.currentTime + 0.3) {
+      try { groove(m.next, m.bus, m.step, m.cycle, m.echo); } catch {}
+      m.next += STEP16 * (m.step % 2 ? 0.92 : 1.08); // a gentle swing on the sixteenths
+      m.step++; if (m.step >= 128) { m.step = 0; m.cycle++; }
+    }
+    nap();
+  }
+  // when someone talks on voice chat, the music steps back
+  function duck(on) { if (!MU || duckOn === !!on) return; duckOn = !!on; try { const t = ctx.currentTime; MU.duck.gain.cancelScheduledValues(t); MU.duck.gain.setTargetAtTime(on ? 0.3 : 1, t, on ? 0.06 : 0.35); } catch {} }
+  function setMusic(on) { mOn = !!on; try { localStorage.setItem('tete.music', mOn ? 'on' : 'off'); } catch {} }
+  function setMusicVolume(v) { mVol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('tete.mvol', String(mVol)); } catch {} if (MU && ctx) try { MU.out.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.1); } catch {} }
+  // the end of the launch intro: an Afrobeat break instead of a fanfare
+  SOUNDS.afrobreak = function (t) {
+    const d = master, sp = 60 / 112 / 4;
+    BAND.kick(t, d, 0.62); BAND.bass(t, d, 36, 0.5, 0.32); [60, 64, 67, 72, 76].forEach((m, i) => BAND.pluck(t + i * 0.018, d, m, 0.14, { len: 1.6 }));
+    BAND.bell(t, d, 1, 0.16); BAND.hiss(t, d, 0.2, { type: 'bandpass', freq: 3000, q: 0.6, dur: 0.5 });
+    for (let s = 1; s < 16; s++) { const u = t + s * sp;
+      BAND.hiss(u, d, s % 2 ? 0.1 : 0.05);
+      if ([2, 5, 7, 9, 12, 14].includes(s)) BAND.bell(u, d, s === 5 || s === 9 || s === 14, 0.12);
+      if (s === 3 || s === 11) BAND.conga(u, d, 220, 0.22); if (s === 7) BAND.conga(u, d, 330, 0.16, true);
+      if (s === 4 || s === 6 || s === 7) BAND.talk(u, d, s === 4 ? 260 : 180, s === 4 ? 150 : 140, 0.4);
+      if (s === 8) { BAND.kick(u, d, 0.7); BAND.clap(u, d, 0.25); }
+      if (s === 10) BAND.kick(u, d, 0.5);
+      if (s >= 8 && s <= 14) { const lick = { 8: 79, 9: 76, 10: 74, 11: 76, 12: 72, 14: 67 }[s]; if (lick) BAND.pluck(u, d, lick, 0.22, { len: 0.6 }); }
+      if (s === 12) BAND.bass(u, d, 43, 0.25, 0.36); if (s === 14) BAND.bass(u, d, 47, 0.2, 0.36);
+    }
+    const end = t + 16 * sp; BAND.kick(end, d, 0.62); BAND.clap(end, d, 0.24); BAND.bass(end, d, 36, 0.8, 0.34); [60, 64, 67, 72].forEach((m, i) => BAND.pluck(end + i * 0.02, d, m, 0.15, { len: 1.8 })); BAND.bell(end, d, 1, 0.14);
+  };
+  document.addEventListener('visibilitychange', () => { if (MU && !document.hidden) musicTick(); });
+  window.TeteSound = { play, clip, loadClip, stop, ready, setMuted, setVolume, unlock, renderOffline, music, duck, setMusic, setMusicVolume, get musicOn() { return mOn; }, get musicVolume() { return mVol; }, get musicPlaying() { return !!MU; }, get muted() { return muted; }, get volume() { return vol; }, get state() { return ctx ? ctx.state : 'none'; } };
 })();
