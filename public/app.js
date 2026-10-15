@@ -508,6 +508,7 @@ function applyState(o,fx){
   ME=o.me;HOST=o.host===ME;
   $('#t-name').textContent=S.tableName;$('#t-wager').textContent=S.pending&&S.pending.wager!=null&&S.pending.wager!==S.wager?`${fmt(S.wager)} → ${fmt(S.pending.wager)} next hand`:fmt(S.wager);$('#t-decks').textContent=`${S.decks} deck${S.decks>1?'s':''} · ${36*S.decks} cards`;
   if(!S.started)showWait();else $('#wait').hidden=true;
+  $('#btn-tset2').classList.toggle('can',canEditTable());tipSettings();
   const lv=S.keep?'away':'leave';const bl=$('#btn-leave');if(bl.dataset.v!==lv){bl.dataset.v=lv;bl.innerHTML='<span class="long">Leave table</span><span class="short">Leave</span>'}
   if(SEATS[S.code]&&S.tableName&&SEATS[S.code].name!==S.tableName){SEATS[S.code].name=S.tableName;saveSeats()}
   $('#btn-invite').hidden=!!LOCALT;
@@ -951,7 +952,21 @@ $$('#m-tset .seg[data-ts] button').forEach(b=>b.onclick=()=>{const k=b.closest('
 $('#ts-save').onclick=()=>{const c={tableName:$('#ts-name').value.trim(),wager:+$('#ts-wager').value,buyIn:+$('#ts-buyin').value,timer:+$('#ts-timer').value,tie:TSV.tie,series:!!TSV.series,side:!!TSV.side,fill:!!TSV.fill,pub:!!TSV.pub,keep:!!TSV.keep};
   if(LOCALT){delete c.pub;delete c.keep}if(c.wager>c.buyIn){toast('The wager can\'t be more than the buy-in');nudgeEl($('.opts[data-for="ts-wager"]'));return}
   closeModal('#m-tset');act({type:'settings',cfg:c})};
-$('#btn-tset').onclick=openTableSettings;
+$('#btn-tset').onclick=openTableSettings;$('#btn-tset2').onclick=openTableSettings;$('#btn-wager').onclick=openTableSettings;
+// a one-time pointer for whoever can change the table: where the wager and the rules live
+var TIP_TSET,TIP_WAIT=0;
+function tipSettings(){if(TIP_TSET===undefined)try{TIP_TSET=localStorage.getItem('tete.tip.tset')==='1'}catch{TIP_TSET=false}
+  if(TIP_TSET||TIP_WAIT||!S||!S.started||!canEditTable())return;
+  TIP_WAIT=setTimeout(function show(){TIP_WAIT=0;const b=$('#btn-tset2');
+    if(TIP_TSET||!S||!S.started||!canEditTable()||!$('#game').classList.contains('on')||!b||!b.offsetParent)return;
+    if($('.modal.on')){TIP_WAIT=setTimeout(show,1200);return} // wait until nothing is covering it
+    const r=b.getBoundingClientRect();if(!r.width)return;
+    TIP_TSET=true;try{localStorage.setItem('tete.tip.tset','1')}catch{}
+    const t=document.createElement('div');t.className='coach';t.setAttribute('role','status');
+    t.innerHTML='<b>New</b>Change the wager, Series and the other rules here, any time in the game.';document.body.appendChild(t);
+    const w=t.offsetWidth,x=Math.min(innerWidth-w-10,Math.max(10,r.left+r.width/2-w/2));t.style.left=x+'px';t.style.top=(r.bottom+12)+'px';t.style.setProperty('--ax',(r.left+r.width/2-x)+'px');
+    let gone=false;const bye=()=>{if(gone)return;gone=true;t.classList.add('out');setTimeout(()=>t.remove(),300);document.removeEventListener('pointerdown',bye,true)};
+    document.addEventListener('pointerdown',bye,true);setTimeout(bye,9000)},1600)}
 // ---------- tonight: who's up and who's down since they sat ----------
 const signed=n=>(n>0?'+':n<0?'−':'±')+fmt(Math.abs(n));
 const avOf=(r,me)=>me?avStyle(AV,esc(r.name[0].toUpperCase())):r.bot||r.isBot?{style:`background:${r.color}`,text:esc(r.name[0].toUpperCase())}:avStyle(Array.isArray(r.av)?(r.av[0]==='e'?{kind:'emoji',emoji:r.av[1]}:{kind:'initial',color:r.av[1]}):r.av,esc(r.name[0].toUpperCase()));

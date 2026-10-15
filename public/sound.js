@@ -115,20 +115,52 @@
     sparkle(t) { for (let i = 0; i < 16; i++) tone(t + i * 0.04 + Math.random() * 0.03, { f: 2000 + Math.random() * 3600, dur: 0.12, gain: 0.05, wet: 0.7 }); },
     sting(t) { [N.C4, N.E4, N.G4, N.C5].forEach((f, i) => brass(t + i * 0.015, f, 1.5, 0.085)); brass(t, N.C4 / 2, 1.5, 0.08); SOUNDS.sparkle(t + 0.1); burst(t, { dur: 1.3, freq: 7000, q: 0.3, gain: 0.1, type: 'highpass' }); tone(t, { f: 65, dur: 0.6, gain: 0.35, slideTo: 40 }); },
   };
-  let lastUnlock = 0, napT = null, napping = false;
+  let lastUnlock = -1e9, napT = null, napping = false;
   // the sound engine keeps the phone's audio hardware awake: after half a minute of quiet it sleeps, and wakes for the next sound
   function nap() { clearTimeout(napT); napT = setTimeout(() => { if (ctx && ctx.state === 'running') { napping = true; ctx.suspend().catch(() => {}); } }, 30000); }
+  // a group of sounds that can be cut short together (the intro's soundtrack when someone skips it)
+  const buses = {};
+  function busOf(name) {
+    let b = buses[name];
+    if (!b || b.c !== ctx) { b = buses[name] = { c: ctx, dry: ctx.createGain(), wet: ctx.createGain() }; b.dry.connect(master); b.wet.connect(verb); }
+    return b;
+  }
+  function stop(name, fade = 0.2) {
+    const b = buses[name]; if (!b) return; delete buses[name];
+    try { const t = b.c.currentTime; for (const g of [b.dry, b.wet]) { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + fade); } } catch {}
+    setTimeout(() => { try { b.dry.disconnect(); b.wet.disconnect(); } catch {} }, fade * 1000 + 150);
+  }
   function play(name, opts = {}) {
     if (muted) return; const c = ensure(); if (!c) return;
     const fn = SOUNDS[name]; if (!fn) return;
-    const go = () => { try { fn(c.currentTime + 0.01 + (opts.delay || 0), opts.arg); } catch {} nap(); };
-    if (napping && c.state === 'suspended') { napping = false; c.resume().then(go).catch(() => {}); return; }
-    // a suspended context (no tap yet) would queue sounds and blurt them all out on the first tap: only queue right after a tap
-    if (c.state !== 'running' && performance.now() - lastUnlock > 1500) return;
-    go();
+    const go = () => {
+      const keep = [master, verb];
+      try { if (opts.bus) { const b = busOf(opts.bus); master = b.dry; verb = b.wet; } fn(c.currentTime + 0.01 + (opts.delay || 0), opts.arg); } catch {} finally { master = keep[0]; verb = keep[1]; }
+      nap();
+    };
+    if (c.state === 'running') { go(); return; }
+    // Sound isn't running (no tap yet, or it's napping). Never schedule onto a stopped clock: the browser saves the
+    // sounds up and plays them all at the next tap, long after the moment. Wake it, and play only if it wakes promptly.
+    if (!napping && performance.now() - lastUnlock > 1500) return;
+    napping = false;
+    const asked = performance.now();
+    try { const r = c.resume(); if (r && r.then) r.then(() => { if (c.state === 'running' && performance.now() - asked < 1000) go(); }, () => {}); } catch {}
   }
   function unlock() { const c = ensure(); lastUnlock = performance.now(); napping = false; if (c && c.state !== 'running') { try { const r = c.resume(); if (r && r.catch) r.catch(() => {}); } catch {} } nap(); }
-  ['pointerdown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, unlock, { passive: true }));
+  // every kind of tap or key counts (phones only let sound start on the finger lifting); caught early, before the button's own handler plays its sound
+  ['pointerdown', 'pointerup', 'touchend', 'mousedown', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, unlock, { passive: true, capture: true }));
+  // can sound play right now without a tap? (installed apps and well-used sites often can; Safari never does)
+  function ready(ms = 350) {
+    if (muted) return Promise.resolve(false);
+    const c = ensure(); if (!c) return Promise.resolve(false);
+    if (c.state === 'running') return Promise.resolve(true);
+    try { if (navigator.getAutoplayPolicy && navigator.getAutoplayPolicy(c) === 'disallowed') return Promise.resolve(false); } catch {}
+    return new Promise(res => {
+      let done = false; const fin = () => { if (!done) { done = true; res(c.state === 'running'); } };
+      try { const r = c.resume(); if (r && r.then) r.then(fin, fin); } catch {}
+      setTimeout(fin, ms);
+    });
+  }
   function setMuted(m) { muted = !!m; try { localStorage.setItem('tete.mute', muted ? '1' : '0'); } catch {} if (master) master.gain.value = muted ? 0 : vol; }
   function setVolume(v) { vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('tete.vol', String(vol)); } catch {} if (master && !muted) master.gain.value = vol; }
   // render a list of [name, seconds, arg] to an audio buffer (used to give the intro video its soundtrack)
@@ -139,5 +171,5 @@
     try { for (const [name, at, arg] of list) { const fn = SOUNDS[name]; if (fn) fn(at, arg); } return await ctx.startRendering(); }
     finally { [ctx, master, verb, noiseBuf] = saved; muted = wasMuted; }
   }
-  window.TeteSound = { play, setMuted, setVolume, unlock, renderOffline, get muted() { return muted; }, get volume() { return vol; } };
+  window.TeteSound = { play, stop, ready, setMuted, setVolume, unlock, renderOffline, get muted() { return muted; }, get volume() { return vol; }, get state() { return ctx ? ctx.state : 'none'; } };
 })();

@@ -17,17 +17,85 @@
     if (!force && s && s.token && (s.keep || Date.now() - (s.t || 0) < 6 * 3600e3)) skip = true;
   } catch {}
   if (skip) { root0.remove(); mark('done'); return; }
-  play(root0);
+  begin(root0);
 
-  function play(root) {
+  // the intro's sounds go on their own channel, so skipping the intro silences them too
+  function SND(n, d, arg) { try { window.TeteSound && window.TeteSound.play(n, { delay: d, arg, bus: 'intro' }); } catch {} }
+  function card(r, s, extra = '', back = '') {
+    const el = document.createElement('div'); el.className = 'ic'; const red = s === '♥' || s === '♦';
+    el.innerHTML = `<i class="f${red ? ' red' : ''}"><em>${r}<small>${s}</small></em><b>${s}</b><em class="br">${r}<small>${s}</small></em>${extra}</i><i class="b">${back}</i>`;
+    return el;
+  }
+  function T(x, y, z, rz, ry, rx, s) { return `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,${z.toFixed(1)}px) rotateZ(${rz.toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg) rotateX(${rx.toFixed(1)}deg) scale(${s.toFixed(3)})`; }
+  function sizes() { const W = innerWidth, H = innerHeight, small = Math.min(W, H) < 560; return { W, H, small, cw: Math.round(Math.max(44, Math.min(96, Math.min(W, H) * 0.135))), hs: small ? 2.3 : 2.05 }; }
+
+  // Browsers hold sound back until the page has had a tap. When it's held back, the show waits for one tap
+  // ("Tap to start") so it plays in step with its sound, instead of silently with the sounds turning up later.
+  function begin(root) {
+    playing = true;
+    const S = window.TeteSound;
+    if (!S || !S.ready || S.muted || window.__introSlow || window.__introHold || matchMedia('(prefers-reduced-motion: reduce)').matches) { play(root); return; }
+    mark('wait');
+    S.ready(350).then(ok => { if (ok) play(root); else curtain(root); });
+  }
+
+  // the curtain: a face-down card under the spotlight. Tap, and it flips to the Ace and is flung into the dark,
+  // which is where the show's Ace comes spinning out of.
+  function curtain(root) {
+    mark('gate'); root.classList.add('gating');
+    const { H, cw, hs } = sizes();
+    root.style.setProperty('--cw', cw + 'px');
+    root.innerHTML = '<div class="cam"><div class="spot"></div><div class="stage"><div class="gwrap"></div></div></div>' +
+      '<div class="gate"><div class="gtap">Tap to start</div><div class="gsub">Turn your sound up 🔊</div></div>' +
+      '<div class="bars"><i></i><i></i></div><button class="skip" type="button">Skip</button>';
+    const $ = s => root.querySelector(s), gate = $('.gate'), wrap = $('.gwrap');
+    // the card only ever moves; its fading happens on the wrapper, so its back shows (fading the card itself flattens it)
+    const c = card('A', '♠', '', '<span class="glint"></span>'); c.style.willChange = 'transform'; wrap.appendChild(c);
+    gate.style.top = Math.round(H / 2 + cw * 0.7 * hs + Math.max(18, H * 0.035)) + 'px';
+    $('.spot').animate([{ opacity: 0, transform: 'scale(.85)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 650, easing: 'ease-out', fill: 'both' });
+    const rest = (p) => T(0, -10 * p, 0, -3 + 6 * p, 168 + 24 * p, 0, hs);
+    wrap.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 600, easing: 'ease-out', fill: 'both' });
+    const rise = c.animate([{ transform: T(0, 40, -600, -3, 168, 0, hs) }, { transform: rest(0) }], { duration: 750, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'both' });
+    let bob = null;
+    rise.onfinish = () => { if (!gone) bob = c.animate([{ transform: rest(0) }, { transform: rest(1) }], { duration: 1700, easing: 'ease-in-out', iterations: Infinity, direction: 'alternate' }); };
+    c.querySelector('.glint').animate([{ transform: 'translateX(-120%)' }, { offset: 0.62, transform: 'translateX(-120%)' }, { transform: 'translateX(120%)' }], { duration: 2600, delay: 600, iterations: Infinity, easing: 'ease-in-out' });
+    gate.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'translateY(0px)' }], { duration: 600, delay: 450, easing: 'ease-out', fill: 'both' });
+    $('.skip').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, delay: 900, fill: 'both' });
+    let gone = false;
+    const off = () => { root.removeEventListener('click', onTap); document.removeEventListener('keydown', onKey); };
+    function onTap(e) { if (gone) return; gone = true; off(); if (e && e.target && e.target.closest && e.target.closest('.skip')) leave(); else start(); }
+    function onKey(e) {
+      if (gone) return;
+      if (e.key === 'Escape') { e.preventDefault(); gone = true; off(); leave(); }
+      else if ((e.key === 'Enter' || e.key === ' ') && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('#intro .skip'))) { e.preventDefault(); onTap(); }
+    }
+    root.addEventListener('click', onTap); document.addEventListener('keydown', onKey);
+    function start() {
+      try { window.TeteSound.unlock(); } catch {}
+      let p = 0; if (bob) { try { p = bob.effect.getComputedTiming().progress || 0; } catch {} bob.cancel(); }
+      SND('flip'); SND('flick', 0.26);
+      c.animate([{ transform: rest(p) }, { offset: 0.38, transform: T(0, -14, 60, 0, 0, 0, hs * 1.08) }, { transform: T(0, -40, -2600, -50, -900, 30, 1) }], { duration: 640, easing: 'cubic-bezier(.45,0,.75,.45)', fill: 'forwards' });
+      wrap.animate([{ opacity: 1 }, { offset: 0.5, opacity: 1 }, { opacity: 0 }], { duration: 640, fill: 'forwards' });
+      gate.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: 'forwards' });
+      $('.skip').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
+      const S = window.TeteSound;
+      Promise.all([new Promise(r => setTimeout(r, 620)), S && S.ready ? S.ready(900) : 0]).then(() => play(root, true));
+    }
+    function leave() {
+      mark('exit');
+      const fin = () => { if (!root.isConnected) return; root.remove(); playing = false; mark('done'); };
+      root.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: 'ease-out', fill: 'forwards' }).onfinish = fin; setTimeout(fin, 600);
+    }
+  }
+
+  function play(root, fromCurtain) {
   playing = true; mark('play'); window.__introT0 = performance.now();
+  root.classList.remove('gating');
   const SLOW = window.__introSlow || 1; // recording the intro as a video plays it in slow motion
   try { document.fonts && document.fonts.load('700 64px Cinzel'); } catch {}
 
-  const SND = (n, d, arg) => { try { window.TeteSound && window.TeteSound.play(n, { delay: d, arg }); } catch {} };
-  const W = innerWidth, H = innerHeight, small = Math.min(W, H) < 560;
+  const { W, H, small, cw } = sizes();
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const cw = Math.round(Math.max(44, Math.min(96, Math.min(W, H) * 0.135)));
   root.style.setProperty('--cw', cw + 'px');
   root.innerHTML = '<div class="cam"><div class="spot"></div><div class="rays"></div><div class="stage"></div>' +
     '<div class="ititle"><div class="iword">' + 'TETE'.split('').map(c => '<span class="gold">' + c + '</span>').join('') + '</div>' +
@@ -38,11 +106,6 @@
   const A = (el, kf, o) => el.animate(kf, Object.assign({ fill: 'both' }, o));
   const rnd = (a, b) => a + Math.random() * (b - a);
   const DS = 'drop-shadow(0 2px 0 #3f2c0c) drop-shadow(0 0 18px rgba(217,178,95,.28))';
-  function card(r, s, extra = '') {
-    const el = document.createElement('div'); el.className = 'ic'; const red = s === '♥' || s === '♦';
-    el.innerHTML = `<i class="f${red ? ' red' : ''}"><em>${r}<small>${s}</small></em><b>${s}</b><em class="br">${r}<small>${s}</small></em>${extra}</i><i class="b"></i>`;
-    return el;
-  }
   // the 21 line: Ace (11) + 10 = 21
   const cA = card('A', '♠'), c10 = card('10', '♥'), w21 = document.createElement('span');
   w21.className = 'w21'; w21.innerHTML = '<span class="glow"></span><span class="n21 gold">21</span>';
@@ -59,6 +122,7 @@
   function finish() { if (finished) return; finished = true; playing = false; timers.forEach(clearTimeout); root.remove(); mark('done'); }
   function skipNow() {
     if (exiting) return; exiting = true; timers.forEach(clearTimeout); mark('exit');
+    try { window.TeteSound && window.TeteSound.stop && window.TeteSound.stop('intro'); } catch {}
     const a = root.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: 'ease-out', fill: 'forwards' });
     a.onfinish = finish; setTimeout(finish, 600);
   }
@@ -75,11 +139,10 @@
   }
 
   const t = { hero: 80, land: 780, burst: 980, word: 2530, a: 2930, ten: 3050, n21: 3230, tag: 3310, sheen: 3380, exit: 4000 };
-  const T = (x, y, z, rz, ry, rx, s) => `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,${z.toFixed(1)}px) rotateZ(${rz.toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg) rotateX(${rx.toFixed(1)}deg) scale(${s.toFixed(3)})`;
   const shake = (at, amp) => cam.animate([0, 1, 2, 3, 4, 5].map(j => ({ transform: j === 0 || j === 5 ? 'translate(0px,0px)' : `translate(${rnd(-amp, amp).toFixed(1)}px,${rnd(-amp, amp).toFixed(1)}px)` })), { duration: 320, delay: at, easing: 'linear' });
 
-  // lights up
-  A($('.spot'), [{ opacity: 0, transform: 'scale(.85)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 650, easing: 'ease-out' });
+  // lights up (already up when the curtain was tapped)
+  if (!fromCurtain) A($('.spot'), [{ opacity: 0, transform: 'scale(.85)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 650, easing: 'ease-out' });
   A($('.skip'), [{ opacity: 0 }, { opacity: 1 }], { duration: 400, delay: 700 });
 
   // 1. the Ace of Spades spins in out of the dark

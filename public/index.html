@@ -529,6 +529,14 @@ details.more summary small{color:var(--fg-dim);font-weight:400;font-size:12.5px}
 #intro .bars i:first-child{top:0}
 #intro .bars i:last-child{bottom:0}
 #intro .skip{position:absolute;right:16px;bottom:calc(9vh + 12px);z-index:6;background:rgba(0,0,0,.35);border:1px solid rgba(243,217,144,.35);color:rgba(243,217,144,.85);border-radius:99px;padding:6px 14px;font-size:11px;letter-spacing:.24em;text-transform:uppercase;opacity:0}
+/* the curtain: waits for one tap when the browser holds sound back */
+#intro.gating{animation:none}
+#intro .gwrap{position:absolute;left:0;top:0;perspective:1100px}
+#intro .gate{position:absolute;left:0;right:0;text-align:center;pointer-events:none;opacity:0;z-index:4}
+#intro .gtap{font-family:var(--display);font-weight:700;font-size:clamp(16px,4.4vw,24px);letter-spacing:.34em;padding-left:.34em;text-transform:uppercase;color:var(--gold-hi);text-shadow:0 2px 0 #3f2c0c,0 0 18px rgba(243,217,144,.45);animation:gbreathe 1.8s ease-in-out infinite}
+#intro .gsub{margin-top:10px;font-size:clamp(10px,2.7vw,12px);letter-spacing:.24em;padding-left:.24em;text-transform:uppercase;color:#dccca6;opacity:.65}
+#intro .ic .b .glint{z-index:1}
+@keyframes gbreathe{0%,100%{opacity:.5}50%{opacity:1}}
 #m-me.acct .guest-only,#m-me:not(.acct) .acct-only,#m-friends.acct .guest-only,#m-friends:not(.acct) .acct-only{display:none!important}
 /* table felts: each player picks their own; the swatches carry their own colours */
 [data-felt="green"]{--felt:#0f5a3a;--felt-deep:#083d27;--felt-hi:#17774d}
@@ -637,8 +645,21 @@ html[data-felt="midnight"] .felt .ring{border-color:rgba(217,178,95,.32)}
 /* table name doubles as the door to the table settings */
 .tname{display:flex;align-items:center;gap:6px;min-width:0;background:none;border:0;padding:0;color:inherit;cursor:pointer;font:inherit;text-align:left}
 .tname h1{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tname .gear{flex:none;font-size:15px;color:var(--gold);opacity:.85;transition:transform .3s}
-.tname:hover .gear,.tname:focus-visible .gear{transform:rotate(60deg)}
+/* table settings: a proper button in the top bar (gold-edged for whoever can change things), and the wager is a shortcut */
+#btn-tset2{display:inline-flex;align-items:center;gap:6px}
+#btn-tset2 .gi{font-size:14px;line-height:1;display:inline-block;transition:transform .4s}
+#btn-tset2:hover .gi,#btn-tset2:focus-visible .gi{transform:rotate(60deg)}
+#btn-tset2.can{border-color:rgba(243,217,144,.6);color:var(--gold-hi);background:rgba(217,178,95,.08)}
+.mwager{background:none;border:0;padding:0;color:inherit;font:inherit;cursor:pointer;border-bottom:1px dashed rgba(243,217,144,.35)}
+.mwager:hover,.mwager:focus-visible{color:var(--cream);border-bottom-color:var(--gold)}
+/* a one-time pointer to the settings for the host */
+.coach{position:fixed;z-index:58;max-width:min(280px,82vw);background:linear-gradient(180deg,#3a2a14,#24180c);border:1px solid var(--gold);color:var(--cream);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.4;box-shadow:0 10px 30px rgba(0,0,0,.55),0 0 0 3px rgba(243,217,144,.12);animation:coachin .45s cubic-bezier(.2,.9,.3,1.3) both,coachbob 1.6s ease-in-out .5s infinite;pointer-events:none}
+.coach::before{content:"";position:absolute;top:-7px;left:calc(var(--ax,50%) - 7px);width:12px;height:12px;background:#3a2a14;border-left:1px solid var(--gold);border-top:1px solid var(--gold);transform:rotate(45deg)}
+.coach b{color:var(--gold-hi);margin-right:6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.coach.out{animation:coachout .25s ease-in both}
+@keyframes coachin{from{opacity:0;transform:translateY(8px) scale(.9)}}
+@keyframes coachbob{0%,100%{translate:0 0}50%{translate:0 3px}}
+@keyframes coachout{to{opacity:0;transform:translateY(6px)}}
 #m-tset.readonly .opts button,#m-tset.readonly .seg button,#m-tset.readonly input{pointer-events:none;opacity:.75}
 @media (max-width:700px){.tname{max-width:40vw}}
 @media (max-width:420px){.tname{flex:1 1 auto;max-width:none}.tname h1{max-width:none}}
@@ -819,13 +840,14 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <!-- ============ GAME ============ -->
 <section id="game" class="screen">
   <div class="topbar">
-    <button class="tname" id="btn-tset" type="button" title="Table settings"><h1 id="t-name">Table</h1><span class="gear" aria-hidden="true">⚙</span></button>
-    <div class="meta"><span>Hand <b class="num" id="t-hand">1</b></span><span>Wager <b class="num" id="t-wager">50</b></span><span id="t-decks">1 deck · 36 cards</span></div>
+    <button class="tname" id="btn-tset" type="button" title="Table settings"><h1 id="t-name">Table</h1></button>
+    <div class="meta"><span>Hand <b class="num" id="t-hand">1</b></span><button class="mwager" id="btn-wager" type="button" title="Change the wager">Wager <b class="num" id="t-wager">50</b></button><span id="t-decks">1 deck · 36 cards</span></div>
     <span class="pill" id="conn" style="display:none"></span>
     <span class="spacer"></span>
     <button class="btn btn-gold" id="btn-invite">Invite<span class="badge" id="invite-badge" hidden></span></button>
     <button class="btn btn-ghost" id="btn-sidebet"><span class="long">Propose side bet</span><span class="short">Side bet</span></button>
     <button class="btn btn-ghost" id="btn-side"><span class="long">Scores &amp; log</span><span class="short">Scores</span><span class="badge" id="side-badge" hidden></span></button>
+    <button class="btn btn-ghost" id="btn-tset2" type="button" aria-label="Table settings" title="Change the wager and the rules"><span class="gi" aria-hidden="true">⚙</span><span class="long">Settings</span></button>
     <button class="btn btn-ghost" id="btn-rules2">Rules</button>
     <button class="btn btn-dark" id="btn-close" hidden>Close room</button><button class="btn btn-dark" id="btn-leave"><span class="long">Leave table</span><span class="short">Leave</span></button>
   </div>
@@ -892,6 +914,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <li><b>Tie.</b> Agreed when the table is set up: either the pot stays and everyone who played puts in again and plays another hand for the bigger pot, or the tied players split the pot.</li>
 <li><b>Adasi.</b> Two Aces in your dealt hand wins the pot outright. When the drop reaches you, declare it (or the timer declares it for you), your Aces are shown to the table and the hand ends. Adasi also wins any total side bet you're in; other open side bets carry to the next hand.</li>
 <li><b>Series</b> (table option, off by default). If anyone is dealt three of the same number, or three of the same number land on the flushed board, the hand is void: the dealer redeals and the pot stays.</li>
+<li><b>Table settings.</b> Tap ⚙ Settings at the top of the table to change the wager, Series, the tie rule, side bets and more in the middle of a game. The host makes the changes (anyone seated can while the host is away). The wager and rules change from the next hand, and everyone at the table is told.</li>
 <li><b>Offline.</b> Once you have opened the app online, it keeps working without a connection for practice against the computer. Hosting, joining, voice and video need a connection.</li>
 <li><b>Rooms.</b> Every open table shows in the Rooms list. Public rooms: tap Join. Private rooms: tap Ask to join and the host lets you in, or join straight away with the code.</li>
 <li><b>Standing rooms.</b> Choose "Keep this room open" when hosting. The room stays with everyone's chips until the host taps Leave, then "Close the room for everyone". Under Leave, "Step away" keeps your seat (it shows under Rooms with a Return button) and "Leave for good" gives it up.</li>
