@@ -1,0 +1,2 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tools/transcribe/shouts-3.mp3 We@0.0 go@1.1 fry@1.26 egg@1.52 for@1.7 you!@2.0
