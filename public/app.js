@@ -83,20 +83,30 @@ function setMuted(m){const T=window.TeteSound;if(!T)return;T.setMuted(m);if(!m)T
 function toggleSound(){const T=window.TeteSound;if(!T)return;setMuted(!T.muted);toast(T.muted?'Game sounds off':'Game sounds on',1400)}
 $('#btn-sound').onclick=toggleSound;
 $('#snd-on').onclick=()=>setMuted(false);$('#snd-off').onclick=()=>setMuted(true);
-// ---------- music at the table: an original Afrobeat / highlife groove (sound.js), quiet, and it steps back when people talk ----------
-function musicSync(){const T=window.TeteSound;if(!T||!T.music)return;T.music(!!S&&$('#game').classList.contains('on'))}
-function setMusicOn(on){const T=window.TeteSound;if(!T||!T.setMusic)return;T.setMusic(on);if(on)T.unlock();musicSync();renderSoundSettings();renderSndPop();toast(on?'Music on 🎶':'Music off',1300)}
-function renderSndPop(){const T=window.TeteSound;if(!T||!T.setMusic)return;$('#sp-snd-on').classList.toggle('on',!T.muted);$('#sp-snd-off').classList.toggle('on',T.muted);$('#sp-mus-on').classList.toggle('on',!!T.musicOn);$('#sp-mus-off').classList.toggle('on',!T.musicOn);$('#sp-mvol').value=Math.round(T.musicVolume*100)}
-// the Sounds button at the table opens a small panel: game sounds, music, and how loud the music is
-function openSndPop(){const p=$('#sndpop'),b=$('#btn-fx');renderSndPop();p.hidden=false;const r=b.getBoundingClientRect(),w=p.offsetWidth,h=p.offsetHeight;p.style.left=Math.round(Math.max(10,Math.min(innerWidth-w-10,r.left+r.width/2-w/2)))+'px';p.style.top=Math.round(Math.max(10,r.top-h-10))+'px';SND('flick');
+// ---------- music at the table: real Afrobeats, Afrobeat and highlife songs (sound.js), quiet, stepping back when people talk ----------
+function musicSync(){const T=window.TeteSound;if(!T||!T.music)return;T.music(!!S&&$('#game').classList.contains('on'));renderMusicBtn()}
+function setMusicOn(on){const T=window.TeteSound;if(!T||!T.setMusic)return;T.setMusic(on);if(on)T.unlock();musicSync();renderSoundSettings();renderMusicPop();toast(on?'Music on 🎶':'Music off',1300)}
+function renderMusicBtn(){const T=window.TeteSound,b=$('#btn-music');if(!b)return;const on=!!(T&&T.musicOn);b.classList.toggle('off',!on);b.title=on?'Music: on':'Music: off';b.setAttribute('aria-label',on?'Music is on':'Music is off')}
+function renderMusicPop(){const T=window.TeteSound;if(!T||!T.setMusic)return;renderMusicBtn();const on=!!T.musicOn,s=on?T.song:null;
+  $('#sp-mus-on').classList.toggle('on',on);$('#sp-mus-off').classList.toggle('on',!on);$('#sp-mvol').value=Math.round(T.musicVolume*100);$('#sp-next').disabled=!on;
+  $('#sp-k').textContent=s?'Now playing':'Music';$('#sp-song').textContent=!on?'Music is off':s?s.title:(T.musicPlaying?'Starting…':'Plays at the table');$('#sp-artist').textContent=s?s.artist:''}
+// the 🎵 Music button at the table opens a small panel: what's playing, the next song, on or off, and how loud
+function openMusicPop(){const p=$('#sndpop'),b=$('#btn-music');renderMusicPop();p.hidden=false;const r=b.getBoundingClientRect(),w=p.offsetWidth,h=p.offsetHeight;p.style.left=Math.round(Math.max(10,Math.min(innerWidth-w-10,r.left+r.width/2-w/2)))+'px';p.style.top=Math.round(Math.max(10,r.top-h-10))+'px';SND('flick');
   const close=e=>{if(e&&e.target&&(p.contains(e.target)||b.contains(e.target)))return;p.hidden=true;document.removeEventListener('pointerdown',close,true);document.removeEventListener('keydown',esc,true)},esc=e=>{if(e.key==='Escape')close()};
   setTimeout(()=>{document.addEventListener('pointerdown',close,true);document.addEventListener('keydown',esc,true)},0)}
-$('#btn-fx').onclick=()=>{const p=$('#sndpop');if(!p.hidden){p.hidden=true;return}openSndPop()};
-$('#sp-snd-on').onclick=()=>{setMuted(false);renderSndPop()};$('#sp-snd-off').onclick=()=>{setMuted(true);renderSndPop()};
+$('#btn-music').onclick=()=>{const p=$('#sndpop');if(!p.hidden){p.hidden=true;return}openMusicPop()};
+// 🔊 Sounds at the table turns the game's sounds on and off, as in the lobby
+$('#btn-fx').onclick=toggleSound;
+$('#sp-next').onclick=()=>{const T=window.TeteSound;if(!T||!T.nextSong||!T.musicOn)return;T.unlock();T.nextSong();$('#sp-k').textContent='Music';$('#sp-song').textContent='Next song…';$('#sp-artist').textContent=''};
 $('#sp-mus-on').onclick=()=>setMusicOn(true);$('#sp-mus-off').onclick=()=>setMusicOn(false);
 $('#sp-mvol').oninput=()=>{if(window.TeteSound&&TeteSound.setMusicVolume)TeteSound.setMusicVolume(+$('#sp-mvol').value/100);$('#mus-vol').value=$('#sp-mvol').value};
 $('#mus-on').onclick=()=>setMusicOn(true);$('#mus-off').onclick=()=>setMusicOn(false);
 $('#mus-vol').oninput=()=>{if(window.TeteSound&&TeteSound.setMusicVolume)TeteSound.setMusicVolume(+$('#mus-vol').value/100)};
+// each new song shows in the panel; the first time music starts on this phone or laptop, say where its button is
+if(window.TeteSound)TeteSound.onSong=(s,skipped)=>{if(!$('#sndpop').hidden)renderMusicPop();if(skipped){toast(`🎵 ${s.title} · ${s.artist}`,2200);return}
+  let seen=false;try{seen=localStorage.getItem('tete.musichint')==='1'}catch{}if(seen)return;try{localStorage.setItem('tete.musichint','1')}catch{}
+  setTimeout(()=>{if(S)toast('🎵 Music on. Tap Music at the bottom to skip a song or turn it off.',4500)},1500)};
+renderMusicBtn();
 $('#snd-vol').oninput=()=>{if(window.TeteSound)TeteSound.setVolume(+$('#snd-vol').value/100)};
 $('#snd-vol').onchange=()=>SND('chips');
 $('#intro-on').onclick=()=>{try{localStorage.removeItem('tete.intro')}catch{}renderSoundSettings()};
@@ -383,11 +393,16 @@ function askAddFriend(id,name){const a=avStyle(null,(name||'?')[0].toUpperCase()
 function addFriend(id,name,av,viaLink){if(!id||id===MYID)return;
   if(ACCT){if(viaLink)send({type:'friend_add',id});else send({type:'friend_req',id});return}
   FRIENDS[id]=Object.assign({},FRIENDS[id],{name:name||(FRIENDS[id]&&FRIENDS[id].name)||'Friend',av:av||(FRIENDS[id]&&FRIENDS[id].av)||null,added:Date.now()});saveFriends();send({type:'friend_add',id});sendMe();toast(`${name||'Friend'} added`);SND('join');renderFriends();if(S)renderSeats()}
-function openPlayer(pid){const p=S&&S.players[pid];if(!p||pid===ME)return;const id=p.isBot?null:IDS[pid];const a=p.isBot?{style:`background:${p.color}`,text:p.name[0].toUpperCase()}:avStyle(p.av,p.name[0].toUpperCase());const el=$('#pl-av');el.style.cssText=a.style;el.textContent=a.text;
+function openPlayer(pid){const p=S&&S.players[pid];if(!p||pid===ME||p.gone)return;const id=p.isBot?null:IDS[pid];const a=p.isBot?{style:`background:${p.color}`,text:p.name[0].toUpperCase()}:avStyle(p.av,p.name[0].toUpperCase());const el=$('#pl-av');el.style.cssText=a.style;el.textContent=a.text;
   $('#pl-name').textContent=p.name;$('#pl-body').textContent=`${fmt(p.chips)} chips${p.isBot?' · computer player':''}${p.away?' · away':''}`;
   const isF=id&&FR()[id];const canSpray=S.started&&ME>=0&&!p.gone;const broke=canSpray&&p.chips<S.wager,mine0=S.players[ME]?S.players[ME].chips:0;
   if(broke)$('#pl-body').textContent=`${p.name} is out of chips and sitting out. Give them a buy-in and they're back in from the next hand.`;
-  $('#pl-actions').innerHTML=(broke&&mine0>=S.buyIn?`<button class="btn btn-gold" id="pl-give">Give a buy-in (${fmt(S.buyIn)})</button>`:'')+(canSpray&&pid!==ME?`<button class="btn ${broke?'btn-gold':'btn-ghost'}" id="pl-lend">Lend 🤝</button>`:'')+(canSpray?'<button class="btn '+(broke?'btn-ghost':'btn-gold')+'" id="pl-spray">Spray money 💸</button><button class="btn btn-ghost" id="pl-treat">Send a treat 🍹</button>':'')+(p.isBot?'':(!id?'':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-ghost" id="pl-add">Add as a friend</button>'))+'<button class="btn btn-ghost" data-close>Close</button>';
+  $('#pl-actions').innerHTML=(broke&&mine0>=S.buyIn?`<button class="btn btn-gold" id="pl-give">Give a buy-in (${fmt(S.buyIn)})</button>`:'')+(canSpray&&pid!==ME?`<button class="btn ${broke?'btn-gold':'btn-ghost'}" id="pl-lend">Lend 🤝</button>`:'')+(canSpray?'<button class="btn '+(broke?'btn-ghost':'btn-gold')+'" id="pl-spray">Spray money 💸</button><button class="btn btn-ghost" id="pl-treat">Send a treat 🍹</button>':'')+(p.isBot?'':(!id?'':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-ghost" id="pl-add">Add as a friend</button>'))+(HOST&&!LOCALT&&!p.gone&&pid!==S.hostId?'<button class="btn btn-ghost kickbtn" id="pl-kick">Remove from the table</button>':'')+'<button class="btn btn-ghost" data-close>Close</button>';
+  // the host can take someone off the table, after a second tap to be sure
+  const kk=$('#pl-kick');if(kk)kk.onclick=()=>{SND('flick');
+    $('#pl-body').textContent=`Take ${p.name} off the table? Their seat goes${S.started&&S.phase>0&&S.phase<6?' and they\'re out of this hand':''}.${p.isBot?'':' They can only come back if you let them in.'}`;
+    $('#pl-actions').innerHTML=`<button class="btn kickyes" id="pl-kick-yes">Yes, remove ${esc(p.name)}</button><button class="btn btn-ghost" data-close>Keep them</button>`;
+    $('#pl-kick-yes').onclick=()=>{closeModal('#m-player');send({type:'remove',pid});toast(`${p.name} is off the table`,2500)}};
   const add=$('#pl-add');if(add)add.onclick=()=>{closeModal('#m-player');addFriend(id,p.name,p.av)};
   const sp=$('#pl-spray');if(sp)sp.onclick=()=>{const w=S.wager||50,mine=S.players[ME]?S.players[ME].chips:0;$('#pl-body').innerHTML=`Spray ${esc(p.name)} from your ${fmt(mine)} chips:<div class="opts sprayopts">${[w,w*2,w*5,w*10].map(v=>`<button type="button" data-amt="${v}" ${v>mine?'disabled':''}>${fmt(v)}</button>`).join('')}</div>`;
     $$('#pl-body [data-amt]').forEach(b=>b.onclick=()=>{closeModal('#m-player');act({type:'spray',to:pid,amt:+b.dataset.amt})});SND('flick')};
@@ -617,7 +632,12 @@ function renderSeats(fresh){
     rtcAttachAll();
   }
   S.players.forEach(p=>{
-    const el=$('#seat-'+p.id);if(!el)return;el.querySelector('.nm').textContent=p.name+(p.gone?' · left':p.away?' · reconnecting':'');countTo(el.querySelector('.chips .num'),p.chips);
+    const el=$('#seat-'+p.id);if(!el)return;
+    // someone new in a seat that was empty: draw the seats again so the face is theirs
+    if(!p.gone&&el.dataset.who!==p.name){el.dataset.who=p.name;if(el.dataset.drawn)setTimeout(()=>renderSeats(true),0);el.dataset.drawn=1}
+    // a seat whose player left or was taken off the table shows as an empty chair
+    el.classList.toggle('empty',!!p.gone);
+    el.querySelector('.nm').textContent=p.gone?'Empty seat':p.name+(p.away?' · reconnecting':'');countTo(el.querySelector('.chips .num'),p.chips);
     el.classList.toggle('friend',!p.isBot&&p.id!==ME&&!!IDS[p.id]&&!!FR()[IDS[p.id]]);el.classList.toggle('turn',S.turn===p.id);el.classList.toggle('sitout',p.sitout||p.gone||p.away||(S.started&&!S.participants.includes(p.id)));
     const mic=p.id===ME?AVS.mic:p.mic,cam=p.id===ME?AVS.cam:p.cam;el.classList.toggle('video',!!cam&&!p.isBot);el.classList.toggle('mic-on',!!mic);el.classList.toggle('mic-off',!mic);
     let btn=el.querySelector('.btn-d');if(S.dealer===p.id&&S.started){if(!btn){btn=document.createElement('div');btn.className='btn-d';btn.textContent='D';el.querySelector('.av').appendChild(btn)}}else if(btn)btn.remove();

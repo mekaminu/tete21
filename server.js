@@ -286,9 +286,9 @@ const server = http.createServer((req, res) => {
   fs.readFile(fp, (err, data) => {
     if (err) { res.writeHead(404, { 'content-type': 'text/plain' }); return res.end('Not found'); }
     const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.mp3': 'audio/mpeg', '.wav': 'audio/wav' };
-    // the house voice's clips are asked for with a version (?v=), so they can be kept for good
-    const forever = url.startsWith('/shouts/') && url.endsWith('.mp3') && /[?&]v=/.test(req.url);
-    res.writeHead(200, { 'content-type': types[path.extname(fp)] || 'application/octet-stream', 'cache-control': forever ? 'public, max-age=31536000, immutable' : 'no-cache' });
+    // the house voice's clips and the songs are asked for with a version (?v=), so they can be kept for good
+    const forever = (url.startsWith('/shouts/') || url.startsWith('/music/')) && url.endsWith('.mp3') && /[?&]v=/.test(req.url);
+    res.writeHead(200, { 'content-type': types[path.extname(fp)] || 'application/octet-stream', 'content-length': data.length, 'cache-control': forever ? 'public, max-age=31536000, immutable' : 'no-cache' });
     res.end(data);
   });
 });
@@ -443,6 +443,7 @@ async function handle(ws, m) {
       // the name matches a seat waiting for its owner: the host decides whether it is really them
       const ret = waitingSeat(t, name, ws.uid);
       if (ret >= 0) return askToJoin(ws, t, m, ret);
+      if (t.wasRemoved(ws.uid, name)) return askToJoin(ws, t, m, -1); // taken off by the host: the host decides
       seatNew(ws, t, m); break;
     }
     case 'request': {
@@ -452,7 +453,7 @@ async function handle(ws, m) {
       const name = cleanName(m.name); if (!name) return send(ws, { type: 'error', msg: 'Type your name first.' });
       const ret = waitingSeat(t, name, ws.uid);
       if (ret >= 0) return askToJoin(ws, t, m, ret);
-      if (t.pub) return seatNew(ws, t, m);
+      if (t.pub && !t.wasRemoved(ws.uid, name)) return seatNew(ws, t, m);
       askToJoin(ws, t, m, -1); break;
     }
     case 'return': { // an account going back to a seat it holds (works from any device)
@@ -467,6 +468,7 @@ async function handle(ws, m) {
       T.requests.delete(r.id); if (r.ws.request && r.ws.request.id === r.id) r.ws.request = null; T.sync();
       if (r.ws.readyState !== 1) return;
       if (!m.yes) return send(r.ws, { type: 'declined', msg: `${hostName(T) || 'The host'} said not now.` });
+      T.removed.delete(r.ws.uid); T.removed.delete('n:' + r.name.toLowerCase()); // let back in by the host
       if (r.ret >= 0) {
         const p = T.players[r.ret];
         if (p && !p.isBot && !p.gone && !p.conn && p.name.toLowerCase() === r.name.toLowerCase() && (!p.uid || p.uid === r.ws.uid)) { if (r.ws.table) leave(r.ws); const rr = T.reclaim(r.ret, r.ws); if (rr) return enter(r.ws, T, rr, true); }
@@ -492,6 +494,16 @@ async function handle(ws, m) {
       unregister(T); persistAll();
       const final = T.started ? T.standings() : null, owed = T.openLoans();
       for (const c of conns) { c.table = null; c.pid = -1; send(c, { type: 'gone', code: T.code.toUpperCase(), msg: 'The host closed the room.', final, owed, tn: T.tableName }); sendRooms(c); if (c.me) presenceChanged(c.me); }
+      break;
+    }
+    case 'remove': { // the host takes someone off the table; a person can only come back if the host lets them in
+      if (!T || ws.pid !== T.hostId) return;
+      const pid = Math.floor(+m.pid), p = T.players[pid]; if (!p || p.gone || pid === T.hostId) return;
+      const c = p.conn, who = hostName(T) || 'The host';
+      if (!T.takeOff(pid)) return;
+      if (c) { c.table = null; c.pid = -1; send(c, { type: 'gone', code: T.code.toUpperCase(), msg: `${who} took you off the table.` }); sendRooms(c); if (c.me) presenceChanged(c.me); if (c.uid) setTimeout(() => pushAccount(c.uid), 50); }
+      for (const q of T.players) if (q.conn) send(q.conn, { type: 'peer', id: pid, event: 'left' });
+      listDirty = true; if (T.persistent) persistAll();
       break;
     }
 

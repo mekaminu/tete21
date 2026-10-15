@@ -173,7 +173,9 @@
     const asked = performance.now();
     try { const r = c.resume(); if (r && r.then) r.then(() => { if (c.state === 'running' && performance.now() - asked < 1000) go(); }, () => {}); } catch {}
   }
-  function unlock() { const c = ensure(); lastUnlock = performance.now(); napping = false; if (c && c.state !== 'running') { try { const r = c.resume(); if (r && r.catch) r.catch(() => {}); } catch {} } nap(); }
+  function unlock() { const c = ensure(); lastUnlock = performance.now(); napping = false; if (c && c.state !== 'running') { try { const r = c.resume(); if (r && r.catch) r.catch(() => {}); } catch {} } nap();
+    // a song the browser held back starts on this tap (phones only let a song start from a tap)
+    if (MU && MEL && NOW && MEL.paused && !document.hidden) resumeSong(); }
   // every kind of tap or key counts (phones only let sound start on the finger lifting); caught early, before the button's own handler plays its sound
   ['pointerdown', 'pointerup', 'touchend', 'mousedown', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, unlock, { passive: true, capture: true }));
   // can sound play right now without a tap? (installed apps and well-used sites often can; Safari never does)
@@ -239,70 +241,90 @@
     // the talking drum: squeezed as it's struck, so the note bends
     talk(t, dest, f0, f1, vel) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + 0.16); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vel, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34); o.connect(g); g.connect(PAN(dest, 0.2)); o.start(t); o.stop(t + 0.36); BAND.hiss(t, dest, vel * 0.25, { type: 'bandpass', freq: 900, q: 1, dur: 0.03, pan: 0.2 }); },
   };
-  // highlife in C: two guitars, bass and percussion over an eight-bar cycle
-  const CH = { C: [36, [64, 67, 72]], F: [41, [65, 69, 72]], G: [43, [62, 67, 71]] };
-  const PROG = ['C', 'F', 'C', 'G', 'C', 'F', 'G', 'C'];
-  const BASS = [[0, 0, 0.9, 2], [3, 0, 0.55, 1], [6, 7, 0.75, 2], [8, 12, 0.5, 1], [10, 7, 0.65, 2], [13, 9, 0.5, 1], [14, 7, 0.6, 1]];
-  const LEAD = [ // [step, note] per bar of the second half; each note gets a third below it, highlife style
-    [[0, 76], [2, 79], [3, 76], [4, 72], [6, 74], [7, 76], [10, 79], [11, 81], [12, 79], [14, 76]],
-    [[0, 77], [2, 81], [3, 77], [4, 72], [6, 74], [7, 77], [10, 81], [12, 79], [14, 77]],
-    [[0, 74], [2, 79], [3, 74], [4, 71], [6, 74], [7, 79], [10, 83], [11, 81], [12, 79], [14, 74]],
-    [[0, 76], [2, 72], [4, 79], [6, 76], [8, 72], [10, 67], [12, 72]],
-  ];
-  // the note a third below in C major (highlife guitars play in thirds)
-  const SCALE = [0, 2, 4, 5, 7, 9, 11], third = m => { const i = SCALE.indexOf(m % 12); if (i < 0) return 0; return m - ((m % 12) - SCALE[(i + 5) % 7] + 12) % 12; };
-  const BELL = [[0, 1], [2, 0], [5, 1], [7, 0], [9, 1], [12, 0], [14, 1]];
-  function groove(t, dest, step, cycle, echo) {
-    const bar = Math.floor(step / 16) % 8, s = step % 16, [root, tones] = CH[PROG[bar]], last = bar === 7, odd = cycle % 2;
-    // percussion
-    if (s === 0 || s === 6 || s === 10 || (s === 14 && (bar === 3 || bar === 7))) BAND.kick(t, dest, s === 0 ? 0.55 : 0.4);
-    if (s === 4 || s === 12) BAND.clap(t, dest, 0.16);
-    BAND.hiss(t, dest, s % 2 ? 0.07 : 0.035, { pan: 0.25 });
-    for (const [b, hi] of BELL) if (b === s) BAND.bell(t, dest, hi, 0.09);
-    if (s === 3 || s === 11) BAND.conga(t, dest, 220, 0.16); if (s === 7 || s === 15) BAND.conga(t, dest, 330, 0.12, true); if (s === 13) BAND.conga(t, dest, 175, 0.15);
-    if (last && s >= 8) { const tk = { 8: [240, 150], 10: [160, 150], 11: [160, 150], 12: [260, 140], 14: [150, 230], 15: [170, 150] }[s]; if (tk) BAND.talk(t, dest, tk[0], tk[1], 0.3); }
-    else if (s === 13 && bar % 2) BAND.talk(t, dest, 230, 150, 0.22);
-    // bass
-    for (const [b, iv, v, len] of BASS) if (b === s) BAND.bass(t, dest, root + iv, len * 0.13, v * 0.34);
-    // rhythm guitar: short chops on the off-beats
-    if (s === 2 || s === 6 || s === 10 || s === 14) tones.forEach((m, i) => BAND.pluck(t + i * 0.007, dest, m, 0.11, { mute: 0.12, pan: -0.4 }));
-    // lead guitar: the second half of each cycle, in thirds, with a little echo
-    if (bar >= 4) for (const [b, m] of LEAD[bar - 4]) if (b === s && !(odd && bar === 6 && b > 8)) { const m2 = m + (odd && bar === 5 ? 2 : 0); BAND.pluck(t, dest, m2, 0.16, { len: 0.7, pan: 0.35, send: echo }); const h = third(m2); if (h) BAND.pluck(t + 0.004, dest, h, 0.09, { len: 0.6, pan: 0.35 }); }
-  }
-  let MU = null, mOn = true, mVol = 0.5, duckOn = false;
+  // ---------- music at the table: real Afrobeats, Afrobeat and highlife songs, shuffled ----------
+  // The songs live in public/music (index.json lists them) and are free to use under the Pixabay Content License.
+  // They play through the sound engine, so the music steps back while someone talks and dips under each shout.
+  // Each song is fetched whole (the browser keeps it for good, since its address carries a version) and the next
+  // one is fetched while this one plays, so songs follow on without a gap and nothing streams in pieces.
+  let MU = null, MG = null, mOn = true, mVol = 0.5, duckOn = false;
   try { mOn = localStorage.getItem('tete.music') !== 'off'; const v = parseFloat(localStorage.getItem('tete.mvol')); if (!isNaN(v)) mVol = v; } catch {}
-  const MUSIC_LEVEL = 0.42, STEP16 = 60 / 104 / 4;
+  const MUSIC_LEVEL = 0.6;
   function musicGain() { return MUSIC_LEVEL * mVol * vol; }
+  let LIST = null, ORDER = [], POS = -1, NOW = null, MEL = null, SWITCHING = false, BLOCKED = false, RETRY = 0, onSong = null;
+  const BLOBS = new Map();
+  function songList() {
+    if (!LIST) LIST = fetch('/music/index.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).then(j => ({ v: String((j && j.v) || '1'), songs: j && Array.isArray(j.songs) ? j.songs.filter(x => x && typeof x.f === 'string') : [] }))
+      .then(L => { if (!L.songs.length) LIST = null; return L; }, () => { LIST = null; return { v: '1', songs: [] }; });
+    return LIST;
+  }
+  function shuffled(n, avoid) { const a = [...Array(n).keys()]; for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } if (n > 1 && a[0] === avoid) [a[0], a[1]] = [a[1], a[0]]; return a; }
+  async function songUrl(L, i) {
+    const s = L.songs[i]; if (BLOBS.has(s.f)) return BLOBS.get(s.f);
+    const r = await fetch(`/music/${s.f}?v=${encodeURIComponent(L.v)}`); if (!r.ok) throw new Error('song ' + r.status);
+    const u = URL.createObjectURL(await r.blob()); BLOBS.set(s.f, u);
+    // keep just the last few songs in memory (never the one playing: it's always among the newest)
+    while (BLOBS.size > 3) { const [k, old] = BLOBS.entries().next().value; BLOBS.delete(k); try { URL.revokeObjectURL(old); } catch {} }
+    return u;
+  }
+  function graphFor(c) {
+    if (MG && MG.c === c) return MG;
+    MEL = new Audio(); MEL.preload = 'auto'; try { MEL.setAttribute('playsinline', ''); } catch {}
+    const src = c.createMediaElementSource(MEL), duck = c.createGain(), dip = c.createGain(), out = c.createGain();
+    src.connect(duck); duck.connect(dip); dip.connect(out); out.connect(c.destination); out.gain.value = 0.0001;
+    MEL.addEventListener('ended', () => { if (MU) setTimeout(() => nextSong(true), 700); });
+    MG = { c, src, duck, dip, out, timer: null }; return MG;
+  }
+  function fadeTo(m, v, secs) { try { const t = m.c.currentTime, g = m.out.gain; g.cancelScheduledValues(t); g.setValueAtTime(Math.max(0.0001, g.value), t); g.linearRampToValueAtTime(Math.max(0.0001, v), t + secs); } catch {} }
   function music(want) {
     if (want && mOn) {
-      if (MU) return; const c = ensure(); if (!c) return;
-      const out = c.createGain(), duck = c.createGain(), dip = c.createGain(), bus = c.createGain(), echo = c.createDelay(1), fb = c.createGain(), ef = c.createBiquadFilter();
-      bus.connect(duck); duck.connect(dip); dip.connect(out); out.connect(c.destination); out.gain.value = 0.0001;
-      echo.delayTime.value = STEP16 * 3; fb.gain.value = 0.28; ef.type = 'lowpass'; ef.frequency.value = 2600; echo.connect(ef); ef.connect(fb); fb.connect(echo); ef.connect(bus);
-      MU = { out, duck, dip, bus, echo, step: 0, cycle: 0, next: 0 };
-      MU.timer = setInterval(musicTick, 90); musicTick();
+      if (MU) { musicTick(); return; }
+      const c = ensure(); if (!c) return;
+      MU = graphFor(c); duckOn = false; MU.duck.gain.value = 1; MU.dip.gain.value = 1; MU.out.gain.value = 0.0001;
+      clearInterval(MU.timer); MU.timer = setInterval(musicTick, 1000); musicTick();
     } else if (MU) {
-      const m = MU; MU = null; clearInterval(m.timer);
-      try { const t = ctx.currentTime; m.out.gain.cancelScheduledValues(t); m.out.gain.setValueAtTime(m.out.gain.value, t); m.out.gain.linearRampToValueAtTime(0.0001, t + 0.8); } catch {}
-      setTimeout(() => { try { m.out.disconnect(); } catch {} }, 1100);
+      const m = MU; MU = null; clearInterval(m.timer); m.timer = null;
+      fadeTo(m, 0.0001, 0.7); setTimeout(() => { if (!MU && MEL) try { MEL.pause(); } catch {} }, 800);
     }
   }
+  // the song plays only while sound runs and the app is in view; otherwise it rests (and the engine can nap)
   function musicTick() {
-    const m = MU, c = ctx; if (!m || !c) return;
-    // only ever play into a running clock (nothing saved up), and rest while the app is out of sight
-    if (c.state !== 'running' || document.hidden) { m.next = 0; return; }
-    if (!m.next) { m.next = c.currentTime + 0.1; m.out.gain.cancelScheduledValues(c.currentTime); m.out.gain.setValueAtTime(0.0001, c.currentTime); m.out.gain.linearRampToValueAtTime(musicGain(), c.currentTime + 2.5); }
-    while (m.next < c.currentTime + 0.3) {
-      try { groove(m.next, m.bus, m.step, m.cycle, m.echo); } catch {}
-      m.next += STEP16 * (m.step % 2 ? 0.92 : 1.08); // a gentle swing on the sixteenths
-      m.step++; if (m.step >= 128) { m.step = 0; m.cycle++; }
-    }
+    const m = MU; if (!m || !MEL) return;
+    if (m.c.state !== 'running' || document.hidden) { if (!MEL.paused) try { MEL.pause(); } catch {} return; }
     nap();
+    if (SWITCHING || Date.now() < RETRY) return;
+    if (!NOW) { startSong(false); return; }
+    if (MEL.paused && !MEL.ended) resumeSong();
+  }
+  function resumeSong() {
+    if (!MU || !MEL || !MEL.src) return;
+    fadeTo(MU, 0.0001, 0.02);
+    let p; try { p = MEL.play(); } catch { BLOCKED = true; return; }
+    if (p && p.then) p.then(() => { BLOCKED = false; if (MU) fadeTo(MU, musicGain(), 2); }, () => { BLOCKED = true; });
+  }
+  async function startSong(skipped) {
+    if (SWITCHING || !MU) return; SWITCHING = true;
+    try {
+      const L = await songList(); if (!L.songs.length) { RETRY = Date.now() + 30000; return; }
+      if (POS + 1 >= ORDER.length) { ORDER = shuffled(L.songs.length, ORDER[POS]); POS = -1; }
+      POS++; const i = ORDER[POS];
+      let url; try { url = await songUrl(L, i); } catch { RETRY = Date.now() + 15000; return; }
+      if (!MU) return;
+      NOW = L.songs[i]; MEL.src = url;
+      if (MU.c.state === 'running' && !document.hidden) resumeSong();
+      if (onSong) try { onSong(NOW, !!skipped); } catch {}
+      const j = ORDER[POS + 1]; if (j != null) setTimeout(() => { if (MU) songUrl(L, j).catch(() => {}); }, 5000);
+    } finally { SWITCHING = false; }
+  }
+  // the next song: straight away when one ends, or with a short fade when someone skips
+  function nextSong(auto) {
+    if (!MU || SWITCHING) return;
+    if (auto || !MEL || MEL.paused) { NOW = null; startSong(!auto); return; }
+    fadeTo(MU, 0.0001, 0.5); setTimeout(() => { NOW = null; startSong(true); }, 550);
   }
   // when someone talks on voice chat, the music steps back
   function duck(on) { if (!MU || duckOn === !!on) return; duckOn = !!on; try { const t = ctx.currentTime; MU.duck.gain.cancelScheduledValues(t); MU.duck.gain.setTargetAtTime(on ? 0.3 : 1, t, on ? 0.06 : 0.35); } catch {} }
   function setMusic(on) { mOn = !!on; try { localStorage.setItem('tete.music', mOn ? 'on' : 'off'); } catch {} }
-  function setMusicVolume(v) { mVol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('tete.mvol', String(mVol)); } catch {} if (MU && ctx) try { MU.out.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.1); } catch {} }
+  function setMusicVolume(v) { mVol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('tete.mvol', String(mVol)); } catch {} if (MU && !MEL.paused) try { MU.out.gain.setTargetAtTime(musicGain(), MU.c.currentTime, 0.1); } catch {} }
   // the end of the launch intro: an Afrobeat break instead of a fanfare
   SOUNDS.afrobreak = function (t) {
     const d = master, sp = 60 / 112 / 4;
@@ -320,6 +342,6 @@
     }
     const end = t + 16 * sp; BAND.kick(end, d, 0.62); BAND.clap(end, d, 0.24); BAND.bass(end, d, 36, 0.8, 0.34); [60, 64, 67, 72].forEach((m, i) => BAND.pluck(end + i * 0.02, d, m, 0.15, { len: 1.8 })); BAND.bell(end, d, 1, 0.14);
   };
-  document.addEventListener('visibilitychange', () => { if (MU && !document.hidden) musicTick(); });
-  window.TeteSound = { play, clip, loadClip, stop, ready, setMuted, setVolume, unlock, renderOffline, music, duck, setMusic, setMusicVolume, get musicOn() { return mOn; }, get musicVolume() { return mVol; }, get musicPlaying() { return !!MU; }, get muted() { return muted; }, get volume() { return vol; }, get state() { return ctx ? ctx.state : 'none'; } };
+  document.addEventListener('visibilitychange', () => { if (!MU || !MEL) return; if (document.hidden) { try { MEL.pause(); } catch {} } else musicTick(); });
+  window.TeteSound = { play, clip, loadClip, stop, ready, setMuted, setVolume, unlock, renderOffline, music, duck, setMusic, setMusicVolume, nextSong: () => nextSong(false), get song() { return NOW ? { title: NOW.title, artist: NOW.artist } : null; }, get songWaiting() { return !!MU && (!NOW || BLOCKED); }, set onSong(f) { onSong = typeof f === 'function' ? f : null; }, get musicOn() { return mOn; }, get musicVolume() { return mVol; }, get musicPlaying() { return !!MU; }, get muted() { return muted; }, get volume() { return vol; }, get state() { return ctx ? ctx.state : 'none'; } };
 })();

@@ -674,6 +674,22 @@ html[data-felt="midnight"] .felt .ring{border-color:rgba(217,178,95,.32)}
 .lopt b{font-size:15px}.lopt small{color:var(--fg-dim);font-size:12.5px;line-height:1.35}
 .lopt:hover{border-color:var(--gold-dim)}
 .lopt#lv-away{border-color:var(--gold-dim);background:linear-gradient(180deg,#2a1d16,#1a1116)}
+.btn.kickbtn{color:#ff8a80;border-color:rgba(255,138,128,.45)}
+/* the Music panel above the 🎵 button: what's playing, skip, on/off, how loud */
+.sndpop .np{display:grid;gap:1px;padding:6px 0 10px;border-bottom:1px solid #3a2a31;min-width:0}
+.sndpop .np-k{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--fg-dim)}
+.sndpop .np b{font:700 17px/1.2 var(--display);color:var(--gold-hi);overflow-wrap:anywhere}
+.sndpop .np small{color:var(--fg-dim);font-size:12px}
+.sndpop .sp-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0 4px;flex-wrap:wrap}
+.sndpop .sp-row .btn{padding:8px 14px;font-size:13px}
+.sndpop .sp-row .btn:disabled{opacity:.45}
+/* eight round buttons fit along a narrow phone */
+@media (max-width:400px){.avbar{gap:4px}.avbtn{width:36px;height:36px;font-size:15px}.avbtn .lbl{font-size:8px;letter-spacing:.03em}}
+/* a seat whose player left or was taken off the table: an empty chair */
+.seat.empty .av{background:transparent!important;border:1.5px dashed rgba(255,255,255,.3)!important;box-shadow:none!important;color:transparent!important;cursor:default}
+.seat.empty .av>*,.seat.empty .chips,.seat.empty .mini,.seat.empty .tot,.seat.empty .flame{display:none!important}
+.seat.empty .nm{opacity:.6;font-style:italic}
+.btn.kickyes{background:linear-gradient(180deg,#e2675c,#b8433b);color:#fff;border:0}
 .lopt.danger b{color:#ff8a80}.lopt.danger.armed{border-color:#ff8a80;background:#2a1012}
 /* my shouts: record your own voice for each one */
 .shoutlist{display:grid;gap:6px;margin:4px 0 10px}
@@ -946,8 +962,8 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
     <div class="info">
       <div><span class="eyebrow">Your total</span> <span class="big num" id="mytotal">–</span> <span class="eyebrow" style="margin-left:14px">Chips</span> <span class="big num" id="mychips">0</span></div>
       <div class="msg" id="msg">Welcome to the table.</div>
-      <div class="avbar"><button class="avbtn off" id="btn-mic" title="Microphone">🎤<span class="lbl">Mic</span></button><button class="avbtn off" id="btn-cam" title="Camera">📷<span class="lbl">Camera</span></button><button class="avbtn on" id="btn-spk" title="Hear the other players">🔊<span class="lbl">Voices</span></button><button class="avbtn sndbtn" id="btn-fx" type="button" title="Game sounds"><span class="ico"></span><span class="lbl">Sounds</span></button><button class="avbtn" id="btn-treat" type="button" title="Drinks and small chops">🍹<span class="lbl">Treats</span></button><button class="avbtn" id="btn-lend" type="button" title="Lend chips to someone, and keep a record">🤝<span class="lbl">Lend</span></button><button class="avbtn" id="btn-react" type="button" title="Shout, react or say something">💬<span class="lbl">Chat</span></button><span class="roomav" id="roomav"></span></div>
-      <div class="sndpop" id="sndpop" hidden role="dialog" aria-label="Sound"><div class="setrow"><span>Game sounds</span><div class="seg sm"><button type="button" id="sp-snd-on">On</button><button type="button" id="sp-snd-off">Off</button></div></div><div class="setrow"><span>Music 🎶</span><div class="seg sm"><button type="button" id="sp-mus-on">On</button><button type="button" id="sp-mus-off">Off</button></div></div><div class="setrow"><label for="sp-mvol">Music volume</label><input type="range" id="sp-mvol" min="0" max="100" step="5"></div><p class="note" style="margin:2px 0 0">The music steps back whenever someone talks.</p></div>
+      <div class="avbar"><button class="avbtn off" id="btn-mic" title="Microphone">🎤<span class="lbl">Mic</span></button><button class="avbtn off" id="btn-cam" title="Camera">📷<span class="lbl">Camera</span></button><button class="avbtn on" id="btn-spk" title="Hear the other players">🔊<span class="lbl">Voices</span></button><button class="avbtn sndbtn" id="btn-fx" type="button" title="Game sounds"><span class="ico"></span><span class="lbl">Sounds</span></button><button class="avbtn musbtn" id="btn-music" type="button" title="Music" aria-label="Music">🎵<span class="lbl">Music</span></button><button class="avbtn" id="btn-treat" type="button" title="Drinks and small chops">🍹<span class="lbl">Treats</span></button><button class="avbtn" id="btn-lend" type="button" title="Lend chips to someone, and keep a record">🤝<span class="lbl">Lend</span></button><button class="avbtn" id="btn-react" type="button" title="Shout, react or say something">💬<span class="lbl">Chat</span></button><span class="roomav" id="roomav"></span></div>
+      <div class="sndpop" id="sndpop" hidden role="dialog" aria-label="Music"><div class="np"><span class="np-k" id="sp-k">Now playing</span><b id="sp-song">Music</b><small id="sp-artist"></small></div><div class="sp-row"><button type="button" class="btn btn-gold" id="sp-next">⏭ Next song</button><div class="seg sm"><button type="button" id="sp-mus-on">On</button><button type="button" id="sp-mus-off">Off</button></div></div><div class="setrow"><label for="sp-mvol">Music volume</label><input type="range" id="sp-mvol" min="0" max="100" step="5"></div><p class="note" style="margin:2px 0 0">Real Afrobeats and highlife, shuffled. It steps back whenever someone talks.</p></div>
     </div>
     <div class="actions" id="actions"></div>
     <div class="reactbar" id="reactbar" hidden></div>
@@ -970,6 +986,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <li><b>Adasi.</b> Two Aces in your dealt hand wins the pot outright. When the drop reaches you, declare it (or the timer declares it for you), your Aces are shown to the table and the hand ends. Adasi also wins any total side bet you're in; other open side bets carry to the next hand.</li>
 <li><b>Series</b> (table option, off by default). If anyone is dealt three of the same number, or three of the same number land on the flushed board, the hand is void: the dealer redeals and the pot stays.</li>
 <li><b>Table settings.</b> Tap ⚙ Settings at the top of the table to change the wager, Series, the tie rule, side bets and more in the middle of a game. The host makes the changes (anyone seated can while the host is away). The wager and rules change from the next hand, and everyone at the table is told.</li>
+<li><b>Removing a player.</b> The host can take anyone off the table: tap their seat, then Remove from the table, and tap again to be sure. Their seat goes (mid-hand, they're out of that hand), and they can only come back if the host lets them in.</li>
 <li><b>Offline.</b> Once you have opened the app online, it keeps working without a connection for practice against the computer. Hosting, joining, voice and video need a connection.</li>
 <li><b>Rooms.</b> Every open table shows in the Rooms list. Public rooms: tap Join. Private rooms: tap Ask to join and the host lets you in, or join straight away with the code.</li>
 <li><b>Standing rooms.</b> Choose "Keep this room open" when hosting. The room stays with everyone's chips until the host taps Leave, then "Close the room for everyone". Under Leave, "Step away" keeps your seat (it shows under Rooms with a Return button) and "Leave for good" gives it up.</li>
@@ -980,7 +997,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <li><b>Timer.</b> On your turn a ring counts down around your avatar. At zero the game acts for you (drops your lowest legal card, or stays). Three timeouts in a row and you're sat out until you tap Rejoin.</li>
 <li><b>Streaks &amp; scores.</b> Win hands in a row and your seat catches fire. Scores &amp; log ranks everyone by what they're up or down since they sat; when the host closes a standing room, everyone sees the final scores.</li>
 <li><b>Chat &amp; treats.</b> Chat holds the Pidgin shouts and a box to say anything to the table. Treats buys drinks and small chops for you, a friend or the whole table. Tap a player to spray them money.</li>
-<li><b>Music.</b> A quiet Afrobeat and highlife groove plays at the table: talking drum, shekere, bell, bass and highlife guitars, composed for the game. It steps back whenever someone talks on voice or a shout plays. Turn it off or down from 🔊 Sounds at the bottom of the table, or in your profile.</li>
+<li><b>Music.</b> Real Afrobeats, Afrobeat and highlife songs play quietly at the table, shuffled, and step back whenever someone talks on voice or a shout plays. Tap 🎵 Music at the bottom of the table to see what's playing, skip to the next song, turn it down or turn it off (it's in your profile too). The songs are free to use under the Pixabay Content License.</li>
 <li><b>Lending.</b> Tap 🤝 Lend at the bottom, or Lend on a player's card, to lend chips from your stack. Every loan is written down under Lend and in Scores &amp; log. The borrower pays back from Lend (all of it, or part while keeping enough for the next wager), and the lender can mark a loan settled if it was paid outside the game. Someone who ran out is back in from the next hand once they can cover the wager. Loans don't count as wins or losses in Tonight's scores, and anything still owed is listed on the final scores.</li>
 <li><b>Side bets.</b> Between two players, outside the pot. Ask, they accept, you both agree the amount. Bets on the flushed cards are made before the deal; bets on totals any time until the cards are shown. Settled from your own chips while the main game carries on.</li>
 </ol>

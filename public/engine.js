@@ -53,6 +53,7 @@ class Table {
     this.sideBets = []; this.participants = []; this.busy = false; this.started = false;
     this.trickWinner = null; this.boardSize = 0; this.boardTop = 0; this.tiebreak = false; this.next = null; this.msgHost = '';
     this.fxq = []; this.fxn = 0; this.sbid = 0; this.pend = null; this.closed = false; this.hostId = 0;
+    this.removed = new Set(); // people the host took off the table: they can only come back if the host lets them in
     this.createdAt = Date.now(); this.lastActivity = Date.now();
   }
   log(t, cls = '') { this.fx({ k: 'log', t, cls }); }
@@ -103,9 +104,9 @@ class Table {
     this.log(`${esc(p.name)} is back`); this.sync(); if (this.onSave) this.onSave();
     return { id: p.id, token: p.token };
   }
-  removeHuman(id) {
+  removeHuman(id, note) {
     const p = this.players[id]; if (!p || p.gone) return;
-    clearTimeout(p.awayT); p.gone = true; p.away = false; p.conn = null; this.log(`${esc(p.name)} left the table`);
+    clearTimeout(p.awayT); p.gone = true; p.away = false; p.conn = null; this.log(note || `${esc(p.name)} left the table`);
     if (this.handStart && this.handStart.has(p)) { const start = this.handStart.get(p); this.handStart.delete(p); if (this.onLeave) try { this.onLeave(p, p.chips - start); } catch (e) { console.error('leave hook', e); } }
     if (this.pend && this.pend.pid === p.id) this.pend.done(null);
     if (id === this.hostId) { const h = this.players.find(x => !x.isBot && !x.gone && x.conn) || this.players.find(x => !x.isBot && !x.gone); if (h) { this.hostId = h.id; this.log(`${esc(h.name)} is now the host`, 'hi'); } }
@@ -113,6 +114,15 @@ class Table {
     if (this.onSave) this.onSave();
     this.sync();
   }
+  // the host takes someone off the table (a person or a computer player): the seat goes, mid-hand they're out of
+  // the hand like anyone who leaves, and a person can only come back if the host lets them in
+  takeOff(id) {
+    const p = this.players[id], h = this.players[this.hostId]; if (!p || p.gone || id === this.hostId) return false;
+    if (!p.isBot) this.removed.add(p.uid || 'n:' + p.name.toLowerCase());
+    this.removeHuman(id, `${esc(h ? h.name : 'The host')} took ${esc(p.name)} off the table`);
+    return true;
+  }
+  wasRemoved(uid, name) { return (!!uid && this.removed.has(uid)) || this.removed.has('n:' + String(name || '').toLowerCase()); }
   // before the game starts, drop seats of people who left so nobody shows up twice
   compact() {
     if (this.started) return;
@@ -137,11 +147,12 @@ class Table {
   // ----- persistence (between hands) -----
   toJSON(hashFn) {
     const S = this;
-    return { code: S.code, cfg: { buyIn: S.buyIn, wager: S.wager, tableName: S.tableName, timer: S.timer, seats: S.seats, fill: S.fill, side: S.side, series: S.series, tie: S.tieSplit ? 'split' : 'playoff', keep: true, pub: S.pub, rid: S.rid }, pending: S.pendingCfg || null, loans: S.loans, pot: S.pot, handNo: S.handNo, dealer: S.dealer, hostId: S.hostId, createdAt: S.createdAt,
+    return { code: S.code, cfg: { buyIn: S.buyIn, wager: S.wager, tableName: S.tableName, timer: S.timer, seats: S.seats, fill: S.fill, side: S.side, series: S.series, tie: S.tieSplit ? 'split' : 'playoff', keep: true, pub: S.pub, rid: S.rid }, pending: S.pendingCfg || null, loans: S.loans, removed: [...S.removed].slice(-100), pot: S.pot, handNo: S.handNo, dealer: S.dealer, hostId: S.hostId, createdAt: S.createdAt,
       players: S.players.filter(p => !p.isBot && !p.gone).map(p => ({ id: p.id, name: p.name, chips: p.chips, av: p.av, color: p.color, uid: p.uid || null, streak: p.streak || 0, bought: p.bought || 0, wins: p.wins || 0, best: p.best || 0, tokenHash: p.tokenHash || (p.token && hashFn ? hashFn(p.token) : null) })) };
   }
   static fromJSON(o, send) {
     const t = new Table(o.code, o.cfg, send); t.pendingCfg = o.pending && typeof o.pending === 'object' ? o.pending : null; t.pot = o.pot || 0; t.handNo = o.handNo || 0; t.createdAt = o.createdAt || Date.now(); t.persistent = true;
+    t.removed = new Set(Array.isArray(o.removed) ? o.removed.filter(x => typeof x === 'string' && x.length <= 80).slice(-100) : []);
     // compact ids so seats are contiguous; everyone is away until they resume
     o.players.forEach((q, i) => { const p = t.mkPlayer(i, cleanName(q.name) || 'Guest', false); p.chips = Math.max(0, Math.floor(+q.chips || 0)); p.av = cleanAv(q.av); p.token = null; p.tokenHash = typeof q.tokenHash === 'string' ? q.tokenHash : null; p.uid = typeof q.uid === 'string' && /^[0-9a-f]{16}$/.test(q.uid) ? q.uid : null; p.streak = Math.max(0, Math.min(99, q.streak | 0)); p.bought = q.bought != null && isFinite(+q.bought) ? Math.floor(+q.bought) : t.buyIn; p.wins = Math.max(0, q.wins | 0); p.best = Math.max(0, q.best | 0); p.away = true; p.oldId = q.id; t.players.push(p); });
     const host = t.players.find(p => p.oldId === o.hostId); t.hostId = host ? host.id : 0; t.dealer = t.players.length - 1;
