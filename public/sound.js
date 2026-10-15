@@ -136,14 +136,21 @@
   const clips = {};
   function loadClip(url) {
     const c = ensure(); if (!c) return Promise.reject(new Error('no audio'));
-    if (!clips[url]) { clips[url] = fetch(url).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); }).then(b => new Promise((res, rej) => c.decodeAudioData(b, res, rej))); clips[url].catch(() => { delete clips[url]; }); }
+    if (!clips[url]) {
+      clips[url] = fetch(url).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); }).then(b => new Promise((res, rej) => c.decodeAudioData(b, res, rej))).then(buf => {
+        // speech clips start with a little silence: skip it, so a shout lands the moment it's made
+        const d = buf.getChannelData(0); let i = 0; while (i < d.length && Math.abs(d[i]) < 0.01) i++;
+        buf.lead = Math.max(0, i / buf.sampleRate - 0.02); return buf;
+      });
+      clips[url].catch(() => { delete clips[url]; });
+    }
     return clips[url];
   }
   function clip(url, opts = {}) {
     if (muted) return; const asked = performance.now();
     loadClip(url).then(buf => {
       if (performance.now() - asked > 3000) return; // too late to still be the moment
-      run(t => { const s = ctx.createBufferSource(); s.buffer = buf; const g = ctx.createGain(); g.gain.value = opts.gain || 1; s.connect(g); out(g, opts.wet || 0); s.start(t); }, opts);
+      run(t => { const s = ctx.createBufferSource(); s.buffer = buf; const g = ctx.createGain(); g.gain.value = opts.gain || 1; s.connect(g); out(g, opts.wet || 0); s.start(t, buf.lead || 0); }, opts);
     }).catch(() => {});
   }
   function run(fn, opts = {}) {
