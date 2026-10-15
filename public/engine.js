@@ -108,7 +108,7 @@ class Table {
     clearTimeout(p.awayT); p.gone = true; p.away = false; p.conn = null; this.log(`${esc(p.name)} left the table`);
     if (this.handStart && this.handStart.has(p)) { const start = this.handStart.get(p); this.handStart.delete(p); if (this.onLeave) try { this.onLeave(p, p.chips - start); } catch (e) { console.error('leave hook', e); } }
     if (this.pend && this.pend.pid === p.id) this.pend.done(null);
-    if (id === this.hostId && !this.persistent) { const h = this.players.find(x => !x.isBot && !x.gone); if (h) { this.hostId = h.id; this.log(`${esc(h.name)} is now the host`, 'hi'); } }
+    if (id === this.hostId) { const h = this.players.find(x => !x.isBot && !x.gone && x.conn) || this.players.find(x => !x.isBot && !x.gone); if (h) { this.hostId = h.id; this.log(`${esc(h.name)} is now the host`, 'hi'); } }
     if (!this.started) this.compact();
     if (this.onSave) this.onSave();
     this.sync();

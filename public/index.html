@@ -652,6 +652,13 @@ html[data-felt="midnight"] .felt .ring{border-color:rgba(217,178,95,.32)}
 .seat.showered .av{box-shadow:0 0 0 3px rgba(243,217,144,.55),0 0 36px rgba(243,217,144,.85);animation:bounce .6s}
 .banner.cash{top:30%;color:#dcffd2;border-color:#4fc98b;background:linear-gradient(180deg,rgba(14,64,36,.88),rgba(5,26,14,.88));text-shadow:0 2px 0 #0b3a1f,0 0 24px rgba(79,201,139,.7);white-space:nowrap;font-size:clamp(17px,3.4vw,36px)}
 .gain.cashgain{font-size:30px;color:#dcffd2;text-shadow:0 2px 0 #0b3a1f,0 0 18px rgba(79,201,139,.9)}
+/* leaving a standing room: step away, leave for good, or (host) close it */
+.leaveopts{display:grid;gap:8px;margin:6px 0 4px}
+.lopt{display:grid;gap:3px;text-align:left;background:#1a1116;border:1px solid #3a2a31;border-radius:14px;padding:12px 14px;color:var(--fg);cursor:pointer;font:inherit}
+.lopt b{font-size:15px}.lopt small{color:var(--fg-dim);font-size:12.5px;line-height:1.35}
+.lopt:hover{border-color:var(--gold-dim)}
+.lopt#lv-away{border-color:var(--gold-dim);background:linear-gradient(180deg,#2a1d16,#1a1116)}
+.lopt.danger b{color:#ff8a80}.lopt.danger.armed{border-color:#ff8a80;background:#2a1012}
 [hidden]{display:none!important}
 .pill:empty{display:none}
 @media (max-width:520px){.row>.field:has(.seg){min-width:100%}}
@@ -985,6 +992,15 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <div class="field"><label>Who can join</label><div class="seg" data-ts="pub"><button type="button" data-v="0">Private</button><button type="button" data-v="1">Public</button></div></div>
 <div class="field"><label>Keep this room open</label><div class="seg" data-ts="keep"><button type="button" data-v="0">Close when empty</button><button type="button" data-v="1">Until I close it</button></div></div>
 <div class="actions"><button class="btn btn-ghost" data-close type="button">Close</button><button class="btn btn-gold" id="ts-save" type="button">Save changes</button></div></div></div>
+
+<div class="modal sheet" id="m-leave"><div class="box"><div class="grab"></div>
+<h2>Leave the table?</h2>
+<div class="leaveopts">
+<button class="lopt" id="lv-away" type="button"><b>Step away</b><small>Your seat and chips wait for you. Come back any time from Rooms.</small></button>
+<button class="lopt" id="lv-good" type="button"><b>Leave for good</b><small id="lv-good-sub">Give up your seat.</small></button>
+<button class="lopt danger" id="lv-close" type="button"><b>Close the room for everyone</b><small>Ends the night and shows everyone the final scores.</small></button>
+</div>
+<div class="actions"><button class="btn btn-ghost" data-close type="button">Stay at the table</button></div></div></div>
 
 <div class="modal sheet" id="m-join"><div class="box"><div class="grab"></div>
 <h2>Join a table</h2>

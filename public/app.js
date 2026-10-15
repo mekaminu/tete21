@@ -202,7 +202,16 @@ $('#btn-join').onclick=()=>{if(!needName(openJoin))return;
   if(!CONNECTED){toast(navigator.onLine?'Not connected to the server yet':'You are offline. Playing with friends needs a connection.',3000);return}
   HOST=false;$('#btn-join').disabled=true;$('#join-note').textContent='Joining…';const msg={type:'join',code,name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam};const CODE=code.toUpperCase();if(SEATS[CODE]){PENDING_JOIN={code:CODE,msg};setCurrent(CODE);send({type:'resume',code:CODE,token:SEATS[CODE].token,seal:SEATS[CODE].seal})}else send(msg)};
 $('#f-join').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#btn-join').click()}});
-$('#btn-leave').onclick=()=>{const code=S&&S.code;if(LOCALT)stopLocal();else send({type:'leave'});if(code&&SEATS[code]&&!SEATS[code].keep){delete SEATS[code];saveSeats()}setCurrent(null);backToLobby()};
+function leaveTable(forGood){const code=S&&S.code;if(LOCALT)stopLocal();else send({type:'leave',forGood:!!forGood});if(code&&SEATS[code]&&(forGood||!SEATS[code].keep)){delete SEATS[code];saveSeats()}setCurrent(null);backToLobby();if(forGood)toast('You left the table for good')}
+// a standing room asks how you want to go: step away, leave for good, or (host) close it for everyone
+$('#btn-leave').onclick=()=>{if(LOCALT||!S||!S.keep){leaveTable(false);return}
+  const me=S.players[ME],chips=me?me.chips:0;
+  $('#lv-good-sub').textContent=ACCT?`Give up your seat. Your ${fmt(chips)} chips go back to your balance.`:`Give up your seat for someone else. Your ${fmt(chips)} table chips go with it.`;
+  $('#lv-close').hidden=!HOST;const c=$('#lv-close');c.classList.remove('armed');c.querySelector('b').textContent='Close the room for everyone';
+  openModal('#m-leave');SND('flick')};
+$('#lv-away').onclick=()=>{closeModal('#m-leave');leaveTable(false)};
+$('#lv-good').onclick=()=>{closeModal('#m-leave');leaveTable(true)};
+$('#lv-close').onclick=()=>{const c=$('#lv-close');if(!c.classList.contains('armed')){c.classList.add('armed');c.querySelector('b').textContent='Tap again to close the room for everyone';SND('error');return}closeModal('#m-leave');send({type:'close'})};
 $('#btn-rules').onclick=()=>openModal('#m-rules');
 $('#btn-rules2').onclick=()=>openModal('#m-rules');
 // a table link (?t=TETE-XXXX) opens the join sheet with the code filled in
@@ -496,10 +505,10 @@ function applyState(o,fx){
   ME=o.me;HOST=o.host===ME;
   $('#t-name').textContent=S.tableName;$('#t-wager').textContent=S.pending&&S.pending.wager!=null&&S.pending.wager!==S.wager?`${fmt(S.wager)} → ${fmt(S.pending.wager)} next hand`:fmt(S.wager);$('#t-decks').textContent=`${S.decks} deck${S.decks>1?'s':''} · ${36*S.decks} cards`;
   if(!S.started)showWait();else $('#wait').hidden=true;
-  const lv=S.keep?'away':'leave';const bl=$('#btn-leave');if(bl.dataset.v!==lv){bl.dataset.v=lv;bl.innerHTML=S.keep?'<span class="long">Step away</span><span class="short">Step away</span>':'<span class="long">Leave table</span><span class="short">Leave</span>'}
+  const lv=S.keep?'away':'leave';const bl=$('#btn-leave');if(bl.dataset.v!==lv){bl.dataset.v=lv;bl.innerHTML='<span class="long">Leave table</span><span class="short">Leave</span>'}
   if(SEATS[S.code]&&S.tableName&&SEATS[S.code].name!==S.tableName){SEATS[S.code].name=S.tableName;saveSeats()}
   $('#btn-invite').hidden=!!LOCALT;
-  $('#btn-close').hidden=!(S.keep&&HOST);$('#btn-close').onclick=()=>{if(!$('#btn-close').dataset.arm){$('#btn-close').dataset.arm='1';$('#btn-close').textContent='Tap again to close for everyone';setTimeout(()=>{delete $('#btn-close').dataset.arm;$('#btn-close').textContent='Close room'},4000);return}send({type:'close'})};
+  $('#btn-close').hidden=true;$('#btn-close').onclick=()=>{if(!$('#btn-close').dataset.arm){$('#btn-close').dataset.arm='1';$('#btn-close').textContent='Tap again to close for everyone';setTimeout(()=>{delete $('#btn-close').dataset.arm;$('#btn-close').textContent='Close room'},4000);return}send({type:'close'})};
   renderAll();
   motion(prev,before);
   SPRAYED=new Set((fx||[]).filter(e=>e.k==='spray').map(e=>e.to));

@@ -217,15 +217,17 @@ function cancelRequest(ws, tell) {
   q.t.requests.delete(q.id); q.t.sync();
   if (tell) send(ws, { type: 'request_cancelled' });
 }
-function leave(ws, dropped) {
+function leave(ws, dropped, forGood) {
   cancelRequest(ws);
   const T = ws.table; if (!T) return;
   const pid = ws.pid, p = T.players[pid];
   ws.table = null; ws.pid = -1;
-  if (p && p.conn === ws) { if (dropped || T.persistent) T.disconnect(pid); else T.removeHuman(pid); }
+  if (p && p.conn === ws) { if (dropped || (T.persistent && !forGood)) T.disconnect(pid); else T.removeHuman(pid); }
   for (const q of T.players) if (q.conn && q.conn !== ws) send(q.conn, { type: 'peer', id: pid, event: 'left' });
   listDirty = true; if (ws.me) presenceChanged(ws.me);
   if (ws.uid) setTimeout(() => pushAccount(ws.uid), 50);
+  // the last person leaves a standing room for good: the room goes with them
+  if (forGood && T.persistent && !T.closed && T.humansPresent() === 0) { closedCodes.add(T.code); unregister(T); persistAll(); return; }
   if (T.persistent || T.closed) return;
   if (T.humansPresent() === 0) unregister(T);
   else if (T.humansConnected() === 0) { clearTimeout(T.emptyT); T.emptyT = setTimeout(() => { if (!T.closed && T.humansConnected() === 0) unregister(T); }, 120000); }
@@ -463,7 +465,7 @@ async function handle(ws, m) {
       if (!r) { if (returnAcct(ws, t)) return; return send(ws, { type: 'gone', code: code.toUpperCase(), msg: 'Your seat at that table is no longer held.' }); }
       enter(ws, t, r, true); break;
     }
-    case 'leave': leave(ws); sendRooms(ws); break;
+    case 'leave': leave(ws, false, !!m.forGood); sendRooms(ws); break;
     case 'close': {
       if (!T || ws.pid !== T.hostId || !T.persistent) return;
       closedCodes.add(T.code);
