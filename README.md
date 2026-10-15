@@ -69,6 +69,13 @@ Accounts need a Postgres database: set `DATABASE_URL` (Neon's free tier works). 
 - **Table felt:** classic green, royal blue, wine, midnight or an ankara print, picked in your profile (tap your own seat at the table). Each player sees their own choice.
 - **Tonight's scores:** the Scores & log panel ranks everyone by what they're up or down since they sat (chips in front of them against everything they bought in), with hands won and best run. When the host closes a standing room, everyone sees the final scores on a podium.
 - **Chat:** the Chat button holds the Pidgin shouts and a box to say anything to the table; it floats over your seat and goes in the hand log.
+- **Whose turn:** a spotlight under the seat and a gold pointer above it glide from player to player (green when it's you).
+- **Picked cards stay open:** cards taken from the board stay face up in their slot, ringed in the picker's colour with their badge underneath.
+- **Spraying:** notes peel off the sprayer's hand, flutter across, rain on the receiver and pile up at their seat; ten wagers or more makes it rain over the whole table. 'Give a buy-in' brings a player who ran out back in.
+- **Shouts out loud:** each shout is spoken on everyone's device (a Nigerian English voice where the device has one). Profile → My shouts records your own voice for each one, and the table hears yours.
+- **Table settings mid-game:** tap the table name. The host (or anyone seated while the host is away) can change the wager, buy-in, timer and rules; the wager and rules apply from the next hand.
+- **Leaving:** in rooms that stay open, Leave offers Step away, Leave for good, or (host) Close the room for everyone.
+- **Battery:** the turn clock ticks only while someone's clock runs, the voice meter and sound engine rest when quiet, and your camera pauses while the app is in the background.
 - **Sounds:** made in the browser with Web Audio: riffle, card flicks, chip clinks, your-turn chime, a ticking clock in the last five seconds, the Adasi fanfare, the Series thud and more. Mute and volume are in the profile; the speaker buttons in the lobby and under your hand toggle them. Phones only play sound after the first tap.
 
 ## Notes
