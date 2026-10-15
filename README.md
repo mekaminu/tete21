@@ -70,7 +70,7 @@ Accounts need a Postgres database: set `DATABASE_URL` (Neon's free tier works). 
 - **Tonight's scores:** the Scores & log panel ranks everyone by what they're up or down since they sat (chips in front of them against everything they bought in), with hands won and best run. When the host closes a standing room, everyone sees the final scores on a podium.
 - **Chat:** the Chat button holds the Pidgin shouts and a box to say anything to the table; it floats over your seat and goes in the hand log.
 - **Whose turn:** a spotlight under the seat and a gold pointer above it glide from player to player (green when it's you).
-- **Picked cards stay open:** cards taken from the board stay face up in their slot, ringed in the picker's colour with their badge underneath.
+- **Picked cards leave the board:** a card someone picks flies from the board to them, and the cards still to be picked slide together, so the table only shows what's left to pick.
 - **Spraying:** notes peel off the sprayer's hand, flutter across, rain on the receiver and pile up at their seat; ten wagers or more makes it rain over the whole table. 'Give a buy-in' brings a player who ran out back in.
 - **Shouts out loud:** each shout is spoken on everyone's device (a Nigerian English voice where the device has one). Profile → My shouts records your own voice for each one, and the table hears yours.
 - **Table settings mid-game:** the ⚙ Settings button in the table's top bar (gold-edged for whoever can change things; the table name and the wager open it too). The host (or anyone seated while the host is away) can change the wager, buy-in, timer and rules; the wager and rules apply from the next hand. The first time a host is at a table, a pointer shows where it is.

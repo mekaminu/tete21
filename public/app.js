@@ -651,11 +651,9 @@ function sizeBoard(){
 window.addEventListener('resize',()=>{if(!S)return;sizeBoard();const tb=$('#table');if(tb&&TALL!==null&&TALL!==(tb.clientHeight>tb.clientWidth*1.05))renderSeats(true)});
 function renderBoard(){
   const n=S.boardSize||0;
-  // cards people have picked stay face up in their slot, ringed in the picker's colour with their badge underneath
-  $('#slots').innerHTML=Array.from({length:n},(_,i)=>{const c=S.board[i];
-    if(c&&c.taken&&c.r!==undefined){const by=S.boardBy[i],ow=by>=0?S.players[by]:null,a=ow?avOf(ow,ow.id===ME):null,col=ow?(ow.isBot?ow.color:(ow.id===ME?(AV.color||'#d9b25f'):((ow.av&&ow.av.color)||'#d9b25f'))):'#d9b25f';
-      return`<div class="slot taken" style="--own:${col}" title="${ow?esc(ow.name)+' took this':'Taken'}"><div class="card tcard ${isRed(c)?'red':''}">${cardInner(c)}</div>${a?`<span class="owner" style="${a.style}">${a.text}</span>`:`<span class="idx">${i+1}</span>`}</div>`}
-    return`<div class="slot ${S.phase===5&&i===S.boardTop?'next':''}">${c&&!c.taken?cardHTML(c,FLY.has(c.id)?'incoming':''):''}<span class="idx">${i+1}</span></div>`}).join('');
+  // a card someone picks leaves the table (it flies to them); only the cards still to be picked stay, closing up
+  $('#slots').innerHTML=Array.from({length:n},(_,i)=>i).filter(i=>!(S.board[i]&&S.board[i].taken)).map(i=>{const c=S.board[i];
+    return`<div class="slot ${S.phase===5&&i===S.boardTop?'next':''}">${c?cardHTML(c,FLY.has(c.id)?'incoming':''):''}<span class="idx">${i+1}</span></div>`}).join('');
   sizeBoard();
 }
 function renderSide(){setTimeout(updateSide,0);renderTonight();
@@ -814,7 +812,10 @@ function motion(prev,before){
   if(newHand){SEEN.clear();FLYC={}}
   let flips=0;
   els.forEach(el=>{const id=el.dataset.id;if(el.classList.contains('back'))return;const where=whereOf(el),b=before.get(id);
-    if(b&&b.w===where){SEEN.add(id);return}
+    if(b&&b.w===where){SEEN.add(id);
+      // the cards left on the board slide over to close the gap a picked card leaves
+      if(where==='board'){const to=rectOf(el),dx=to?b.r.left-to.left:0,dy=to?b.r.top-to.top:0;if(Math.abs(dx)>1||Math.abs(dy)>1)(el.closest('.slot')||el).animate([{transform:`translate(${dx}px,${dy}px)`},{transform:'none'}],{duration:380,delay:120,easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'})}
+      return}
     const to=rectOf(el);
     if(b){SEEN.add(id);if(!to)return;FLY.add(id);el.classList.add('incoming');SND(where==='hand'?'deal':'flick');ghost({from:b.r,to,c:cardFromId(id),dur:420,lift:where==='hand'?70:36,onland:()=>reveal(id,false)});return}
     if(SEEN.has(id))return;SEEN.add(id);if(!to)return;
