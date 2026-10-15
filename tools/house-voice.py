@@ -9,6 +9,7 @@ shout, for everyone at every table.
   python3 tools/house-voice.py voice-note.m4a --list          # just show the parts it heard
   python3 tools/house-voice.py voice-note.m4a --keep 2,3,4,5,6,7,8,9,10,11,12,13,14,15 --name Meka
   python3 tools/house-voice.py new-shouts.m4a --from 14       # a note of just the shouts added after the 14th
+  python3 tools/house-voice.py new-shouts.m4a --from 14 --keep 1.52-2.95,5.72-7.75   # exact times, in seconds
 
 The order is REACTS in public/engine.js: Oya, Chai, Na wa o, E choke, Wahala, Ehen, Abeg, Fire, a laugh,
 Well done, Thank God o, Yeh, Conjour, School boi, then the ones added later (Guy play nowwww, Witch people,
@@ -142,7 +143,7 @@ def main():
     ap.add_argument('note')
     ap.add_argument('--name', default='Meka', help='whose voice it is, shown in the profile')
     ap.add_argument('--out', default=os.path.join(ROOT, 'public', 'shouts', 'house'))
-    ap.add_argument('--keep', help='comma-separated part numbers from --list, in shout order')
+    ap.add_argument('--keep', help='comma-separated part numbers from --list, or exact times like 1.5-2.9, in shout order')
     ap.add_argument('--list', action='store_true', help='only list the parts it heard')
     ap.add_argument('--from', dest='start', type=int, default=0, help='the first shout in this note (0 = all of them); earlier clips are kept')
     a = ap.parse_args()
@@ -159,7 +160,12 @@ def main():
             print(f"  #{p['k']:<2} {p['start']:6.2f}-{p['end']:6.2f}s  {p['dur']:.2f}s  voice {p['voice']:.2f}  {'shout' if p['speech'] else 'not a voice (left out)'}")
         if a.list:
             return
-    pick = [parts[int(i)] for i in a.keep.split(',')] if a.keep else [p for p in parts if p['speech']]
+    def part(item):
+        if '-' in item:  # exact start and end in seconds: used as they are
+            t0, t1 = (float(v) for v in item.split('-'))
+            return dict(k=item, s=int(t0 / HOP), e=int(t1 / HOP), at=(t0, t1))
+        return parts[int(item)]
+    pick = [part(i.strip()) for i in a.keep.split(',')] if a.keep else [p for p in parts if p['speech']]
     if len(pick) != len(names):
         sys.exit(f'Heard {len(pick)} shouts but expected {len(names)} ({", ".join(names)}). Check the list above and pass --keep.')
 
@@ -171,10 +177,13 @@ def main():
     print(f'\n{"":3}{"shout":12} {"from":>14}  {"length":>6}  {"gain":>6}')
     order = sorted(parts, key=lambda p: p['s'])
     for i, (name, p) in enumerate(zip(names, pick), start=a.start):
-        j = order.index(p)
-        nxt = order[j + 1]['s'] if j + 1 < len(order) else len(db) + 40
-        prev = order[j - 1]['e'] if j > 0 else -10
-        t0, t1 = trim(p, nxt, prev, db, floor, hdb, hfloor)
+        if 'at' in p:
+            t0, t1 = p['at']
+        else:
+            j = order.index(p)
+            nxt = order[j + 1]['s'] if j + 1 < len(order) else len(db) + 40
+            prev = order[j - 1]['e'] if j > 0 else -10
+            t0, t1 = trim(p, nxt, prev, db, floor, hdb, hfloor)
         z = x[int(t0 * SR): int(t1 * SR)]
         z = ffmpeg_filter(z, 'highpass=f=80,acompressor=threshold=0.089:ratio=2.5:attack=5:release=120:makeup=1')
         gain = TARGET_DB - active_db(z)

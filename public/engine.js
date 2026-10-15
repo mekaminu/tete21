@@ -25,7 +25,7 @@ function cleanAv(av) {
 function newToken() { return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
 // treats you can buy for your seat, a friend or the whole table (play chips go to the house)
 const TREATS = { chapman: { e: '🍹', n: 'Chapman', price: 30 }, palm: { e: '🥥', n: 'Palm wine', price: 40 }, zobo: { e: '🍷', n: 'Zobo', price: 25 }, malt: { e: '🍺', n: 'Malt', price: 30 }, suya: { e: '🍢', n: 'Suya', price: 60 }, puff: { e: '🍩', n: 'Puff-puff', price: 20 }, jollof: { e: '🍛', n: 'Jollof', price: 80 }, pepper: { e: '🍲', n: 'Pepper soup', price: 70 } };
-const REACTS = ['Oya!', 'Chai!', 'Na wa o!', 'E choke!', 'Wahala!', 'Ehen!', 'Abeg!', '🔥', '😂', '👏', '🙏', '😱', 'Conjour!', 'School boi!', 'Guy play nowwww!', 'Witch people!', 'You be idiot!', 'We go fry egg for you!'];
+const REACTS = ['Oya!', 'Chai!', 'Na wa o!', 'E choke!', 'Wahala!', 'Ehen!', 'Abeg!', '🔥', '😂', '👏', '🙏', '😱', 'Conjour!', 'School boi!', 'Guy play nowwww!', 'Witch people!', 'You be idiot!'];
 const THANKS = ['E se o! 🙏', 'Thank you o!', 'Ah, my person!', 'Oya, more!', 'Big man! 🔥'];
 const BOT_CHAT = ['Ehen?', 'No wahala 👍', 'Abeg, focus on the game 😂', 'I hear you o', 'We go see 😏', 'Oya, deal!', 'You dey whine me?', 'E go better'];
 function sbDesc(type, mine, theirs) { return type === 'first' ? '1st card flushed beats the 2nd' : type === 'cardvcard' ? `board card #${mine + 1} beats #${theirs + 1}` : "final total beats the other's"; }
@@ -503,16 +503,18 @@ class Table {
       p.strikes = 0; return c;
     }
   }
+  // picking: while the next card on the board keeps you on 21 or under you must take it (tap Take, or tap the card;
+  // when the clock runs out it is given to you). You stop on 21, or when the next card would take you over 21.
   async humanPick(p) {
     const S = this;
     while (S.boardTop < S.board.length) {
       const c = S.board[S.boardTop]; const t = S.total(p);
+      // jammed: the next card would take them over 21, so they stay (it looks like any other stay, 21 included)
+      if (t + val(c) > 21) { S.deadline = 0; S.sync(); await sleep(1100); S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); S.log(`${esc(p.name)} stays`); break; }
       const ms = S.timer ? S.timer * 1000 : 0; S.deadline = ms ? Date.now() + ms : 0; S.sync();
-      const a = await S.waitFor(p.id, ['take', 'stay'], ms);
-      if (!a) { if (!p.gone) S.strike(p); S.log(`${esc(p.name)} timed out and stays`); break; }
-      p.strikes = 0;
-      if (a.type === 'stay') { S.log(`${esc(p.name)} stays`); S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); break; }
-      if (t + val(c) > 21) { S.fx({ k: 'nudge', pid: p.id, t: `${cname(c)} would take you to ${t + val(c)}. Over 21 is bust, so you can't take it.` }); continue; }
+      const a = await S.waitFor(p.id, ['take'], ms);
+      if (p.gone) break;
+      if (a) p.strikes = 0; else { S.strike(p); S.log(`${esc(p.name)}'s time ran out, so ${cname(c)} is given to them`); }
       S.takeCard(p, c); S.fx({ k: 'sel', pid: p.id, id: c.id }); S.log(`${esc(p.name)} takes ${cname(c)}`);
       // on 21 the turn just ends, looking like any other stay: the 21 is shown when the hands are turned over
       if (S.total(p) === 21) { await sleep(700); S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); S.log(`${esc(p.name)} stays`); break; }
@@ -527,11 +529,10 @@ class Table {
   }
   async botPick(p) {
     const S = this;
+    // the same rule as everyone: keep taking while the next card keeps you on 21 or under
     while (S.boardTop < S.board.length) {
       const c = S.board[S.boardTop]; const t = S.total(p); await sleep(700 + Math.random() * 500);
       if (t + val(c) > 21) { S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); S.log(`${esc(p.name)} stays`); break; }
-      const want = t + val(c) === 21 || t < 17 || (t < 19 && Math.random() < .3);
-      if (!want) { S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); S.log(`${esc(p.name)} stays`); break; }
       S.takeCard(p, c); S.fx({ k: 'bubble', pid: p.id, t: `Takes ${cname(c)}` }); S.log(`${esc(p.name)} takes ${cname(c)}`);
       if (S.total(p) === 21) { await sleep(400); S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); S.log(`${esc(p.name)} stays`); break; }
     }

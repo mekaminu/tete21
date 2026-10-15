@@ -1,0 +1,26 @@
+# Writes down what is said in the voice notes in tools/transcribe (with word times), onto the transcripts branch,
+# so each shout clip can be checked against the words. Runs on a push to the transcribe branch.
+name: Transcribe the voice notes
+on:
+  push:
+    branches: [transcribe]
+permissions:
+  contents: write
+jobs:
+  words:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q faster-whisper==1.1.1 requests
+      - run: python tools/transcribe/run.py > tools/transcribe/log.txt 2>&1 || true
+      - name: Put the words on the transcripts branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c transcripts
+          git add -f tools/transcribe/log.txt; git add -f tools/transcribe/out.json || true
+          git commit -m "What the voice notes say"
+          git push -f origin transcripts

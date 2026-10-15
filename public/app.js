@@ -674,6 +674,9 @@ function renderBoard(){
   // a card someone picks leaves the table (it flies to them); only the cards still to be picked stay, closing up
   $('#slots').innerHTML=Array.from({length:n},(_,i)=>i).filter(i=>!(S.board[i]&&S.board[i].taken)).map(i=>{const c=S.board[i];
     return`<div class="slot ${S.phase===5&&i===S.boardTop?'next':''}">${c?cardHTML(c,FLY.has(c.id)?'incoming':''):''}<span class="idx">${i+1}</span></div>`}).join('');
+  // on your pick, the next card itself can be tapped to take it
+  const me=S.players[ME],nx=$('#slots .slot.next'),c=S.board[S.boardTop];
+  if(nx&&me&&c&&S.phase===5&&S.turn===ME&&total(me)+val(c)<=21){nx.classList.add('tap');nx.onclick=()=>{nx.onclick=null;act({type:'take',card:c.id})}}
   sizeBoard();
 }
 function renderSide(){setTimeout(updateSide,0);renderTonight();
@@ -713,11 +716,11 @@ function renderMe(){
     if(out){msg('You sit this hand out.');actions('')}
     else if(myTurn){const c=S.board[S.boardTop];const t=total(me);
       if(!c){msg('The board is empty.');actions('');return}
-      const bust=t+val(c)>21;
-      msg(`Your turn to pick. Next card on the board is <b>${cname(c)}</b> (${val(c)}). You're on <b>${t}</b>${bust?'':` → ${t+val(c)}`}.`);
-      actions(`<button class="btn btn-gold" id="btn-take" ${bust?'aria-disabled="true"':''}>Take ${cname(c)}</button><button class="btn btn-ghost" id="btn-stay">Stay on ${t}</button>`);
-      $('#btn-take').onclick=()=>{if(bust){nudge(`${cname(c)} would take you from ${t} to ${t+val(c)}. Over 21 is bust, so the game won't let you take it. You stay on ${t}.`);SND('error');$('#btn-take').disabled=true;act({type:'stay',bust:1});return}act({type:'take',card:c.id})};
-      $('#btn-stay').onclick=()=>act({type:'stay'});
+      // you must keep picking while the next card keeps you on 21 or under; when it would take you over, you stay
+      if(t+val(c)>21){msg(`<b>${cname(c)}</b> would take you to ${t+val(c)}, over 21, so you can't pick it. You stay on <b>${t}</b>.`);actions('');return}
+      msg(`Your pick: <b>${cname(c)}</b> takes you from <b>${t}</b> to <b>${t+val(c)}</b>. You keep picking until you reach 21 or the next card would take you over${S.timer?'. When the clock runs out, the card is given to you':''}.`);
+      actions(`<button class="btn btn-gold" id="btn-take">Take ${cname(c)}</button>`);
+      $('#btn-take').onclick=()=>act({type:'take',card:c.id});
     }else{msg(`${nm} is picking… you're on <b>${total(me)}</b>.`);actions('')}
   }
   else if(S.phase===6){
@@ -1042,7 +1045,13 @@ function openTableSettings(){if(!S)return;const pc=S.pending||{};
   $$('#m-tset .seg[data-ts="pub"],#m-tset .seg[data-ts="keep"]').forEach(g=>{g.closest('.field').hidden=!!LOCALT});syncTS();
   const edit=canEditTable(),hp=S.players[S.hostId];$('#m-tset').classList.toggle('readonly',!edit);$('#ts-save').hidden=!edit;
   $('#ts-note').textContent=edit?'The wager and the rules change from the next hand; the rest at once. Everyone at the table is told.':`Only the host${hp?` (${hp.name})`:''} can change these, or anyone seated while the host is away.`;
-  openModal('#m-tset');SND('flick')}
+  renderTsPlayers();openModal('#m-tset');SND('flick')}
+// the host can take anyone off the table from Table settings too (tap Remove, then tap again to be sure)
+function renderTsPlayers(){const f=$('#ts-players-f');if(!f||!S)return;const others=S.players.filter(p=>!p.gone&&p.id!==ME&&p.id!==S.hostId);f.hidden=!(HOST&&!LOCALT&&others.length);if(f.hidden)return;
+  $('#ts-players').innerHTML=others.map(p=>`<div class="tsp"><span class="tsp-n">${esc(p.name)}${p.isBot?'<small>computer</small>':p.away?'<small>away</small>':''}</span><button type="button" class="btn btn-ghost kickbtn" data-kick="${p.id}">Remove</button></div>`).join('');
+  $$('#ts-players [data-kick]').forEach(b=>b.onclick=()=>{const pid=+b.dataset.kick,p=S&&S.players[pid];if(!p||p.gone)return;
+    if(!b.classList.contains('armed')){$$('#ts-players .armed').forEach(x=>{x.classList.remove('armed');x.textContent='Remove'});b.classList.add('armed');b.textContent=`Yes, remove ${p.name}`;SND('flick');return}
+    send({type:'remove',pid});b.closest('.tsp').remove();toast(`${p.name} is off the table`,2500);if(!$('#ts-players .tsp'))f.hidden=true})}
 function syncTS(){$$('#m-tset .seg[data-ts]').forEach(g=>{const k=g.dataset.ts;g.querySelectorAll('button').forEach(b=>b.classList.toggle('on',String(TSV[k])===b.dataset.v))})}
 $$('#m-tset .seg[data-ts] button').forEach(b=>b.onclick=()=>{const k=b.closest('.seg').dataset.ts;TSV[k]=k==='tie'?b.dataset.v:+b.dataset.v;syncTS();SND('flick')});
 $('#ts-save').onclick=()=>{const c={tableName:$('#ts-name').value.trim(),wager:+$('#ts-wager').value,buyIn:+$('#ts-buyin').value,timer:+$('#ts-timer').value,tie:TSV.tie,series:!!TSV.series,side:!!TSV.side,fill:!!TSV.fill,pub:!!TSV.pub,keep:!!TSV.keep};
