@@ -176,7 +176,7 @@ class Table {
       case 'drop': case 'take': case 'stay': case 'adasi': if (P && P.pid === pid && P.kinds.includes(a.type)) P.done(a); break;
       case 'deal': case 'next': if (pid === this.hostId && P && P.kinds.includes(a.type)) P.done(a); break;
       case 'rejoin': p.sitout = false; p.satOutByTimer = false; p.strikes = 0; this.log(`${esc(p.name)} rejoins`); break;
-      case 'rebuy': if (p.chips < this.wager) { if (this.canBuy && !this.canBuy(p, this.buyIn)) { this.fx({ k: 'toast', pid, t: 'Not enough free chips in your balance to rebuy. Spin the daily wheel in your profile.', ms: 4000 }); break; } p.chips += this.buyIn; p.bought = (p.bought || 0) + this.buyIn; p.sitout = false; this.log(`${esc(p.name)} rebuys ${fmt(this.buyIn)}`, 'hi'); if (this.onSave) this.onSave(); } break;
+      case 'rebuy': if (p.chips < this.wager) { if (this.canBuy && !this.canBuy(p, this.buyIn)) { this.fx({ k: 'toast', pid, t: 'Not enough free chips in your balance to rebuy. Spin the daily wheel in your profile.', ms: 4000 }); break; } p.chips += this.buyIn; p.bought = (p.bought || 0) + this.buyIn; p.sitout = false; p.broke = false; this.log(`${esc(p.name)} rebuys ${fmt(this.buyIn)}`, 'hi'); if (this.onSave) this.onSave(); } break;
       case 'sb': this.proposeSB(pid, a); break;
       case 'sb_ans': this.answerSB(pid, a); break;
       case 'rebuy_all': if (pid === this.hostId && P && P.kinds.includes('rebuy_all')) P.done(a); break;
@@ -205,9 +205,11 @@ class Table {
     while (S.humansConnected() === 0) { if (S.closed) return; S.paused = true; S.sync(); await sleep(1500); }
     S.paused = false;
     S.busy = true; S.handNo++; S.trickWinner = null; S.board = []; S.boardSize = 0; S.boardTop = 0; S.deadline = 0; S.next = null; S.msgHost = '';
-    S.players.forEach(p => { p.hand = []; p.dropped = null; p.picked = []; p.revealed = false; if (p.joinedMid) { p.joinedMid = false; p.sitout = false; } if (p.gone) p.sitout = true; if (p.chips < S.wager) p.sitout = true; });
+    S.players.forEach(p => { p.hand = []; p.dropped = null; p.picked = []; p.revealed = false; if (p.joinedMid) { p.joinedMid = false; p.sitout = false; } if (p.gone) p.sitout = true;
+      if (p.chips < S.wager) { if (!p.sitout) p.broke = true; p.sitout = true; }
+      else if (p.broke && !p.gone && !p.satOutByTimer) { p.broke = false; p.sitout = false; S.log(`${esc(p.name)} is back in the game`, 'hi'); S.fx({ k: 'bubble', pid: p.id, t: "I'm back! 💪", ms: 1800 }); } });
     if (!S.tiebreak && !redeal) participants = S.players.filter(p => !p.sitout && !p.gone && !(p.away && !p.isBot)).map(p => p.id);
-    else participants = participants.filter(id => S.players[id] && !S.players[id].sitout);
+    else participants = participants.filter(id => { const p = S.players[id]; return p && !p.sitout && !p.gone && !(p.away && !p.isBot); });
     S.participants = participants;
     if (S.humansPresent() === 0) { S.busy = false; return; }
     if (participants.length < 2) {
@@ -219,6 +221,7 @@ class Table {
     if (redeal) { /* same dealer, pot stays */ } else if (S.tiebreak) S.tiebreak = false; else S.dealer = S.nextOf(S.dealer, participants);
     if (!redeal || !S.handStart) S.handStart = new Map(S.players.filter(p => !p.isBot && !p.gone).map(p => [p, p.chips]));
     S.deck = makeDeck(S.decks); S.turn = -1; S.sideBets = S.sideBets.filter(b => b.status !== 'pending').slice(-8);
+    S.sideBets.forEach(b => { if (b.status === 'open' && !(participants.includes(b.a) && participants.includes(b.b))) { b.status = 'declined'; S.log(`A carried side bet between ${esc(S.players[b.a].name)} and ${esc(S.players[b.b].name)} is off: one of them is out of this hand`); } });
     // 0 wager
     S.setPhase(0);
     if (redeal) { S.log(`<b>Redeal</b> · pot of ${fmt(S.pot)} stays`, 'hi'); S.msgHost = 'Redealing. The pot stays on the table.'; S.sync(); await sleep(1500); }
@@ -273,7 +276,7 @@ class Table {
     // 6 reveal
     S.setPhase(6); S.players.forEach(p => (p.revealed = true)); S.sync(); await sleep(600);
     const live = participants.map(id => S.players[id]).filter(p => S.total(p) <= 21);
-    let next, winners = [];
+    let next, winners = [], held = null;
     if (!live.length) { S.msgHost = 'Everyone is bust. The pot stays on the table for the next hand.'; S.log('All players bust — pot carries over', 'hi'); S.sync(); await sleep(1500); next = S.players.map(p => p.id); }
     else {
       const best = Math.max(...live.map(p => S.total(p))); const tied = live.filter(p => S.total(p) === best);
@@ -289,9 +292,9 @@ class Table {
         for (const w of tied) S.fx({ k: 'chip', from: 'pot', to: w.id, cls: 'c100', n2: Math.min(6, Math.ceil(share / S.wager)) });
         await sleep(700); for (const w of tied) w.chips += share; S.pot = rem; S.sync(); await sleep(300);
         next = S.players.map(p => p.id);
-      } else { S.tiebreak = true; const names = tied.map(p => p.name).join(' and '); S.fx({ k: 'banner', t: 'TIE!' }); S.msgHost = `${esc(names)} tie on ${best}. They top up and go again.`; S.log(`Tie on ${best}: ${esc(names)} play off`, 'hi'); S.sync(); await sleep(1800); next = tied.map(p => p.id); }
+      } else { S.tiebreak = true; const names = tied.map(p => p.name).join(' and '); S.fx({ k: 'banner', t: 'TIE! Everyone plays again' }); S.msgHost = `${esc(names)} tie on ${best}. The pot stays and everyone puts in again for a bigger pot.`; S.log(`Tie on ${best}: ${esc(names)}. The pot of ${fmt(S.pot)} stays; everyone plays again`, 'hi'); S.sync(); await sleep(1800); held = tied.map(p => p.id); next = S.players.map(p => p.id); }
     }
-    S.streaks(winners, S.tiebreak ? next : null);
+    S.streaks(winners, held);
     await S.settleSideBets('reveal');
     S.endHand(winners, false);
     S.busy = false; S.next = next; S.msgHost = ''; S.sync(); if (S.onSave) S.onSave();
@@ -312,7 +315,14 @@ class Table {
     const share = Math.floor(S.pot / winners.length); const rem = S.pot - share * winners.length;
     for (const w of winners) { S.fx({ k: 'chip', from: 'pot', to: w.id, cls: 'c100', n2: Math.min(6, Math.ceil(share / S.wager)) }); }
     await sleep(700); for (const w of winners) w.chips += share; S.pot = rem;
-    S.sideBets.forEach(b => { if (b.status === 'pending' || b.status === 'open') b.status = 'declined'; });
+    for (const b of S.sideBets) {
+      if (b.status === 'pending') { b.status = 'declined'; continue; }
+      if (b.status !== 'open') continue;
+      const A = S.players[b.a], B = S.players[b.b], aW = winners.includes(A), bW = winners.includes(B);
+      if (b.type === 'total' && aW !== bW) { const w = aW ? A : B, l = aW ? B : A; w.chips += b.amt; l.chips -= b.amt; b.status = 'won'; b.winner = w.id; b.result = 'Adasi'; S.fx({ k: 'chip', from: l.id, to: w.id, cls: 'c5', n2: 2 }); S.log(`Side bet: ${esc(w.name)} takes ${fmt(b.amt)} from ${esc(l.name)} (Adasi beats any total)`, 'hi'); S.fx({ k: 'toast', t: `Side bet: ${w.name} wins ${fmt(b.amt)} with Adasi` }); }
+      else if (b.type === 'total') { b.result = 'carried over'; S.log(`Side bet between ${esc(A.name)} and ${esc(B.name)} carries to the next hand`); }
+      else b.status = 'declined';
+    }
     S.streaks(winners, null); S.endHand(winners, true); S.botReact(p.id, [1, 3, 11, 2]);
     S.msgHost = winners.length > 1 ? `<b>${esc(names)}</b> both hold Adasi and share the pot${rem ? ` (${fmt(rem)} stays on the table)` : ''}.` : `<b>${esc(p.name)}</b> wins by Adasi.`; S.busy = false; S.next = S.players.map(x => x.id); S.sync();
     await S.waitFor(S.hostId, ['next'], 12000);
@@ -434,7 +444,8 @@ class Table {
   proposeSB(from, a) {
     const S = this; const A = S.players[from], B = S.players[+a.to]; if (!A || !B || A === B || !S.side || !S.started || B.gone) return;
     const type = ['first', 'cardvcard', 'total'].includes(a.bt) ? a.bt : 'total'; const amt = Math.max(5, Math.floor(+a.amt || 0));
-    if (amt > A.chips || amt > B.chips || S.phase >= 5 || S.phase < 0 || (type !== 'total' && S.phase >= 2)) return;
+    if (amt > A.chips || amt > B.chips || S.phase >= 6 || S.phase < 0 || (type !== 'total' && S.phase >= 2)) return;
+    if (S.phase >= 1 && !(S.participants.includes(A.id) && S.participants.includes(B.id))) return;
     const n = S.participants.length + 1; const mine = type === 'first' ? 0 : Math.min(n - 1, Math.max(0, +a.mine | 0)), theirs = type === 'first' ? 1 : Math.min(n - 1, Math.max(0, +a.theirs | 0)); if (type === 'cardvcard' && mine === theirs) return;
     const bet = { id: ++S.sbid, a: from, b: B.id, type, amt, mine, theirs, status: 'pending', desc: sbDesc(type, mine, theirs) };
     S.sideBets.push(bet); S.fx({ k: 'bubble', pid: from, t: `Side bet, ${B.name}?`, ms: 2000 });

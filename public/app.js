@@ -359,12 +359,14 @@ function addFriend(id,name,av,viaLink){if(!id||id===MYID)return;
   FRIENDS[id]=Object.assign({},FRIENDS[id],{name:name||(FRIENDS[id]&&FRIENDS[id].name)||'Friend',av:av||(FRIENDS[id]&&FRIENDS[id].av)||null,added:Date.now()});saveFriends();send({type:'friend_add',id});sendMe();toast(`${name||'Friend'} added`);SND('join');renderFriends();if(S)renderSeats()}
 function openPlayer(pid){const p=S&&S.players[pid];if(!p||pid===ME)return;const id=p.isBot?null:IDS[pid];const a=p.isBot?{style:`background:${p.color}`,text:p.name[0].toUpperCase()}:avStyle(p.av,p.name[0].toUpperCase());const el=$('#pl-av');el.style.cssText=a.style;el.textContent=a.text;
   $('#pl-name').textContent=p.name;$('#pl-body').textContent=`${fmt(p.chips)} chips${p.isBot?' · computer player':''}${p.away?' · away':''}`;
-  const isF=id&&FR()[id];const canSpray=S.started&&ME>=0&&!p.gone;
-  $('#pl-actions').innerHTML=(canSpray?'<button class="btn btn-gold" id="pl-spray">Spray money 💸</button><button class="btn btn-ghost" id="pl-treat">Send a treat 🍹</button>':'')+(p.isBot?'':(!id?'':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-ghost" id="pl-add">Add as a friend</button>'))+'<button class="btn btn-ghost" data-close>Close</button>';
+  const isF=id&&FR()[id];const canSpray=S.started&&ME>=0&&!p.gone;const broke=canSpray&&p.chips<S.wager,mine0=S.players[ME]?S.players[ME].chips:0;
+  if(broke)$('#pl-body').textContent=`${p.name} is out of chips and sitting out. Give them a buy-in and they're back in from the next hand.`;
+  $('#pl-actions').innerHTML=(broke&&mine0>=S.buyIn?`<button class="btn btn-gold" id="pl-give">Give a buy-in (${fmt(S.buyIn)})</button>`:'')+(canSpray?'<button class="btn '+(broke?'btn-ghost':'btn-gold')+'" id="pl-spray">Spray money 💸</button><button class="btn btn-ghost" id="pl-treat">Send a treat 🍹</button>':'')+(p.isBot?'':(!id?'':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-ghost" id="pl-add">Add as a friend</button>'))+'<button class="btn btn-ghost" data-close>Close</button>';
   const add=$('#pl-add');if(add)add.onclick=()=>{closeModal('#m-player');addFriend(id,p.name,p.av)};
   const sp=$('#pl-spray');if(sp)sp.onclick=()=>{const w=S.wager||50,mine=S.players[ME]?S.players[ME].chips:0;$('#pl-body').innerHTML=`Spray ${esc(p.name)} from your ${fmt(mine)} chips:<div class="opts sprayopts">${[w,w*2,w*5,w*10].map(v=>`<button type="button" data-amt="${v}" ${v>mine?'disabled':''}>${fmt(v)}</button>`).join('')}</div>`;
     $$('#pl-body [data-amt]').forEach(b=>b.onclick=()=>{closeModal('#m-player');act({type:'spray',to:pid,amt:+b.dataset.amt})});SND('flick')};
   const tb=$('#pl-treat');if(tb)tb.onclick=()=>{closeModal('#m-player');openTreats(pid)};
+  const gv=$('#pl-give');if(gv)gv.onclick=()=>{closeModal('#m-player');act({type:'spray',to:pid,amt:S.buyIn})};
   openModal('#m-player');SND('flick')}
 function onPresence(list){const first=!PRES_READY;PRES_READY=true;const lobby=$('#lobby').classList.contains('on');
   for(const p of list){const was=PRES[p.id];PRES[p.id]={on:!!p.on,room:p.room||null};const f=FR()[p.id];if(!f)continue;
@@ -670,8 +672,8 @@ function renderMe(){
       let a='';
       if(me.satOutByTimer)a+='<button class="btn btn-gold" id="btn-rejoin">Rejoin the table</button>';
       else if(me.chips<S.wager)a+=`<button class="btn btn-gold" id="btn-rebuy">Rebuy ${fmt(S.buyIn)}</button>`;
-      if(HOST){if(S.msgHost&&!S.next)a+='<button class="btn btn-gold" id="btn-rebuy-all">Rebuy everyone</button>';else a+=`<button class="btn ${a?'btn-ghost':'btn-gold'}" id="btn-next">${S.tiebreak?'Play the tie-break':'Next hand'}</button><span class="note" style="margin:0;align-self:center">auto in 12s</span>`}
-      msg(S.msgHost||`${summary}. ${S.tiebreak&&S.next&&!S.next.includes(ME)?'The tie-break is between the others; you sit it out.':(HOST?'Ready when you are.':'Waiting for the host to deal the next hand.')}`);
+      if(HOST){if(S.msgHost&&!S.next)a+='<button class="btn btn-gold" id="btn-rebuy-all">Rebuy everyone</button>';else a+=`<button class="btn ${a?'btn-ghost':'btn-gold'}" id="btn-next">${S.tiebreak?'Play for the bigger pot':'Next hand'}</button><span class="note" style="margin:0;align-self:center">auto in 12s</span>`}
+      msg(S.msgHost||`${summary}. ${HOST?'Ready when you are.':'Waiting for the host to deal the next hand.'}`);
       actions(a);
       const bn=$('#btn-next');if(bn)bn.onclick=()=>act({type:'next'});const br=$('#btn-rejoin');if(br)br.onclick=()=>act({type:'rejoin'});const bb=$('#btn-rebuy');if(bb)bb.onclick=()=>act({type:'rebuy'});const ba=$('#btn-rebuy-all');if(ba)ba.onclick=()=>act({type:'rebuy_all'});
     }
@@ -926,7 +928,8 @@ function openSideBet(){
   if(!S||!S.started)return;
   if(!S.side){info('Side bets are off','The host turned them off for this table.');return}
   if(ME<0){info('Not seated yet','You can propose side bets once you are in a hand.');return}
-  if(S.phase>=5||S.phase<0){info('Too late this hand','Side bets are proposed before the deal (card bets) or before picking starts (total bets). Try again next hand.');return}
+  if(S.phase>=6||S.phase<0){info('Too late this hand','Card bets are made before the deal, and total bets until the cards are shown. Try again next hand.');return}
+  if(S.phase>=1&&!S.participants.includes(ME)){info('You\'re not in this hand','Side bets are between two players in the hand. Try again next hand.');return}
   const opp=$('#sb-opp');opp.innerHTML=S.participants.filter(id=>id!==ME&&S.players[id]&&!S.players[id].gone).map(id=>`<option value="${id}">${esc(S.players[id].name)} (${fmt(S.players[id].chips)} chips)</option>`).join('');
   const n=S.participants.length+1;['#sb-mine','#sb-theirs'].forEach((s,i)=>{$(s).innerHTML=Array.from({length:n},(_,k)=>`<option value="${k}" ${k===(i?1:0)?'selected':''}>#${k+1}</option>`).join('')});
   $('#sb-type').onchange=()=>{$('#sb-cards').hidden=$('#sb-type').value!=='cardvcard'};$('#sb-type').onchange();
