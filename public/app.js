@@ -76,7 +76,9 @@ $('#av-file').onchange=()=>{const f=$('#av-file').files[0];if(!f)return;const im
 const SPK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
 const SPKX='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></svg>';
 function renderSound(){const T=window.TeteSound,m=!T||T.muted;$$('.sndbtn').forEach(b=>{const ico=b.querySelector('.ico')||b;ico.innerHTML=m?SPKX:SPK;b.classList.toggle('off',m);b.setAttribute('aria-label',m?'Game sounds are off':'Game sounds are on');b.title=m?'Game sounds: off':'Game sounds: on'})}
-function renderSoundSettings(){const T=window.TeteSound,m=!T||T.muted;$('#snd-on').classList.toggle('on',!m);$('#snd-off').classList.toggle('on',m);$('#snd-vol').value=Math.round((T?T.volume:.7)*100);let io=true;try{io=localStorage.getItem('tete.intro')!=='off'}catch{}$('#intro-on').classList.toggle('on',io);$('#intro-off').classList.toggle('on',!io)}
+function renderSoundSettings(){const T=window.TeteSound,m=!T||T.muted;$('#snd-on').classList.toggle('on',!m);$('#snd-off').classList.toggle('on',m);$('#snd-vol').value=Math.round((T?T.volume:.7)*100);let io=true;try{io=localStorage.getItem('tete.intro')!=='off'}catch{}$('#intro-on').classList.toggle('on',io);$('#intro-off').classList.toggle('on',!io);$('#say-on').classList.toggle('on',SPEAK);$('#say-off').classList.toggle('on',!SPEAK)}
+$('#say-on').onclick=()=>{SPEAK=true;try{localStorage.removeItem('tete.speak')}catch{}renderSoundSettings();sayShout(ME>=0?ME:0,0)};
+$('#say-off').onclick=()=>{SPEAK=false;try{localStorage.setItem('tete.speak','off')}catch{}try{speechSynthesis.cancel()}catch{}renderSoundSettings()};
 function setMuted(m){const T=window.TeteSound;if(!T)return;T.setMuted(m);if(!m)T.unlock();renderSound();renderSoundSettings();if(!m)setTimeout(()=>SND('chips'),80)}
 function toggleSound(){const T=window.TeteSound;if(!T)return;setMuted(!T.muted);toast(T.muted?'Game sounds off':'Game sounds on',1400)}
 $('#btn-sound').onclick=toggleSound;$('#btn-fx').onclick=toggleSound;
@@ -816,15 +818,35 @@ function renderTreats(){const others=S.players.filter(p=>!p.gone&&p.id!==ME),n=S
   $('#treats').innerHTML=Object.entries(TREATS).map(([id,t])=>`<button class="tbtn" type="button" data-item="${id}" ${t.price*k>mine?'disabled':''}><span class="e">${t.e}</span><b>${esc(t.n)}</b><small>${fmt(t.price*k)}</small></button>`).join('');
   $$('#treats .tbtn').forEach(b=>b.onclick=()=>{closeModal('#m-treat');act({type:'treat',item:b.dataset.item,to:TREAT_TO})})}
 $('#btn-treat').onclick=()=>openTreats('all');
+// shouts said out loud: the player's own recording if they made one, otherwise the device's voice, a Nigerian
+// English one when the phone or laptop has it (Edge does; Android can download one; iPhones don't), with each
+// player's voice pitched a little differently
+const SAY={'Oya!':'Oya!','Chai!':'Chaai!','Na wa o!':'Na wa o!','E choke!':'E choke!','Wahala!':'Wahala!','Ehen!':'Ehen!','Abeg!':'Abeg!','Conjour!':'Conjour!','School boi!':'School boy!','🔥':'Fire!','😂':'Ha ha ha ha!','👏':'Well done!','🙏':'Thank God o!','😱':'Ye!'};
+let SPEAK=true;try{SPEAK=localStorage.getItem('tete.speak')!=='off'}catch{}
+let VOICES=null;
+function voicesFor(){if(!('speechSynthesis' in window))return[];const vs=speechSynthesis.getVoices()||[];if(!vs.length)return[];
+  const tiers=[v=>/^en[-_]NG/i.test(v.lang)||/nigeria/i.test(v.name),v=>/^en[-_](GH|KE|ZA|TZ|UG)/i.test(v.lang),v=>/^en[-_]GB/i.test(v.lang),v=>/^en/i.test(v.lang)];
+  for(const f of tiers){const m=vs.filter(f);if(m.length)return m}return vs.slice(0,1)}
+if('speechSynthesis' in window)speechSynthesis.onvoiceschanged=()=>{VOICES=voicesFor()};
+function sayShout(pid,r){const t=REACTS[r];if(!t||!SPEAK||document.hidden||(window.TeteSound&&TeteSound.muted))return;
+  if(playRecorded(pid,r))return;
+  if(!('speechSynthesis' in window))return;VOICES=VOICES&&VOICES.length?VOICES:voicesFor();
+  const u=new SpeechSynthesisUtterance(SAY[t]||t),k=Math.max(0,pid),v=VOICES[k%Math.max(1,VOICES.length)];if(v){u.voice=v;u.lang=v.lang}else u.lang='en-NG';
+  u.pitch=.82+(k%5)*.1;u.rate=1.02;u.volume=Math.min(1,((window.TeteSound&&TeteSound.volume)||.7)+.25);
+  try{speechSynthesis.cancel();speechSynthesis.speak(u)}catch{}}
+// phones only let a page talk after a tap: say nothing once, on the first tap
+document.addEventListener('pointerdown',function warm(){document.removeEventListener('pointerdown',warm);try{if('speechSynthesis' in window){const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}}catch{}},{passive:true});
+function playRecorded(pid,r){return false}
 // quick reactions
 const REACTS=(window.TeteEngine&&window.TeteEngine.REACTS)||[];const isEmo=t=>!/[A-Za-z]/.test(t);
 function toggleReacts(){const bar=$('#reactbar');if(!bar.hidden){bar.hidden=true;return}if(!S||!S.started||ME<0){toast('Reactions are for when the game is on');return}
-  bar.innerHTML=REACTS.map((t,i)=>`<button type="button" data-r="${i}" class="${isEmo(t)?'em':''}">${esc(t)}</button>`).join('')+'<form class="chatrow" id="chatrow" autocomplete="off"><input id="chat-in" maxlength="120" placeholder="Say something to the table…" enterkeyhint="send" aria-label="Message to the table"><button type="submit" class="send">Send</button></form>';bar.hidden=false;
+  const order=REACTS.map((t,i)=>i).sort((a,b)=>isEmo(REACTS[a])-isEmo(REACTS[b])||a-b);
+  bar.innerHTML=order.map(i=>{const t=REACTS[i];return`<button type="button" data-r="${i}" class="${isEmo(t)?'em':''}">${esc(t)}</button>`}).join('')+'<form class="chatrow" id="chatrow" autocomplete="off"><input id="chat-in" maxlength="120" placeholder="Say something to the table…" enterkeyhint="send" aria-label="Message to the table"><button type="submit" class="send">Send</button></form>';bar.hidden=false;
   bar.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{bar.hidden=true;act({type:'react',r:+b.dataset.r})});
   $('#chatrow').onsubmit=e=>{e.preventDefault();const t=$('#chat-in').value.trim();if(!t)return;act({type:'chat',t});bar.hidden=true;SND('flick')};SND('flick')}
 $('#btn-react').onclick=e=>{e.stopPropagation();toggleReacts()};
 document.addEventListener('pointerdown',e=>{const bar=$('#reactbar');if(!bar.hidden&&!e.target.closest('#reactbar')&&!e.target.closest('#btn-react'))bar.hidden=true});
-function reactFx(pid,r){const t=REACTS[r];if(t===undefined)return;const a=seatCenterRect(pid);SND('pop',{bg:true});if(!a||document.hidden)return;
+function reactFx(pid,r){const t=REACTS[r];if(t===undefined)return;const a=seatCenterRect(pid);SND('pop',{bg:true});sayShout(pid,r);if(!a||document.hidden)return;
   const e=document.createElement('div');e.className='react'+(isEmo(t)?' em':'');e.textContent=t;layer().appendChild(e);const w=e.offsetWidth,h=e.offsetHeight;
   e.style.left=(a.left+a.width/2-w/2)+'px';e.style.top=(a.top-h*.4)+'px';const wob=(Math.random()-.5)*16;
   e.animate([{transform:'translateY(10px) scale(.4)',opacity:0},{offset:.15,transform:`translateY(-12px) scale(1.25) rotate(${wob}deg)`,opacity:1},{offset:.3,transform:`translateY(-20px) scale(1) rotate(${-wob/2}deg)`,opacity:1},{offset:.8,transform:'translateY(-58px) scale(1)',opacity:1},{transform:'translateY(-76px) scale(.95)',opacity:0}],{duration:2100,easing:'ease-out'}).onfinish=()=>e.remove();setTimeout(()=>e.remove(),2600)}
