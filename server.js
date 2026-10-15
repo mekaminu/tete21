@@ -476,7 +476,7 @@ async function handle(ws, m) {
 
     // ----- at the table -----
     case 'hello': if (T) T.updateHuman(ws.pid, m); break;
-    case 'act': if (T) T.action(ws.pid, m.a); break;
+    case 'act': if (T) { T.action(ws.pid, m.a); if (m.a && m.a.type === 'settings') { listDirty = true; persistAll(); } } break;
     case 'rtc': { // voice/video introductions: {to, data}
       if (!T) return; const to = T.players[+m.to]; if (!to || !to.conn) return;
       send(to.conn, { type: 'rtc', from: ws.pid, sid: ws.sid, data: m.data }); break;

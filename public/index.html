@@ -635,6 +635,14 @@ html[data-felt="midnight"] .felt .ring{border-color:rgba(217,178,95,.32)}
 @keyframes livepulse{50%{opacity:.45}}
 .mechip.unset{animation:none;position:relative}
 .mechip.unset::after{content:"";position:absolute;inset:-2px;border-radius:inherit;box-shadow:0 0 0 4px rgba(217,178,95,.35);opacity:0;animation:fadepulse 1.8s ease-in-out infinite;pointer-events:none}
+/* table name doubles as the door to the table settings */
+.tname{display:flex;align-items:center;gap:6px;min-width:0;background:none;border:0;padding:0;color:inherit;cursor:pointer;font:inherit;text-align:left}
+.tname h1{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tname .gear{flex:none;font-size:15px;color:var(--gold);opacity:.85;transition:transform .3s}
+.tname:hover .gear,.tname:focus-visible .gear{transform:rotate(60deg)}
+#m-tset.readonly .opts button,#m-tset.readonly .seg button,#m-tset.readonly input{pointer-events:none;opacity:.75}
+@media (max-width:700px){.tname{max-width:40vw}}
+@media (max-width:420px){.tname{flex:1 1 auto;max-width:none}.tname h1{max-width:none}}
 [hidden]{display:none!important}
 .pill:empty{display:none}
 @media (max-width:520px){.row>.field:has(.seg){min-width:100%}}
@@ -779,7 +787,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <!-- ============ GAME ============ -->
 <section id="game" class="screen">
   <div class="topbar">
-    <h1 id="t-name">Table</h1>
+    <button class="tname" id="btn-tset" type="button" title="Table settings"><h1 id="t-name">Table</h1><span class="gear" aria-hidden="true">⚙</span></button>
     <div class="meta"><span>Hand <b class="num" id="t-hand">1</b></span><span>Wager <b class="num" id="t-wager">50</b></span><span id="t-decks">1 deck · 36 cards</span></div>
     <span class="pill" id="conn" style="display:none"></span>
     <span class="spacer"></span>
@@ -953,6 +961,21 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 </details>
 <button class="btn btn-gold btn-wide" id="btn-start" type="button">Open the table</button>
 <p class="note">Everyone starts with the same stack of play chips. Your table shows in the Open tables list; private ones need the code or your OK.</p></div></div>
+
+<div class="modal sheet" id="m-tset"><div class="box"><div class="grab"></div>
+<h2>Table settings</h2>
+<p class="note" id="ts-note">The wager and the rules change from the next hand; the rest at once. Everyone at the table is told.</p>
+<div class="field"><label for="ts-name">Table name</label><input id="ts-name" maxlength="24" placeholder="e.g. Friday Parlour"></div>
+<div class="field"><label>Wager per hand</label><div class="opts" data-for="ts-wager"><button data-v="25">25</button><button data-v="50">50</button><button data-v="100">100</button><button data-v="250">250</button><button data-v="500">500</button><button data-v="other">Other</button></div><input class="other-in" type="number" min="5" step="5" inputmode="numeric" placeholder="Chips, at least 5" data-for="ts-wager" hidden><input type="hidden" id="ts-wager" value="50"></div>
+<div class="field"><label>Buy-in for new seats and rebuys</label><div class="opts" data-for="ts-buyin"><button data-v="500">500</button><button data-v="1000">1,000</button><button data-v="2500">2,500</button><button data-v="5000">5,000</button><button data-v="other">Other</button></div><input class="other-in" type="number" min="50" step="50" inputmode="numeric" placeholder="Chips, at least 50" data-for="ts-buyin" hidden><input type="hidden" id="ts-buyin" value="1000"></div>
+<div class="field"><label>Turn timer</label><div class="opts" data-for="ts-timer"><button data-v="15">15s</button><button data-v="20">20s</button><button data-v="30">30s</button><button data-v="0">Relaxed</button></div><input type="hidden" id="ts-timer" value="20"></div>
+<div class="field"><label>Tie rule</label><div class="seg" data-ts="tie"><button type="button" data-v="playoff">Everyone plays again</button><button type="button" data-v="split">Split the pot</button></div></div>
+<div class="field"><label>Series rule (three of a kind voids the hand)</label><div class="seg" data-ts="series"><button type="button" data-v="0">Off</button><button type="button" data-v="1">On</button></div></div>
+<div class="field"><label>Side bets</label><div class="seg" data-ts="side"><button type="button" data-v="1">Allowed</button><button type="button" data-v="0">Off</button></div></div>
+<div class="field"><label>Empty seats</label><div class="seg" data-ts="fill"><button type="button" data-v="1">Computer players</button><button type="button" data-v="0">Leave empty</button></div></div>
+<div class="field"><label>Who can join</label><div class="seg" data-ts="pub"><button type="button" data-v="0">Private</button><button type="button" data-v="1">Public</button></div></div>
+<div class="field"><label>Keep this room open</label><div class="seg" data-ts="keep"><button type="button" data-v="0">Close when empty</button><button type="button" data-v="1">Until I close it</button></div></div>
+<div class="actions"><button class="btn btn-ghost" data-close type="button">Close</button><button class="btn btn-gold" id="ts-save" type="button">Save changes</button></div></div></div>
 
 <div class="modal sheet" id="m-join"><div class="box"><div class="grab"></div>
 <h2>Join a table</h2>

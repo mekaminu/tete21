@@ -490,11 +490,11 @@ function celebrate(amount,title,sub){
 // ---------- state ----------
 function applyState(o,fx){
   const prev=S;const before=prev&&prev.players&&prev.players.length?snapCards():new Map();
-  S={tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,
+  S={tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,tieSplit:!!o.ts,fill:!!o.fl,pub:!!o.pb,pending:o.pc||null,
     players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||'',streak:a[17]||0,bought:a[18]||0,wins:a[19]||0,best:a[20]||0})),
     sideBets:o.sbs.map(a=>({id:a[0],a:a[1],b:a[2],type:a[3],amt:a[4],mine:a[5],theirs:a[6],status:a[7],result:a[8],winner:a[9],desc:sbDesc(a[3],a[5],a[6])}))};
   ME=o.me;HOST=o.host===ME;
-  $('#t-name').textContent=S.tableName;$('#t-wager').textContent=S.wager;$('#t-decks').textContent=`${S.decks} deck${S.decks>1?'s':''} · ${36*S.decks} cards`;
+  $('#t-name').textContent=S.tableName;$('#t-wager').textContent=S.pending&&S.pending.wager!=null&&S.pending.wager!==S.wager?`${fmt(S.wager)} → ${fmt(S.pending.wager)} next hand`:fmt(S.wager);$('#t-decks').textContent=`${S.decks} deck${S.decks>1?'s':''} · ${36*S.decks} cards`;
   if(!S.started)showWait();else $('#wait').hidden=true;
   const lv=S.keep?'away':'leave';const bl=$('#btn-leave');if(bl.dataset.v!==lv){bl.dataset.v=lv;bl.innerHTML=S.keep?'<span class="long">Step away</span><span class="short">Step away</span>':'<span class="long">Leave table</span><span class="short">Leave</span>'}
   if(SEATS[S.code]&&S.tableName&&SEATS[S.code].name!==S.tableName){SEATS[S.code].name=S.tableName;saveSeats()}
@@ -833,6 +833,23 @@ function treatFx(from,to,item){const t=TREATS[item];if(!t)return;SND('pour',{bg:
     const sx=a.left+a.width/2-15,sy=a.top+a.height/2-15,ex=b.left-6,ey=b.top-8;e.style.left=sx+'px';e.style.top=sy+'px';const dx=ex-sx,dy=ey-sy;
     const an=e.animate([{transform:'translate(0px,0px) scale(.4) rotate(-20deg)',opacity:0},{offset:.15,opacity:1},{offset:.55,transform:`translate(${(dx*.5).toFixed(1)}px,${(dy*.5-70).toFixed(1)}px) scale(1.5) rotate(12deg)`},{transform:`translate(${dx.toFixed(1)}px,${dy.toFixed(1)}px) scale(.7) rotate(0deg)`,opacity:1}],{duration:900,delay:i*130,easing:'cubic-bezier(.3,.7,.35,1)',fill:'backwards'});
     an.onfinish=()=>{e.remove();if(!landed){landed=true;SND('clink',{bg:true})}const tr=$(`#seat-${pid} .treat`);if(tr)tr.animate([{transform:'scale(2.2)'},{transform:'scale(1)'}],{duration:380,easing:'cubic-bezier(.2,1.4,.4,1)'})};setTimeout(()=>e.remove(),2500)})}
+// ---------- table settings: the host (or anyone seated while the host is away) can change them mid-game ----------
+let TSV={};
+function canEditTable(){if(!S||ME<0)return false;if(HOST||LOCALT)return true;const h=S.players[S.hostId];return!h||h.isBot||h.gone||h.away}
+function openTableSettings(){if(!S)return;const pc=S.pending||{};
+  TSV={tie:(pc.tieSplit!=null?pc.tieSplit:S.tieSplit)?'split':'playoff',series:+(pc.series!=null?pc.series:S.series),side:+(pc.side!=null?pc.side:S.side),fill:+(pc.fill!=null?pc.fill:S.fill),pub:+S.pub,keep:+S.keep};
+  $('#ts-name').value=S.tableName||'';
+  setOpt($('.opts[data-for="ts-wager"]'),pc.wager!=null?pc.wager:S.wager);setOpt($('.opts[data-for="ts-buyin"]'),S.buyIn);setOpt($('.opts[data-for="ts-timer"]'),S.timer);
+  $$('#m-tset .seg[data-ts="pub"],#m-tset .seg[data-ts="keep"]').forEach(g=>{g.closest('.field').hidden=!!LOCALT});syncTS();
+  const edit=canEditTable(),hp=S.players[S.hostId];$('#m-tset').classList.toggle('readonly',!edit);$('#ts-save').hidden=!edit;
+  $('#ts-note').textContent=edit?'The wager and the rules change from the next hand; the rest at once. Everyone at the table is told.':`Only the host${hp?` (${hp.name})`:''} can change these, or anyone seated while the host is away.`;
+  openModal('#m-tset');SND('flick')}
+function syncTS(){$$('#m-tset .seg[data-ts]').forEach(g=>{const k=g.dataset.ts;g.querySelectorAll('button').forEach(b=>b.classList.toggle('on',String(TSV[k])===b.dataset.v))})}
+$$('#m-tset .seg[data-ts] button').forEach(b=>b.onclick=()=>{const k=b.closest('.seg').dataset.ts;TSV[k]=k==='tie'?b.dataset.v:+b.dataset.v;syncTS();SND('flick')});
+$('#ts-save').onclick=()=>{const c={tableName:$('#ts-name').value.trim(),wager:+$('#ts-wager').value,buyIn:+$('#ts-buyin').value,timer:+$('#ts-timer').value,tie:TSV.tie,series:!!TSV.series,side:!!TSV.side,fill:!!TSV.fill,pub:!!TSV.pub,keep:!!TSV.keep};
+  if(LOCALT){delete c.pub;delete c.keep}if(c.wager>c.buyIn){toast('The wager can\'t be more than the buy-in');nudgeEl($('.opts[data-for="ts-wager"]'));return}
+  closeModal('#m-tset');act({type:'settings',cfg:c})};
+$('#btn-tset').onclick=openTableSettings;
 // ---------- tonight: who's up and who's down since they sat ----------
 const signed=n=>(n>0?'+':n<0?'−':'±')+fmt(Math.abs(n));
 const avOf=(r,me)=>me?avStyle(AV,esc(r.name[0].toUpperCase())):r.bot||r.isBot?{style:`background:${r.color}`,text:esc(r.name[0].toUpperCase())}:avStyle(Array.isArray(r.av)?(r.av[0]==='e'?{kind:'emoji',emoji:r.av[1]}:{kind:'initial',color:r.av[1]}):r.av,esc(r.name[0].toUpperCase()));
