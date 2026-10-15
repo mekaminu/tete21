@@ -173,11 +173,26 @@ async function becomeAccount(ws, u) {
   if (!wasOn) presenceChanged(u.id);
 }
 
+// ---------- recorded shouts: each player can record their own voice for the shouts ----------
+// kept per account (or per device for guests) under a key that doesn't give the account or device away
+const VOICES = new Map();
+const vkOf = me => (me ? sha('voice:' + me).slice(0, 12) : null);
+async function loadVoice(vk) {
+  if (VOICES.has(vk)) return VOICES.get(vk);
+  const o = { v: 0, clips: {} };
+  try { const sv = accounts.isReady() ? await accounts.kvGet('shouts:' + vk) : null; if (sv && sv.clips) { o.v = sv.v || 0; for (const [i, b] of Object.entries(sv.clips)) o.clips[i] = Buffer.from(b, 'base64'); } } catch (e) { console.error('shouts load:', e.message); }
+  VOICES.set(vk, o); return o;
+}
+function voiceInfo(vk, o) { let m = 0; for (const i of Object.keys(o.clips)) m |= 1 << +i; return m ? [vk, m, o.v] : null; }
+function saveVoice(vk, o) { if (!accounts.isReady()) return; const clips = {}; for (const [i, b] of Object.entries(o.clips)) clips[i] = b.toString('base64'); accounts.kvSet('shouts:' + vk, { v: o.v, clips }).catch(e => console.error('shouts save:', e.message)); }
+function voiceChanged(vk, o) { const info = voiceInfo(vk, o); for (const t of tables.values()) { let hit = false; for (const p of t.players) if (p.vk === vk) { p.voice = info; hit = true; } if (hit) t.sync(); } }
+async function setVoice(t, p, me) { const vk = vkOf(me); if (!p || !vk) return; p.vk = vk; try { const o = await loadVoice(vk); p.voice = voiceInfo(vk, o); t.sync(); } catch {} }
+
 // ---------- seats ----------
 function enter(ws, t, r, resumed) {
   cancelRequest(ws);
   if (r.prev && r.prev !== ws) { const old = r.prev; old.table = null; old.pid = -1; send(old, { type: 'gone', code: t.code.toUpperCase(), msg: 'You opened this table on another screen.' }); }
-  ws.table = t; ws.pid = r.id; ws.lastFx = t.fxn;
+  ws.table = t; ws.pid = r.id; ws.lastFx = t.fxn; setVoice(t, t.players[r.id], ws.me);
   send(ws, { type: 'joined', code: t.code.toUpperCase(), rid: t.rid, id: r.id, token: r.token, resumed: !!resumed, keep: t.persistent ? 1 : 0 });
   send(ws, { type: 'logs', items: t.fxq.filter(e => e.k === 'log').slice(-25) });
   t.sync(); if (t.persistent) saveRoom(t);
@@ -263,6 +278,8 @@ const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
   if (url === '/health') { res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' }); return res.end(accounts.isReady() ? 'ok' : 'ok (accounts offline)'); }
   if (url === '/ice') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify(iceServers())); }
+  const sv = /^\/shout\/([0-9a-f]{12})\/(\d{1,2})$/.exec(url);
+  if (sv) { loadVoice(sv[1]).then(o => { const b = o.clips[+sv[2]]; if (!b) { res.writeHead(404); return res.end(); } res.writeHead(200, { 'content-type': 'audio/wav', 'content-length': b.length, 'cache-control': 'public, max-age=31536000, immutable' }); res.end(b); }).catch(() => { res.writeHead(500); res.end(); }); return; }
   const file = url === '/' ? 'index.html' : url.slice(1);
   const fp = path.join(PUBLIC, path.normalize(file).replace(/^(\.\.[/\\])+/, ''));
   if (!fp.startsWith(PUBLIC)) { res.writeHead(403); return res.end(); }
@@ -478,6 +495,14 @@ async function handle(ws, m) {
 
     // ----- at the table -----
     case 'hello': if (T) T.updateHuman(ws.pid, m); break;
+    case 'voice_get': { const vk = vkOf(ws.me); if (!vk) return; const o = await loadVoice(vk); send(ws, { type: 'voice', info: voiceInfo(vk, o) || [vk, 0, o.v] }); break; }
+    case 'shout_set': {
+      const vk = vkOf(ws.me); if (!vk) return; const i = Math.floor(+m.i); if (!(i >= 0 && i < 16)) return;
+      const b = Buffer.from(String(m.wav || ''), 'base64');
+      if (b.length < 800 || b.length > 47000 || b.toString('ascii', 0, 4) !== 'RIFF' || b.toString('ascii', 8, 12) !== 'WAVE') return send(ws, { type: 'error', msg: "That recording didn't come through. Try again, a little shorter." });
+      const o = await loadVoice(vk); o.clips[i] = b; o.v++; saveVoice(vk, o); voiceChanged(vk, o); send(ws, { type: 'voice', info: voiceInfo(vk, o) }); break;
+    }
+    case 'shout_del': { const vk = vkOf(ws.me); if (!vk) return; const i = Math.floor(+m.i); const o = await loadVoice(vk); if (o.clips[i]) { delete o.clips[i]; o.v++; saveVoice(vk, o); voiceChanged(vk, o); } send(ws, { type: 'voice', info: voiceInfo(vk, o) || [vk, 0, o.v] }); break; }
     case 'act': if (T) { T.action(ws.pid, m.a); if (m.a && m.a.type === 'settings') { listDirty = true; persistAll(); } } break;
     case 'rtc': { // voice/video introductions: {to, data}
       if (!T) return; const to = T.players[+m.to]; if (!to || !to.conn) return;

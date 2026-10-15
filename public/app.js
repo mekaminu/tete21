@@ -61,7 +61,7 @@ function openMe(ask){
   $('#me-title').textContent=ask?'First, your name':'Your profile';
   $('#me-note').textContent=ask?'Pick a name and a look. Everyone at the table sees them.':'How the table sees you, plus sound settings.';
   $('#me-done').textContent=ask?'Continue':'Done';
-  $('#m-me').classList.toggle('ask',!!ask);refreshAv();renderSoundSettings();renderFelts();renderAcct();openModal('#m-me');if(ACCT&&!ask)send({type:'profile',tz:TZ});
+  $('#m-me').classList.toggle('ask',!!ask);refreshAv();renderSoundSettings();renderFelts();renderShoutList();renderAcct();openModal('#m-me');if(ACCT&&!ask)send({type:'profile',tz:TZ});
   if(ask)setTimeout(()=>{try{$('#f-name').focus()}catch{}},380)}
 function openAv(){openMe(false)}
 $('#me-done').onclick=()=>{const f=AFTER_NAME;if(f&&!myName()){nudgeEl($('#f-name'));toast('Type your name first');return}AFTER_NAME=null;$('#m-me').classList.remove('on');if(f)setTimeout(f,150)};
@@ -152,6 +152,7 @@ function onMessage(m){
   if(m.type==='gone'){if(PENDING_JOIN&&m.code===PENDING_JOIN.code){const pj=PENDING_JOIN;PENDING_JOIN=null;if(SEATS[m.code]){delete SEATS[m.code];saveSeats()}send(pj.msg);return}if(m.code&&SEATS[m.code]){delete SEATS[m.code];saveSeats()}if(!m.code||CURRENT===m.code)setCurrent(null);if(!LOCALT){if(m.final&&m.final.length){if($('#game').classList.contains('on'))backToLobby();setTimeout(()=>showResults(m.final,m.tn),350)}else{toast(m.msg,3500);if($('#game').classList.contains('on'))backToLobby()}}renderRooms();return}
   if(m.type==='seal'){const s=SEATS[m.code];if(s){s.seal=m.seal;s.rid=m.rid;s.keep=true;if(S&&S.tableName)s.name=S.tableName;saveSeats()}return}
   if(m.type==='you'){MYID=m.id;if(!m.acct)try{localStorage.setItem('tete.myid',m.id)}catch{}handlePendingFriend();return}
+  if(m.type==='voice'){MYVOICE=m.info&&m.info[1]?m.info:null;renderShoutList();return}
   if(m.type==='session'){SESSION=m.token;try{localStorage.setItem('tete.session',m.token)}catch{}closeModal('#m-auth');$('#au-pass').value='';if(m.welcome)setTimeout(()=>celebrate(m.welcome,'Welcome bonus','chips to start you off'),450);else toast('Signed in. Welcome back');return}
   if(m.type==='account'){setAccount(m);return}
   if(m.type==='account_lite'){if(!ACCT)return;Object.assign(ACCT,{user:m.user,inPlay:m.inPlay,bonus:m.bonus});renderAcct(true);renderRooms();return}
@@ -252,7 +253,7 @@ function saveFriends(){try{localStorage.setItem('tete.friends',JSON.stringify(FR
 let SESSION=null,ACCT=null,ACCT_FR={},PENDING_ACCT=null;const TZ=-new Date().getTimezoneOffset();
 try{SESSION=localStorage.getItem('tete.session')}catch{}
 function FR(){return ACCT?ACCT_FR:FRIENDS}
-function identify(){send({type:'id',secret:SECRET,name:myName(),av:publicAv(),friends:Object.keys(FRIENDS),session:SESSION||undefined,tz:TZ})}
+function identify(){send({type:'id',secret:SECRET,name:myName(),av:publicAv(),friends:Object.keys(FRIENDS),session:SESSION||undefined,tz:TZ});send({type:'voice_get'})}
 let meT=null;function sendMe(){clearTimeout(meT);meT=setTimeout(()=>send({type:'me',name:myName(),av:publicAv(),friends:Object.keys(FRIENDS)}),400)}
 const ICON={lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',open:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg>',home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/></svg>'};
 function avHTML(av,name,cls='fav'){const a=avStyle(av,(name||'?')[0].toUpperCase());return`<div class="${cls}" style="${a.style}">${esc(a.text)}`}
@@ -502,7 +503,7 @@ function celebrate(amount,title,sub){
 function applyState(o,fx){
   const prev=S;const before=prev&&prev.players&&prev.players.length?snapCards():new Map();
   S={tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,tieSplit:!!o.ts,fill:!!o.fl,pub:!!o.pb,pending:o.pc||null,
-    players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||'',streak:a[17]||0,bought:a[18]||0,wins:a[19]||0,best:a[20]||0})),
+    players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||'',streak:a[17]||0,bought:a[18]||0,wins:a[19]||0,best:a[20]||0,voice:a[21]||null})),
     sideBets:o.sbs.map(a=>({id:a[0],a:a[1],b:a[2],type:a[3],amt:a[4],mine:a[5],theirs:a[6],status:a[7],result:a[8],winner:a[9],desc:sbDesc(a[3],a[5],a[6])}))};
   ME=o.me;HOST=o.host===ME;
   $('#t-name').textContent=S.tableName;$('#t-wager').textContent=S.pending&&S.pending.wager!=null&&S.pending.wager!==S.wager?`${fmt(S.wager)} → ${fmt(S.pending.wager)} next hand`:fmt(S.wager);$('#t-decks').textContent=`${S.decks} deck${S.decks>1?'s':''} · ${36*S.decks} cards`;
@@ -515,7 +516,7 @@ function applyState(o,fx){
   motion(prev,before);
   SPRAYED=new Set((fx||[]).filter(e=>e.k==='spray').map(e=>e.to));
   cues(prev);
-  turnTick();requestAnimationFrame(updateTurnMark);
+  turnTick();requestAnimationFrame(updateTurnMark);prefetchVoices();
   for(const e of fx)runFx(e);
   maybeAskSideBet();
   rtcSyncPeers();
@@ -836,7 +837,42 @@ function sayShout(pid,r){const t=REACTS[r];if(!t||!SPEAK||document.hidden||(wind
   try{speechSynthesis.cancel();speechSynthesis.speak(u)}catch{}}
 // phones only let a page talk after a tap: say nothing once, on the first tap
 document.addEventListener('pointerdown',function warm(){document.removeEventListener('pointerdown',warm);try{if('speechSynthesis' in window){const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}}catch{}},{passive:true});
-function playRecorded(pid,r){return false}
+let MYVOICE=null;const CLIPS=new Map();
+function clipUrl(v,r){return`/shout/${v[0]}/${r}?v=${v[2]}`}
+function clipAudio(url){let a=CLIPS.get(url);if(!a){a=new Audio(url);a.preload='auto';CLIPS.set(url,a)}return a}
+function voiceOf(pid){const p=S&&S.players[pid];return(p&&p.voice)||(pid===ME?MYVOICE:null)}
+function playRecorded(pid,r){const v=voiceOf(pid);if(!v||!((v[1]>>r)&1))return false;const a=clipAudio(clipUrl(v,r));
+  try{a.currentTime=0;a.volume=Math.min(1,((window.TeteSound&&TeteSound.volume)||.7)+.25);const pr=a.play();if(pr&&pr.catch)pr.catch(()=>{})}catch{}return true}
+// fetch everyone's recordings ahead of time so a shout plays the moment it's made
+function prefetchVoices(){if(!S)return;for(const p of S.players){const v=p.voice;if(!v)continue;for(let r=0;r<16;r++)if((v[1]>>r)&1)clipAudio(clipUrl(v,r))}}
+// ---------- record your own shouts ----------
+let REC=null;
+function renderShoutList(){const box=$('#shoutlist');if(!box)return;const words=REACTS.map((t,i)=>i).filter(i=>!isEmo(REACTS[i]));
+  box.innerHTML=words.map(i=>{const mine=MYVOICE&&((MYVOICE[1]>>i)&1);return`<div class="shrow${mine?' mine':''}"><b>${esc(REACTS[i])}</b><span class="who">${mine?'Your voice':'Phone voice'}</span><button type="button" class="sh-play" data-i="${i}" aria-label="Hear ${esc(REACTS[i])}">▶</button><button type="button" class="sh-rec" data-i="${i}" aria-label="Record ${esc(REACTS[i])}"><i></i></button>${mine?`<button type="button" class="sh-del" data-i="${i}" aria-label="Go back to the phone voice">✕</button>`:'<span class="sh-gap"></span>'}</div>`}).join('');
+  box.querySelectorAll('.sh-play').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;if(!playRecorded(ME>=0?ME:-1,i)){const v=MYVOICE;if(v&&((v[1]>>i)&1))return;const was=SPEAK;SPEAK=true;sayShout(ME>=0?ME:0,i);SPEAK=was}});
+  box.querySelectorAll('.sh-rec').forEach(b=>b.onclick=()=>recordShout(+b.dataset.i,b));
+  box.querySelectorAll('.sh-del').forEach(b=>b.onclick=()=>{send({type:'shout_del',i:+b.dataset.i});SND('flick')})}
+async function recordShout(i,btn){
+  if(REC){REC.stop();return}
+  let stream;try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}})}catch(e){info('Microphone not available',`Your browser said: ${esc(e.message||e.name)}. Allow the microphone for this site, then try again.`);return}
+  const AC=window.AudioContext||window.webkitAudioContext,ac=new AC(),src=ac.createMediaStreamSource(stream),proc=ac.createScriptProcessor(4096,1,1),chunks=[];let done=false;
+  proc.onaudioprocess=e=>{if(!done)chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)))};src.connect(proc);proc.connect(ac.destination);
+  btn.classList.add('rec');
+  const stop=async()=>{if(done)return;done=true;clearTimeout(REC&&REC.t);REC=null;btn.classList.remove('rec');try{src.disconnect();proc.disconnect()}catch{}stream.getTracks().forEach(t=>t.stop());const rate=ac.sampleRate;ac.close().catch(()=>{});
+    const wav=encodeShout(chunks,rate);if(!wav){toast('Nothing heard. Try again, a little louder.');return}
+    send({type:'shout_set',i,wav});toast(`Saved. That's your ${REACTS[i]}`)};
+  REC={stop,t:setTimeout(stop,1900)}}
+// trim the silence, keep up to 1.8 seconds, even out the level, and pack it as a small 11 kHz WAV
+function encodeShout(chunks,rate){let n=0;for(const c of chunks)n+=c.length;if(!n)return null;const x=new Float32Array(n);let o=0;for(const c of chunks){x.set(c,o);o+=c.length}
+  let a=0,b=n-1;while(a<n&&Math.abs(x[a])<.03)a++;while(b>a&&Math.abs(x[b])<.03)b--;if(b-a<rate*.08)return null;
+  a=Math.max(0,a-Math.round(rate*.04));b=Math.min(n-1,b+Math.round(rate*.12));b=Math.min(b,a+Math.round(rate*1.8));
+  const R=11025,step=rate/R,m=Math.floor((b-a)/step),y=new Float32Array(m);let peak=0;
+  for(let k=0;k<m;k++){const t=a+k*step,i0=Math.floor(t),f=t-i0;let acc=0,cnt=0;for(let j=Math.max(a,i0-1);j<=Math.min(b,i0+1);j++){acc+=x[j];cnt++}y[k]=cnt?acc/cnt:(x[i0]*(1-f)+(x[i0+1]||0)*f);peak=Math.max(peak,Math.abs(y[k]))}
+  const g=peak>0?Math.min(6,.92/peak):1,fade=Math.round(R*.01);
+  const buf=new ArrayBuffer(44+m*2),d=new DataView(buf),w=(off,str)=>{for(let k=0;k<str.length;k++)d.setUint8(off+k,str.charCodeAt(k))};
+  w(0,'RIFF');d.setUint32(4,36+m*2,true);w(8,'WAVE');w(12,'fmt ');d.setUint32(16,16,true);d.setUint16(20,1,true);d.setUint16(22,1,true);d.setUint32(24,R,true);d.setUint32(28,R*2,true);d.setUint16(32,2,true);d.setUint16(34,16,true);w(36,'data');d.setUint32(40,m*2,true);
+  for(let k=0;k<m;k++){let v=y[k]*g;if(k<fade)v*=k/fade;if(k>m-fade)v*=(m-k)/fade;d.setInt16(44+k*2,Math.max(-1,Math.min(1,v))*32767,true)}
+  const bytes=new Uint8Array(buf);let bin='';for(let k=0;k<bytes.length;k+=8192)bin+=String.fromCharCode.apply(null,bytes.subarray(k,k+8192));return btoa(bin)}
 // quick reactions
 const REACTS=(window.TeteEngine&&window.TeteEngine.REACTS)||[];const isEmo=t=>!/[A-Za-z]/.test(t);
 function toggleReacts(){const bar=$('#reactbar');if(!bar.hidden){bar.hidden=true;return}if(!S||!S.started||ME<0){toast('Reactions are for when the game is on');return}
