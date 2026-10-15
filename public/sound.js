@@ -113,15 +113,19 @@
     sparkle(t) { for (let i = 0; i < 16; i++) tone(t + i * 0.04 + Math.random() * 0.03, { f: 2000 + Math.random() * 3600, dur: 0.12, gain: 0.05, wet: 0.7 }); },
     sting(t) { [N.C4, N.E4, N.G4, N.C5].forEach((f, i) => brass(t + i * 0.015, f, 1.5, 0.085)); brass(t, N.C4 / 2, 1.5, 0.08); SOUNDS.sparkle(t + 0.1); burst(t, { dur: 1.3, freq: 7000, q: 0.3, gain: 0.1, type: 'highpass' }); tone(t, { f: 65, dur: 0.6, gain: 0.35, slideTo: 40 }); },
   };
-  let lastUnlock = 0;
+  let lastUnlock = 0, napT = null, napping = false;
+  // the sound engine keeps the phone's audio hardware awake: after half a minute of quiet it sleeps, and wakes for the next sound
+  function nap() { clearTimeout(napT); napT = setTimeout(() => { if (ctx && ctx.state === 'running') { napping = true; ctx.suspend().catch(() => {}); } }, 30000); }
   function play(name, opts = {}) {
     if (muted) return; const c = ensure(); if (!c) return;
+    const fn = SOUNDS[name]; if (!fn) return;
+    const go = () => { try { fn(c.currentTime + 0.01 + (opts.delay || 0), opts.arg); } catch {} nap(); };
+    if (napping && c.state === 'suspended') { napping = false; c.resume().then(go).catch(() => {}); return; }
     // a suspended context (no tap yet) would queue sounds and blurt them all out on the first tap: only queue right after a tap
     if (c.state !== 'running' && performance.now() - lastUnlock > 1500) return;
-    const fn = SOUNDS[name]; if (!fn) return;
-    try { fn(c.currentTime + 0.01 + (opts.delay || 0), opts.arg); } catch {}
+    go();
   }
-  function unlock() { const c = ensure(); lastUnlock = performance.now(); if (c && c.state !== 'running') { try { const r = c.resume(); if (r && r.catch) r.catch(() => {}); } catch {} } }
+  function unlock() { const c = ensure(); lastUnlock = performance.now(); napping = false; if (c && c.state !== 'running') { try { const r = c.resume(); if (r && r.catch) r.catch(() => {}); } catch {} } nap(); }
   ['pointerdown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, unlock, { passive: true }));
   function setMuted(m) { muted = !!m; try { localStorage.setItem('tete.mute', muted ? '1' : '0'); } catch {} if (master) master.gain.value = muted ? 0 : vol; }
   function setVolume(v) { vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('tete.vol', String(vol)); } catch {} if (master && !muted) master.gain.value = vol; }

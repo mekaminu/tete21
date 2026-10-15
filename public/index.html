@@ -612,6 +612,29 @@ html[data-felt="midnight"] .felt .ring{border-color:rgba(217,178,95,.32)}
 .slot.taken .tcard{box-shadow:0 0 0 2px var(--own,#d9b25f),0 5px 12px rgba(0,0,0,.45);transform:translateY(6px);animation:takenin .35s ease-out}
 @keyframes takenin{from{transform:translateY(0) scale(1.05);filter:brightness(1.25)}}
 .slot .owner{position:absolute;left:50%;bottom:-24px;transform:translateX(-50%);width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font:700 10px var(--display);color:#fff;border:1.5px solid var(--own,#d9b25f);box-shadow:0 2px 5px rgba(0,0,0,.5);background-size:cover;background-position:center;z-index:2}
+/* whose turn: a spotlight under the seat and a pointer above it, both gliding to the next player */
+.turnglow{position:absolute;left:0;top:0;width:170px;height:170px;margin:-85px 0 0 -85px;border-radius:50%;background:radial-gradient(circle,rgba(243,217,144,.42),rgba(243,217,144,.14) 42%,transparent 70%);z-index:3;pointer-events:none;transition:transform .55s cubic-bezier(.3,.7,.3,1),opacity .35s;will-change:transform}
+.turnglow.mine{background:radial-gradient(circle,rgba(120,230,170,.42),rgba(79,201,139,.15) 42%,transparent 70%)}
+.turnarrow{position:absolute;left:0;top:0;z-index:8;pointer-events:none;transition:transform .55s cubic-bezier(.3,.7,.3,1),opacity .35s;will-change:transform}
+.turnarrow i{display:block;width:22px;height:17px;margin:-17px 0 0 -11px;background:linear-gradient(180deg,#fff7d6,#d9b25f 70%,#a17628);clip-path:polygon(0 0,100% 0,50% 100%);animation:arrowbob .8s ease-in-out infinite alternate}
+.turnarrow.mine i{background:linear-gradient(180deg,#d8ffe9,#4fc98b 70%,#2d8a5a)}
+@keyframes arrowbob{from{transform:translateY(-9px)}to{transform:translateY(-2px)}}
+.turnglow.off,.turnarrow.off{opacity:0}
+/* battery: the endless glows below used to repaint every frame; now they fade a light layer instead (or hold still) */
+.phase.now{animation:none;position:relative}
+.phase.now::after{content:"";position:absolute;inset:-3px;border-radius:99px;box-shadow:0 0 0 3px rgba(217,178,95,.4);opacity:0;animation:fadepulse 1.6s ease-in-out infinite;pointer-events:none}
+.slot.next{animation:none}
+.slot.next::before{content:"";position:absolute;inset:-5px;border-radius:9px;box-shadow:0 0 0 2px rgba(243,217,144,.5),0 0 18px rgba(243,217,144,.55);opacity:.2;animation:fadepulse 1.4s ease-in-out infinite;pointer-events:none}
+@keyframes fadepulse{50%{opacity:1}}
+.seat.hot .av,.seat.blaze .av{animation:none;box-shadow:0 0 0 2px rgba(255,160,60,.7),0 0 22px rgba(255,120,20,.6),0 4px 12px rgba(0,0,0,.5)}
+.seat.hot.winner .av{animation:bounce .6s}
+.seat.hot.turn .av{box-shadow:0 0 0 3px rgba(243,217,144,.35),0 0 24px rgba(243,217,144,.55)}
+.seat.hot.speaking .av{box-shadow:0 0 0 3px var(--good),0 0 22px rgba(79,201,139,.7)}
+.seat.video .av .vid::after{animation:none}
+.logo .gold{animation-iteration-count:2}
+@keyframes livepulse{50%{opacity:.45}}
+.mechip.unset{animation:none;position:relative}
+.mechip.unset::after{content:"";position:absolute;inset:-2px;border-radius:inherit;box-shadow:0 0 0 4px rgba(217,178,95,.35);opacity:0;animation:fadepulse 1.8s ease-in-out infinite;pointer-events:none}
 [hidden]{display:none!important}
 .pill:empty{display:none}
 @media (max-width:520px){.row>.field:has(.seg){min-width:100%}}
@@ -778,7 +801,9 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
           <div class="slots" id="slots"></div>
           <div class="pot"><span class="stack" id="potstack"></span><span class="lbl">Pot</span><span class="amt num" id="pot">0</span></div>
         </div>
+        <div class="turnglow off" id="turnglow"></div>
         <div id="seats"></div>
+        <div class="turnarrow off" id="turnarrow"><i></i></div>
         <div id="fx"></div>
         <div class="wait" id="wait" hidden>
           <div class="eyebrow">Table code</div>

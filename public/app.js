@@ -501,6 +501,7 @@ function applyState(o,fx){
   renderAll();
   motion(prev,before);
   cues(prev);
+  turnTick();requestAnimationFrame(updateTurnMark);
   for(const e of fx)runFx(e);
   maybeAskSideBet();
   rtcSyncPeers();
@@ -701,9 +702,31 @@ function confetti(box){const fx=box||$('#fx');if(!fx||RM())return;const H=((box|
     const dx=(Math.random()-.5)*90,r=360+Math.random()*540;
     c.animate([{transform:'translate(0px,0px) rotate(0deg)',opacity:1},{offset:.85,opacity:1},{transform:`translate(${dx.toFixed(0)}px,${H.toFixed(0)}px) rotate(${r.toFixed(0)}deg)`,opacity:0}],{duration:1700+Math.random()*900,delay:Math.random()*600,easing:'cubic-bezier(.3,.1,.6,1)',fill:'backwards'}).onfinish=()=>c.remove();setTimeout(()=>c.remove(),3500)}}
 function seatEl(id){return id===ME?$('#mychips'):$('#seat-'+id)}
-let TICK=-1;
-(function ringLoop(){requestAnimationFrame(ringLoop);if(!S)return;$$('.seat').forEach(el=>{const pid=+el.id.slice(5);const ring=el.querySelector('.ring'),tl=el.querySelector('.tleft');if(!ring)return;const on=S.turn===pid&&S.deadline>0&&(S.phase===3||S.phase===5);ring.hidden=!on;tl.hidden=!on;if(pid===ME&&!on)TICK=-1;if(!on)return;const secs=S.timer||20;const left=Math.max(0,(S.deadline-Date.now())/1000);const pct=Math.min(1,left/secs);ring.style.setProperty('--pct',pct);ring.style.setProperty('--ringc',pct>.5?'var(--good)':pct>.25?'var(--warn)':'var(--bad)');tl.textContent=Math.ceil(left);const urgent=left<=5;ring.classList.toggle('urgent',urgent);tl.classList.toggle('urgent',urgent);
-  if(pid===ME&&urgent){const sec=Math.ceil(left);if(sec>0&&sec!==TICK){TICK=sec;SND('tick',{bg:true});if(sec<=3)buzz(12)}}})})();
+let TICK=-1,RING_T=null;
+function turnTick(){
+  clearTimeout(RING_T);RING_T=null;if(!S)return;
+  const on=S.turn>=0&&S.deadline>0&&(S.phase===3||S.phase===5);
+  $$('.seat .ring:not([hidden]),.seat .tleft:not([hidden])').forEach(x=>{if(!on||x.closest('.seat').id!=='seat-'+S.turn)x.hidden=true});
+  if(!on){TICK=-1;return}
+  const el=$('#seat-'+S.turn);const ring=el&&el.querySelector('.ring'),tl=el&&el.querySelector('.tleft');
+  if(ring){ring.hidden=false;tl.hidden=false;const secs=S.timer||20,left=Math.max(0,(S.deadline-Date.now())/1000),pct=Math.min(1,left/secs);
+    ring.style.setProperty('--pct',pct.toFixed(3));ring.style.setProperty('--ringc',pct>.5?'var(--good)':pct>.25?'var(--warn)':'var(--bad)');tl.textContent=Math.ceil(left);
+    const urgent=left<=5;ring.classList.toggle('urgent',urgent);tl.classList.toggle('urgent',urgent);
+    if(S.turn===ME&&urgent){const sec=Math.ceil(left);if(sec>0&&sec!==TICK){TICK=sec;SND('tick',{bg:true});if(sec<=3)buzz(12)}}}
+  if(S.turn!==ME)TICK=-1;
+  RING_T=setTimeout(turnTick,document.hidden?1000:250)}
+// whose turn: a soft spotlight and a gold pointer glide from seat to seat
+function updateTurnMark(){
+  const g=$('#turnglow'),ar=$('#turnarrow'),tb=$('#table');if(!g||!ar||!tb)return;
+  const on=!!S&&S.started&&S.turn>=0&&(S.phase===3||S.phase===5);const av=on?$(`#seat-${S.turn} .av`):null;
+  if(!av){g.classList.add('off');ar.classList.add('off');return}
+  const t=tb.getBoundingClientRect(),r=av.getBoundingClientRect();if(!r.width)return;
+  const x=r.left+r.width/2-t.left,y=r.top+r.height/2-t.top,ay=r.top-t.top-6;const first=g.classList.contains('off');
+  if(first){g.style.transition=ar.style.transition='none'}
+  g.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;ar.style.transform=`translate(${x.toFixed(1)}px,${ay.toFixed(1)}px)`;
+  if(first){void g.offsetWidth;g.style.transition=ar.style.transition=''}
+  g.classList.remove('off');ar.classList.remove('off');const mine=S.turn===ME;g.classList.toggle('mine',mine);ar.classList.toggle('mine',mine)}
+window.addEventListener('resize',()=>{if(S)setTimeout(updateTurnMark,80)});
 
 // ---------- table motion: cards fly from the dealer's shoe, chips arc, numbers roll ----------
 const CARDSEL='#slots .card[data-id],#seats .card[data-id],#myhand .card[data-id]';
@@ -1021,12 +1044,17 @@ function attachRemote(pid,c){const v=$(`#seat-${pid} .vid video`);if(v&&v.srcObj
 function rtcAttachAll(){attachLocal();for(const [pid,c] of PC)attachRemote(pid,c)}
 let ACTX=null;const LEVELS=new Map();
 function watchLevel(pid,stream){
-  if(LEVELS.has(pid))return;try{ACTX=ACTX||new (window.AudioContext||window.webkitAudioContext)();const src=ACTX.createMediaStreamSource(stream);const an=ACTX.createAnalyser();an.fftSize=512;src.connect(an);const buf=new Uint8Array(an.frequencyBinCount);LEVELS.set(pid,{an,buf})}catch{}
+  if(LEVELS.has(pid))return;try{ACTX=ACTX||new (window.AudioContext||window.webkitAudioContext)();const src=ACTX.createMediaStreamSource(stream);const an=ACTX.createAnalyser();an.fftSize=512;src.connect(an);const buf=new Uint8Array(an.frequencyBinCount);LEVELS.set(pid,{an,buf});if(ACTX.state==='suspended')ACTX.resume().catch(()=>{});levelKick()}catch{}
 }
-(function levelLoop(){setTimeout(levelLoop,120);for(const [pid,l] of LEVELS){const el=$('#seat-'+pid);if(!el)continue;l.an.getByteFrequencyData(l.buf);let s=0;for(let i=0;i<l.buf.length;i++)s+=l.buf[i];const avg=s/l.buf.length;const muted=pid===ME?!AVS.mic:(S&&S.players[pid]&&!S.players[pid].mic);el.classList.toggle('speaking',!muted&&avg>18&&AVS.spk)}})();
+let LV_T=null;
+function levelKick(){if(!LV_T)LV_T=setTimeout(levelLoop,180)}
+function levelLoop(){LV_T=null;if(!LEVELS.size){if(ACTX&&ACTX.state==='running')ACTX.suspend().catch(()=>{});return}
+  if(!document.hidden)for(const [pid,l] of LEVELS){const el=$('#seat-'+pid);if(!el)continue;l.an.getByteFrequencyData(l.buf);let s=0;for(let i=0;i<l.buf.length;i+=2)s+=l.buf[i];const avg=2*s/l.buf.length;const muted=pid===ME?!AVS.mic:(S&&S.players[pid]&&!S.players[pid].mic);el.classList.toggle('speaking',!muted&&avg>18&&AVS.spk)}
+  LV_T=setTimeout(levelLoop,document.hidden?1500:200)}
 $('#btn-mic').onclick=async()=>{AVS.mic=!AVS.mic;if(ACTX&&ACTX.state==='suspended')ACTX.resume();await ensureLocal();toast(AVS.mic?'Mic on — the table can hear you':'Mic muted');avUI()};
 $('#btn-cam').onclick=async()=>{AVS.cam=!AVS.cam;await ensureLocal();toast(AVS.cam?'Camera on':'Camera off');avUI()};
 $('#btn-spk').onclick=()=>{AVS.spk=!AVS.spk;$$('#voices audio').forEach(a=>{a.muted=!AVS.spk;if(AVS.spk&&a.paused)a.play().catch(()=>{})});if(ACTX&&ACTX.state==='suspended')ACTX.resume();toast(AVS.spk?'You can hear the table':'Other players muted');avUI()};
+document.addEventListener('visibilitychange',()=>{const v=LOCAL&&LOCAL.getVideoTracks()[0];if(v)v.enabled=!document.hidden&&AVS.cam;if(!document.hidden&&S){turnTick();updateTurnMark()}});
 // browsers block remote audio until a tap: resume on first interaction
 document.addEventListener('pointerdown',()=>{if(ACTX&&ACTX.state==='suspended')ACTX.resume();$$('.seat video').forEach(v=>{if(v.paused)v.play().catch(()=>{})});$$('#voices audio').forEach(a=>{if(a.paused)a.play().catch(()=>{})})},{passive:true});
 
