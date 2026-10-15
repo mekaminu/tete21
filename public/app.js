@@ -488,7 +488,7 @@ function celebrate(amount,title,sub){
 // ---------- state ----------
 function applyState(o,fx){
   const prev=S;const before=prev&&prev.players&&prev.players.length?snapCards():new Map();
-  S={tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,
+  S={tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,
     players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||'',streak:a[17]||0,bought:a[18]||0,wins:a[19]||0,best:a[20]||0})),
     sideBets:o.sbs.map(a=>({id:a[0],a:a[1],b:a[2],type:a[3],amt:a[4],mine:a[5],theirs:a[6],status:a[7],result:a[8],winner:a[9],desc:sbDesc(a[3],a[5],a[6])}))};
   ME=o.me;HOST=o.host===ME;
@@ -612,7 +612,11 @@ function sizeBoard(){
 window.addEventListener('resize',()=>{if(!S)return;sizeBoard();const tb=$('#table');if(tb&&TALL!==null&&TALL!==(tb.clientHeight>tb.clientWidth*1.05))renderSeats(true)});
 function renderBoard(){
   const n=S.boardSize||0;
-  $('#slots').innerHTML=Array.from({length:n},(_,i)=>{const c=S.board[i];return`<div class="slot ${S.phase===5&&i===S.boardTop?'next':''}">${c&&!c.taken?cardHTML(c,FLY.has(c.id)?'incoming':''):''}<span class="idx">${i+1}</span></div>`}).join('');
+  // cards people have picked stay face up in their slot, ringed in the picker's colour with their badge underneath
+  $('#slots').innerHTML=Array.from({length:n},(_,i)=>{const c=S.board[i];
+    if(c&&c.taken&&c.r!==undefined){const by=S.boardBy[i],ow=by>=0?S.players[by]:null,a=ow?avOf(ow,ow.id===ME):null,col=ow?(ow.isBot?ow.color:(ow.id===ME?(AV.color||'#d9b25f'):((ow.av&&ow.av.color)||'#d9b25f'))):'#d9b25f';
+      return`<div class="slot taken" style="--own:${col}" title="${ow?esc(ow.name)+' took this':'Taken'}"><div class="card tcard ${isRed(c)?'red':''}">${cardInner(c)}</div>${a?`<span class="owner" style="${a.style}">${a.text}</span>`:`<span class="idx">${i+1}</span>`}</div>`}
+    return`<div class="slot ${S.phase===5&&i===S.boardTop?'next':''}">${c&&!c.taken?cardHTML(c,FLY.has(c.id)?'incoming':''):''}<span class="idx">${i+1}</span></div>`}).join('');
   sizeBoard();
 }
 function renderSide(){setTimeout(updateSide,0);renderTonight();
