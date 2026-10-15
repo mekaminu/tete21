@@ -130,9 +130,24 @@
     try { const t = b.c.currentTime; for (const g of [b.dry, b.wet]) { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + fade); } } catch {}
     setTimeout(() => { try { b.dry.disconnect(); b.wet.disconnect(); } catch {} }, fade * 1000 + 150);
   }
-  function play(name, opts = {}) {
+  function play(name, opts = {}) { const fn = SOUNDS[name]; if (fn) run(fn, opts); }
+  // recorded clips (the house voice's shouts): fetched and decoded once, then played through the same
+  // speakers, volume and mute as every other sound, and under the same rule: never saved up for later
+  const clips = {};
+  function loadClip(url) {
+    const c = ensure(); if (!c) return Promise.reject(new Error('no audio'));
+    if (!clips[url]) { clips[url] = fetch(url).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); }).then(b => new Promise((res, rej) => c.decodeAudioData(b, res, rej))); clips[url].catch(() => { delete clips[url]; }); }
+    return clips[url];
+  }
+  function clip(url, opts = {}) {
+    if (muted) return; const asked = performance.now();
+    loadClip(url).then(buf => {
+      if (performance.now() - asked > 3000) return; // too late to still be the moment
+      run(t => { const s = ctx.createBufferSource(); s.buffer = buf; const g = ctx.createGain(); g.gain.value = opts.gain || 1; s.connect(g); out(g, opts.wet || 0); s.start(t); }, opts);
+    }).catch(() => {});
+  }
+  function run(fn, opts = {}) {
     if (muted) return; const c = ensure(); if (!c) return;
-    const fn = SOUNDS[name]; if (!fn) return;
     const go = () => {
       const keep = [master, verb];
       try { if (opts.bus) { const b = busOf(opts.bus); master = b.dry; verb = b.wet; } fn(c.currentTime + 0.01 + (opts.delay || 0), opts.arg); } catch {} finally { master = keep[0]; verb = keep[1]; }
@@ -171,5 +186,5 @@
     try { for (const [name, at, arg] of list) { const fn = SOUNDS[name]; if (fn) fn(at, arg); } return await ctx.startRendering(); }
     finally { [ctx, master, verb, noiseBuf] = saved; muted = wasMuted; }
   }
-  window.TeteSound = { play, stop, ready, setMuted, setVolume, unlock, renderOffline, get muted() { return muted; }, get volume() { return vol; }, get state() { return ctx ? ctx.state : 'none'; } };
+  window.TeteSound = { play, clip, loadClip, stop, ready, setMuted, setVolume, unlock, renderOffline, get muted() { return muted; }, get volume() { return vol; }, get state() { return ctx ? ctx.state : 'none'; } };
 })();

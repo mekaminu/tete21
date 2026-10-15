@@ -1,0 +1,31 @@
+# Makes the house voice: every shout spoken by Microsoft Azure's Nigerian English voice, Abeo.
+# Run it from the Actions tab ("Make the shout clips" → Run workflow) or by pushing to the make-voice branch. The Azure key stays in the
+# repository's secrets (AZURE_SPEECH_KEY, AZURE_SPEECH_REGION); the clips land on the voice-clips branch.
+name: Make the shout clips
+on:
+  workflow_dispatch:
+  push:
+    branches: [make-voice]
+permissions:
+  contents: write
+jobs:
+  clips:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Speak each shout in Abeo's voice
+        env:
+          AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
+          AZURE_SPEECH_REGION: ${{ secrets.AZURE_SPEECH_REGION }}
+        run: node tools/make-shouts.mjs
+      - name: Put the clips on the voice-clips branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c voice-clips
+          git add public/shouts
+          git commit -m "House voice: the shouts in Azure's Nigerian English voice (Abeo)"
+          git push -f origin voice-clips

@@ -49,7 +49,7 @@ class Table {
     this.pub = !!cfg.pub;
     this.rid = (typeof cfg.rid === 'string' && /^[a-z0-9]{6,16}$/.test(cfg.rid)) ? cfg.rid : newToken().slice(0, 10);
     this.dealer = -1; this.handNo = 0; this.pot = 0; this.deck = []; this.board = [];
-    this.leadSuit = null; this.phase = -1; this.turn = -1; this.deadline = 0;
+    this.leadSuit = null; this.leadBy = -1; this.loans = []; this.loanN = 0; this.phase = -1; this.turn = -1; this.deadline = 0;
     this.sideBets = []; this.participants = []; this.busy = false; this.started = false;
     this.trickWinner = null; this.boardSize = 0; this.boardTop = 0; this.tiebreak = false; this.next = null; this.msgHost = '';
     this.fxq = []; this.fxn = 0; this.sbid = 0; this.pend = null; this.closed = false; this.hostId = 0;
@@ -137,22 +137,26 @@ class Table {
   // ----- persistence (between hands) -----
   toJSON(hashFn) {
     const S = this;
-    return { code: S.code, cfg: { buyIn: S.buyIn, wager: S.wager, tableName: S.tableName, timer: S.timer, seats: S.seats, fill: S.fill, side: S.side, series: S.series, tie: S.tieSplit ? 'split' : 'playoff', keep: true, pub: S.pub, rid: S.rid }, pending: S.pendingCfg || null, pot: S.pot, handNo: S.handNo, dealer: S.dealer, hostId: S.hostId, createdAt: S.createdAt,
+    return { code: S.code, cfg: { buyIn: S.buyIn, wager: S.wager, tableName: S.tableName, timer: S.timer, seats: S.seats, fill: S.fill, side: S.side, series: S.series, tie: S.tieSplit ? 'split' : 'playoff', keep: true, pub: S.pub, rid: S.rid }, pending: S.pendingCfg || null, loans: S.loans, pot: S.pot, handNo: S.handNo, dealer: S.dealer, hostId: S.hostId, createdAt: S.createdAt,
       players: S.players.filter(p => !p.isBot && !p.gone).map(p => ({ id: p.id, name: p.name, chips: p.chips, av: p.av, color: p.color, uid: p.uid || null, streak: p.streak || 0, bought: p.bought || 0, wins: p.wins || 0, best: p.best || 0, tokenHash: p.tokenHash || (p.token && hashFn ? hashFn(p.token) : null) })) };
   }
   static fromJSON(o, send) {
     const t = new Table(o.code, o.cfg, send); t.pendingCfg = o.pending && typeof o.pending === 'object' ? o.pending : null; t.pot = o.pot || 0; t.handNo = o.handNo || 0; t.createdAt = o.createdAt || Date.now(); t.persistent = true;
     // compact ids so seats are contiguous; everyone is away until they resume
-    o.players.forEach((q, i) => { const p = t.mkPlayer(i, cleanName(q.name) || 'Guest', false); p.chips = Math.max(0, Math.floor(+q.chips || 0)); p.av = cleanAv(q.av); p.token = null; p.tokenHash = typeof q.tokenHash === 'string' ? q.tokenHash : null; p.uid = typeof q.uid === 'string' && /^[0-9a-f]{16}$/.test(q.uid) ? q.uid : null; p.streak = Math.max(0, Math.min(99, q.streak | 0)); p.bought = Math.max(0, Math.floor(+q.bought || 0)) || t.buyIn; p.wins = Math.max(0, q.wins | 0); p.best = Math.max(0, q.best | 0); p.away = true; p.oldId = q.id; t.players.push(p); });
+    o.players.forEach((q, i) => { const p = t.mkPlayer(i, cleanName(q.name) || 'Guest', false); p.chips = Math.max(0, Math.floor(+q.chips || 0)); p.av = cleanAv(q.av); p.token = null; p.tokenHash = typeof q.tokenHash === 'string' ? q.tokenHash : null; p.uid = typeof q.uid === 'string' && /^[0-9a-f]{16}$/.test(q.uid) ? q.uid : null; p.streak = Math.max(0, Math.min(99, q.streak | 0)); p.bought = q.bought != null && isFinite(+q.bought) ? Math.floor(+q.bought) : t.buyIn; p.wins = Math.max(0, q.wins | 0); p.best = Math.max(0, q.best | 0); p.away = true; p.oldId = q.id; t.players.push(p); });
     const host = t.players.find(p => p.oldId === o.hostId); t.hostId = host ? host.id : 0; t.dealer = t.players.length - 1;
+    // loans carry over with their names; a player who didn't come back can't be paid back in the game
+    const idOf = old => { const p = t.players.find(x => x.oldId === old); return p ? p.id : -1; };
+    t.loans = (Array.isArray(o.loans) ? o.loans : []).slice(-60).map(l => ({ id: Math.max(0, l.id | 0), from: idOf(l.from), to: idOf(l.to), amt: Math.max(0, Math.floor(+l.amt || 0)), paid: Math.max(0, Math.floor(+l.paid || 0)), fromName: cleanName(l.fromName) || 'Someone', toName: cleanName(l.toName) || 'Someone', out: !!l.out })).filter(l => l.amt > 0);
+    t.loanN = t.loans.reduce((m, l) => Math.max(m, l.id), 0);
     return t;
   }
   // ----- snapshot per viewer -----
   snapshot(forId) {
     const S = this;
     return {
-      now: Date.now(), tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), bw: S.board.map(c => (c && c.taken && c.by != null ? c.by : -1)), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0, fl: S.fill ? 1 : 0, pb: S.pub ? 1 : 0, pc: S.pendingCfg || null,
-      pl: S.players.map(p => { const show = p.id === forId || S.phase >= 6 || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0, p.away ? 1 : 0, p.color, p.treat || '', p.streak || 0, p.bought || 0, p.wins || 0, p.best || 0, p.voice || null]; }),
+      now: Date.now(), tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, lb: S.leadBy, ln: S.loans.map(l => [l.id, l.from, l.to, l.amt, l.paid, l.fromName, l.toName, l.out ? 1 : 0]), bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), bw: S.board.map(c => (c && c.taken && c.by != null ? c.by : -1)), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0, fl: S.fill ? 1 : 0, pb: S.pub ? 1 : 0, pc: S.pendingCfg || null,
+      pl: S.players.map(p => { const show = p.id === forId || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0, p.away ? 1 : 0, p.color, p.treat || '', p.streak || 0, p.bought || 0, p.wins || 0, p.best || 0, p.voice || null]; }),
       sbs: S.sideBets.slice(-8).map(b => [b.id, b.a, b.b, b.type, b.amt, b.mine, b.theirs, b.status, b.result || '', b.winner ?? -1]),
     };
   }
@@ -181,6 +185,9 @@ class Table {
       case 'sb_ans': this.answerSB(pid, a); break;
       case 'rebuy_all': if (pid === this.hostId && P && P.kinds.includes('rebuy_all')) P.done(a); break;
       case 'spray': this.spray(pid, a); break;
+      case 'lend': this.lend(pid, a); break;
+      case 'repay': this.repay(pid, a); break;
+      case 'settle_loan': this.settleLoan(pid, a); break;
       case 'treat': this.treat(pid, a); break;
       case 'react': this.react(pid, a); break;
       case 'chat': this.chat(pid, a); break;
@@ -206,7 +213,7 @@ class Table {
     while (S.humansConnected() === 0) { if (S.closed) return; S.paused = true; S.sync(); await sleep(1500); }
     S.paused = false;
     S.applyPending();
-    S.busy = true; S.handNo++; S.trickWinner = null; S.board = []; S.boardSize = 0; S.boardTop = 0; S.deadline = 0; S.next = null; S.msgHost = '';
+    S.busy = true; S.handNo++; S.trickWinner = null; S.leadSuit = null; S.leadBy = -1; S.board = []; S.boardSize = 0; S.boardTop = 0; S.deadline = 0; S.next = null; S.msgHost = '';
     S.players.forEach(p => { p.hand = []; p.dropped = null; p.picked = []; p.revealed = false; if (p.joinedMid) { p.joinedMid = false; p.sitout = false; } if (p.gone) p.sitout = true;
       if (p.chips < S.wager) { if (!p.sitout) p.broke = true; p.sitout = true; }
       else if (p.broke && !p.gone && !p.satOutByTimer) { p.broke = false; p.sitout = false; S.log(`${esc(p.name)} is back in the game`, 'hi'); S.fx({ k: 'bubble', pid: p.id, t: "I'm back! 💪", ms: 1800 }); } });
@@ -246,7 +253,7 @@ class Table {
     if (S.series) { const tri = Table.seriesIn(S.board); if (tri) { await sleep(400); S.fx({ k: 'series', pid: -1, cards: tri.map(enc), who: 'the board' }); S.log(`<b>Series on the board!</b> ${tri.map(cname).join(' ')} — redeal, pot stays`, 'hi'); S.sideBets.forEach(b => { if (b.status === 'pending' || b.status === 'open') b.status = 'declined'; }); await sleep(4200); S.handNo--; return S.playHand(participants, true); } }
     await S.settleSideBets('flush'); await sleep(500);
     // 3 drop
-    S.setPhase(3); S.leadSuit = null;
+    S.setPhase(3); S.leadSuit = null; S.leadBy = -1;
     for (const id of S.orderFrom(S.nextOf(S.dealer, participants), participants)) {
       const p = S.players[id]; let card; S.turn = id;
       if (S.hasAdasi(p)) { S.adasiTurn = id; S.deadline = S.timer ? Date.now() + S.timer * 1000 : 0; S.sync();
@@ -255,8 +262,9 @@ class Table {
       if (p.isBot) { S.deadline = S.timer ? Date.now() + S.timer * 1000 : 0; S.sync(); await sleep(650 + Math.random() * 500); card = S.botDrop(p); }
       else card = await S.humanDrop(p);
       S.deadline = 0; p.hand = p.hand.filter(c => c !== card); p.dropped = card;
-      S.log(!S.leadSuit ? `${esc(p.name)} leads with ${cname(card)} — lead suit ${card.s}` : `${esc(p.name)} drops ${cname(card)}`);
-      if (!S.leadSuit) S.leadSuit = card.s;
+      // the first card dropped is the call: its suit is the one everyone must follow
+      S.log(!S.leadSuit ? `${esc(p.name)} calls ${card.s} with ${cname(card)}` : `${esc(p.name)} drops ${cname(card)}`);
+      if (!S.leadSuit) { S.leadSuit = card.s; S.leadBy = p.id; }
       S.sync(); await sleep(350);
     }
     // 4 trick
@@ -275,8 +283,15 @@ class Table {
       S.deadline = 0;
     }
     S.turn = -1;
-    // 6 reveal
-    S.setPhase(6); S.players.forEach(p => (p.revealed = true)); S.sync(); await sleep(600);
+    // 6 reveal: hands are turned over one player at a time, in picking order. A 21 gets its moment here,
+    // and only here: while people pick it stays secret, like everyone else's total
+    S.msgHost = ''; S.setPhase(6); await sleep(450);
+    for (const id of S.orderFrom(winner, participants)) {
+      const p = S.players[id]; if (!p || p.revealed) continue;
+      p.revealed = true; S.sync();
+      if (S.total(p) === 21) { S.fx({ k: 'bubble', pid: id, t: '21!' }); await sleep(1500); } else await sleep(650);
+    }
+    S.players.forEach(p => (p.revealed = true)); S.sync(); await sleep(350);
     const live = participants.map(id => S.players[id]).filter(p => S.total(p) <= 21);
     let next, winners = [], held = null;
     if (!live.length) { S.msgHost = 'Everyone is bust. The pot stays on the table for the next hand.'; S.log('All players bust — pot carries over', 'hi'); S.sync(); await sleep(1500); next = S.players.map(p => p.id); }
@@ -388,7 +403,7 @@ class Table {
     }
   }
   // who's up and who's down since they sat: chips in front of them against everything they bought in
-  standings() { return this.players.filter(p => !p.gone).map(p => ({ id: p.id, name: p.name, bot: p.isBot ? 1 : 0, color: p.color, av: p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, net: p.chips - (p.bought || this.buyIn), wins: p.wins || 0, best: p.best || 0 })).sort((a, b) => b.net - a.net || b.wins - a.wins); }
+  standings() { return this.players.filter(p => !p.gone).map(p => ({ id: p.id, name: p.name, bot: p.isBot ? 1 : 0, color: p.color, av: p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, net: p.chips - (p.bought != null ? p.bought : this.buyIn), wins: p.wins || 0, best: p.best || 0 })).sort((a, b) => b.net - a.net || b.wins - a.wins); }
   // the table is closing in the middle of a hand: give everyone back what they put in this hand
   abandon() { const start = this.handStart; this.handStart = null; if (start) for (const [p, c0] of start) p.chips = c0; this.closed = true; if (this.pend) this.pend.done(null); }
   // chips that change hands outside the pot settle at once; the hand's books stay straight
@@ -420,6 +435,39 @@ class Table {
     if (B.isBot) setTimeout(() => S.fx({ k: 'bubble', pid: B.id, t: THANKS[Math.floor(Math.random() * THANKS.length)], ms: 1800 }), 1300);
     S.sync(); if (S.onSave) S.onSave();
   }
+  // lending: chips to someone at the table (usually someone who has run out), written down so it can be paid back.
+  // A loan isn't a win or a loss: both players' buy-ins move with it, so tonight's scores stay true.
+  lend(from, a) {
+    const S = this, A = S.players[from], B = S.players[+a.to]; if (!A || !B || A === B || A.gone || B.gone || !S.started) return;
+    const amt = Math.floor(+a.amt || 0); if (!(amt >= 5)) return;
+    if (amt > A.chips) { S.fx({ k: 'toast', pid: from, t: 'Not enough chips in front of you to lend that much.' }); return; }
+    A.chips -= amt; B.chips += amt; A.bought = (A.bought || 0) - amt; B.bought = (B.bought || 0) + amt;
+    S.moved(A, -amt, 'lend', B); S.moved(B, amt, 'lend', A);
+    S.loans.push({ id: ++S.loanN, from, to: B.id, amt, paid: 0, fromName: A.name, toName: B.name, out: false }); if (S.loans.length > 60) S.loans.splice(0, S.loans.length - 60);
+    S.fx({ k: 'lend', from, to: B.id, amt }); S.log(`${esc(A.name)} lends ${esc(B.name)} ${fmt(amt)}`, 'hi');
+    if (B.broke && B.chips >= S.wager) S.fx({ k: 'bubble', pid: B.id, t: 'Back in next hand 💪', ms: 2200 });
+    else if (B.isBot) setTimeout(() => S.fx({ k: 'bubble', pid: B.id, t: THANKS[Math.floor(Math.random() * THANKS.length)], ms: 1800 }), 1300);
+    S.sync(); if (S.onSave) S.onSave();
+  }
+  // the borrower pays some or all of a loan back from their stack
+  repay(pid, a) {
+    const S = this, B = S.players[pid], L = S.loans.find(l => l.id === +a.loan); if (!B || B.gone || !L || L.to !== pid) return;
+    const owe = L.amt - L.paid; if (owe <= 0) return;
+    const A = S.players[L.from]; if (!A || A.gone) { S.fx({ k: 'toast', pid, t: `${L.fromName} has left the table, so settle up with them directly.` }); return; }
+    const amt = Math.min(owe, Math.floor(+a.amt || owe)); if (!(amt >= 1)) return;
+    if (amt > B.chips) { S.fx({ k: 'toast', pid, t: `You need ${fmt(amt)} in front of you for that.` }); return; }
+    B.chips -= amt; A.chips += amt; B.bought = (B.bought || 0) - amt; A.bought = (A.bought || 0) + amt; L.paid += amt;
+    S.moved(B, -amt, 'repay', A); S.moved(A, amt, 'repay', B);
+    S.fx({ k: 'lend', from: pid, to: A.id, amt, back: 1 }); S.log(`${esc(B.name)} pays ${esc(A.name)} back ${fmt(amt)}${L.paid < L.amt ? ` (${fmt(L.amt - L.paid)} still owed)` : ''}`, 'hi');
+    S.sync(); if (S.onSave) S.onSave();
+  }
+  // the lender marks a loan settled (paid back outside the game): no chips move
+  settleLoan(pid, a) {
+    const S = this, L = S.loans.find(l => l.id === +a.loan); if (!L || L.from !== pid || L.paid >= L.amt) return;
+    L.out = true; L.paid = L.amt; S.log(`${esc(L.fromName)} marks ${esc(L.toName)}'s loan as settled`, 'hi'); S.sync(); if (S.onSave) S.onSave();
+  }
+  // what's still owed, one line per pair (for the final scores)
+  openLoans() { const m = new Map(); for (const l of this.loans) { const owe = l.amt - l.paid; if (owe <= 0) continue; const k = l.toName + '\u0000' + l.fromName; m.set(k, { from: l.fromName, to: l.toName, owe: ((m.get(k) || {}).owe || 0) + owe }); } return [...m.values()]; }
   // a drink or small chops for yourself, one player, or a round for everyone
   treat(from, a) {
     const S = this, A = S.players[from], item = TREATS[a.item]; if (!A || A.gone || !item) return;
@@ -450,12 +498,13 @@ class Table {
       const c = S.board[S.boardTop]; const t = S.total(p);
       const ms = S.timer ? S.timer * 1000 : 0; S.deadline = ms ? Date.now() + ms : 0; S.sync();
       const a = await S.waitFor(p.id, ['take', 'stay'], ms);
-      if (!a) { if (!p.gone) S.strike(p); S.log(`${esc(p.name)} timed out — stays on ${t}`); break; }
+      if (!a) { if (!p.gone) S.strike(p); S.log(`${esc(p.name)} timed out and stays`); break; }
       p.strikes = 0;
-      if (a.type === 'stay') { S.log(a.bust ? `${esc(p.name)} stays on ${t} (next card would bust)` : `${esc(p.name)} stays on ${t}`); S.fx({ k: 'bubble', pid: p.id, t: a.bust ? "Can't — bust" : 'Stay' }); break; }
+      if (a.type === 'stay') { S.log(`${esc(p.name)} stays`); S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); break; }
       if (t + val(c) > 21) { S.fx({ k: 'nudge', pid: p.id, t: `${cname(c)} would take you to ${t + val(c)}. Over 21 is bust, so you can't take it.` }); continue; }
-      S.takeCard(p, c); S.fx({ k: 'sel', pid: p.id, id: c.id }); S.log(`${esc(p.name)} takes ${cname(c)} → ${S.total(p)}`);
-      if (S.total(p) === 21) { S.fx({ k: 'bubble', pid: p.id, t: '21!' }); await sleep(700); break; }
+      S.takeCard(p, c); S.fx({ k: 'sel', pid: p.id, id: c.id }); S.log(`${esc(p.name)} takes ${cname(c)}`);
+      // on 21 the turn just ends, looking like any other stay: the 21 is shown when the hands are turned over
+      if (S.total(p) === 21) { await sleep(700); S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); S.log(`${esc(p.name)} stays`); break; }
     }
   }
   takeCard(p, c) { c.taken = true; c.by = p.id; this.boardTop++; p.hand.push(c); p.picked.push(c); this.sync(); }
@@ -469,11 +518,11 @@ class Table {
     const S = this;
     while (S.boardTop < S.board.length) {
       const c = S.board[S.boardTop]; const t = S.total(p); await sleep(700 + Math.random() * 500);
-      if (t + val(c) > 21) { S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); S.log(`${esc(p.name)} stays on ${t}`); break; }
+      if (t + val(c) > 21) { S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); S.log(`${esc(p.name)} stays`); break; }
       const want = t + val(c) === 21 || t < 17 || (t < 19 && Math.random() < .3);
-      if (!want) { S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); S.log(`${esc(p.name)} stays on ${t}`); break; }
+      if (!want) { S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); S.log(`${esc(p.name)} stays`); break; }
       S.takeCard(p, c); S.fx({ k: 'bubble', pid: p.id, t: `Takes ${cname(c)}` }); S.log(`${esc(p.name)} takes ${cname(c)}`);
-      if (S.total(p) === 21) { await sleep(400); S.fx({ k: 'bubble', pid: p.id, t: '21!' }); break; }
+      if (S.total(p) === 21) { await sleep(400); S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); S.log(`${esc(p.name)} stays`); break; }
     }
     await sleep(500);
   }

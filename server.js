@@ -106,7 +106,7 @@ function sitError(ws, t) {
 function hookTable(t) {
   t.canBuy = (p, amount) => !p.uid || freeChips(p.uid) >= amount;
   t.onHandEnd = res => { for (const r of res) if (r.p.uid) { accounts.settle(r.p.uid, { delta: r.delta, played: r.played, won: r.won, adasi: r.adasi, total: r.total, table: t.tableName }); pushAccount(r.p.uid); } };
-  t.onMoved = (p, delta, why, other) => { if (p.uid && delta) { accounts.settle(p.uid, { delta, played: false, won: false, table: why === 'spray' ? (delta > 0 ? `Spray from ${other.name}` : `You sprayed ${other.name}`) : `Treats at ${t.tableName}` }); pushAccount(p.uid); } };
+  t.onMoved = (p, delta, why, other) => { if (p.uid && delta) { const o = other ? other.name : ''; const label = why === 'spray' ? (delta > 0 ? `Spray from ${o}` : `You sprayed ${o}`) : why === 'lend' ? (delta > 0 ? `Loan from ${o}` : `You lent ${o}`) : why === 'repay' ? (delta > 0 ? `${o} paid you back` : `You paid ${o} back`) : `Treats at ${t.tableName}`; accounts.settle(p.uid, { delta, played: false, won: false, table: label }); pushAccount(p.uid); } };
   t.onLeave = (p, delta) => { if (p.uid && delta) { accounts.settle(p.uid, { delta, played: true, won: false, table: t.tableName }); setTimeout(() => pushAccount(p.uid), 50); } };
 }
 // balance and stats after something changed (no database reads, so it is quick)
@@ -285,8 +285,10 @@ const server = http.createServer((req, res) => {
   if (!fp.startsWith(PUBLIC)) { res.writeHead(403); return res.end(); }
   fs.readFile(fp, (err, data) => {
     if (err) { res.writeHead(404, { 'content-type': 'text/plain' }); return res.end('Not found'); }
-    const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
-    res.writeHead(200, { 'content-type': types[path.extname(fp)] || 'application/octet-stream', 'cache-control': 'no-cache' });
+    const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.mp3': 'audio/mpeg', '.wav': 'audio/wav' };
+    // the house voice's clips are asked for with a version (?v=), so they can be kept for good
+    const forever = url.startsWith('/shouts/') && url.endsWith('.mp3') && /[?&]v=/.test(req.url);
+    res.writeHead(200, { 'content-type': types[path.extname(fp)] || 'application/octet-stream', 'cache-control': forever ? 'public, max-age=31536000, immutable' : 'no-cache' });
     res.end(data);
   });
 });
@@ -488,8 +490,8 @@ async function handle(ws, m) {
       closedCodes.add(T.code);
       const conns = T.players.map(p => p.conn).filter(Boolean);
       unregister(T); persistAll();
-      const final = T.started ? T.standings() : null;
-      for (const c of conns) { c.table = null; c.pid = -1; send(c, { type: 'gone', code: T.code.toUpperCase(), msg: 'The host closed the room.', final, tn: T.tableName }); sendRooms(c); if (c.me) presenceChanged(c.me); }
+      const final = T.started ? T.standings() : null, owed = T.openLoans();
+      for (const c of conns) { c.table = null; c.pid = -1; send(c, { type: 'gone', code: T.code.toUpperCase(), msg: 'The host closed the room.', final, owed, tn: T.tableName }); sendRooms(c); if (c.me) presenceChanged(c.me); }
       break;
     }
 

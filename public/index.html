@@ -685,6 +685,7 @@ html[data-felt="midnight"] .felt .ring{border-color:rgba(217,178,95,.32)}
 .shrow{display:grid;grid-template-columns:minmax(0,1fr) auto 36px 36px 30px;align-items:center;gap:8px;background:#1a1116;border:1px solid #33252c;border-radius:12px;padding:6px 8px 6px 12px}
 .shrow b{font-family:var(--display);font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .shrow .who{font-size:11px;color:var(--fg-dim);white-space:nowrap}
+.shrow.house{grid-template-columns:minmax(0,1fr) auto 36px}
 .shrow.mine{border-color:var(--gold-dim)}.shrow.mine .who{color:var(--gold)}
 .shrow button{width:34px;height:34px;border-radius:50%;border:1px solid #4a3640;background:#120c0f;color:var(--fg);display:grid;place-items:center;font-size:13px;padding:0;cursor:pointer}
 .shrow .sh-rec i{width:12px;height:12px;border-radius:50%;background:#e2574f;display:block}
@@ -795,6 +796,59 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
   .board .lbl{display:none}
   .pot{margin-top:10px}
 }
+/* lending: the record of who lent whom */
+.loans{display:grid;gap:6px}
+.side-loans{display:flex;flex-direction:column;gap:6px;padding:0 14px 8px;flex:none;max-height:34%;overflow:auto}
+.side-loans h3{margin:0 -14px 2px}
+.side-loans .loan{padding:6px 8px 6px 10px}
+.side-loans .lt{font-size:13px}
+.loan{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;background:#1a1116;border:1px solid #33252c;border-radius:12px;padding:8px 10px 8px 12px}
+.loan .lt{font-size:14px;min-width:0}
+.loan .lt b{color:var(--gold-hi)}
+.loan .ls{display:block;font-size:11.5px;color:var(--fg-dim);margin-top:2px}
+.loan.done{opacity:.6}
+.loan.done .ls{color:var(--good)}
+.loan .btn{padding:6px 11px;font-size:12px;white-space:nowrap}
+#ld-who small.out{display:block;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:#ff9a90;margin-top:1px}
+#ld-who button.on small.out{color:#8a1c12}
+.ld-other{margin-top:8px;width:100%}
+.res-owed{margin-top:12px;padding:10px 12px;border:1px solid rgba(243,217,144,.35);border-radius:12px;background:rgba(0,0,0,.25)}
+.res-owed h3{margin:0 0 6px;font-size:14px}
+.res-owed .owe{font-size:14px;padding:3px 0}
+.res-owed .owe .num{color:var(--gold-hi);font-weight:700;margin-left:4px}
+/* the end of the hand: everyone's total, big, as their cards are turned over */
+.seat .tot.big{font-size:15px;font-weight:800;padding:1px 9px;top:-13px;min-height:0;background:rgba(10,6,4,.88);border:1.5px solid var(--gold);color:var(--gold-hi);box-shadow:0 4px 12px rgba(0,0,0,.5),0 0 12px rgba(243,217,144,.35);font-family:var(--display);z-index:3}
+.seat .tot.big.bust{color:#ff9a90;border-color:#ff8a80;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;font-family:var(--body)}
+.seat .tot.big.t21{background:linear-gradient(180deg,#f8e29c,#c99a3a);color:#2a1806;border-color:#fff3c4}
+.seat.won .tot.big{background:linear-gradient(180deg,#c6f7da,#4fc98b);color:#06301b;border-color:#e8fff1;box-shadow:0 0 0 3px rgba(79,201,139,.35),0 0 18px rgba(79,201,139,.6)}
+.totline{display:block;margin-top:3px;font-size:.92em;color:var(--fg-dim)}
+.totline b{color:var(--gold-hi);font-weight:700}
+/* the call: a CALL tag on the first card dropped, a crown on the card leading the call, cards that didn't follow greyed */
+.marklayer{position:fixed;inset:0;pointer-events:none;z-index:45}
+.marklayer>*{position:absolute}
+.crownmk{width:0;height:0}
+.crownmk i{position:absolute;left:0;top:0;font-style:normal;font-size:var(--cs,20px);line-height:1;transform:translate(-50%,-66%) rotate(-12deg);filter:drop-shadow(0 2px 2px rgba(0,0,0,.6)) drop-shadow(0 0 6px rgba(243,217,144,.9))}
+.callmk{transform:translate(-50%,-50%);padding:3px 6px 3px 7px;border-radius:5px;background:linear-gradient(180deg,#f8e29c,#c99a3a);color:#2a1806;font:800 9px/1 var(--body);letter-spacing:.16em;box-shadow:0 2px 6px rgba(0,0,0,.55),0 0 0 1px rgba(60,35,5,.45);white-space:nowrap}
+.callmk.sm{font-size:7.5px;padding:2px 4px 2px 5px;letter-spacing:.12em}
+.seat .dropwrap .card{transition:filter .3s,opacity .3s}
+.seat .dropwrap.call .card{box-shadow:0 0 0 2px var(--gold),0 6px 14px rgba(0,0,0,.5)}
+.seat .dropwrap.top .card{box-shadow:0 0 0 2px var(--gold-hi),0 0 18px rgba(243,217,144,.8)}
+.seat .dropwrap.off .card{filter:grayscale(.8) brightness(.6);opacity:.8}
+.board .callpill{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);display:flex;align-items:center;gap:7px;white-space:nowrap;padding:3px 12px 3px 4px;border-radius:99px;background:rgba(10,6,4,.6);border:1px solid rgba(243,217,144,.55);box-shadow:0 6px 16px rgba(0,0,0,.4),0 0 0 3px rgba(243,217,144,.08);font-size:12px;color:var(--cream);z-index:3}
+.board .callpill[hidden]{display:none}
+.callpill .cs{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fffaf0,#efe3c6);color:#16120e;font-size:17px;line-height:1;box-shadow:0 0 0 2px var(--gold),0 0 14px rgba(243,217,144,.55)}
+.callpill.red .cs{color:#b8322c}
+.callpill .cw{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-hi);font-weight:700}
+.callpill .cl{font-weight:600;padding-left:8px;border-left:1px solid rgba(243,217,144,.3);max-width:42vw;overflow:hidden;text-overflow:ellipsis}
+.callpill .cl:empty{display:none}
+.suitfly{font-size:28px;line-height:1;color:#f6efdc;text-shadow:0 0 12px rgba(243,217,144,.9),0 2px 0 #000}
+.suitfly.red{color:#ff8a80}
+/* your hand: a card that would take the lead wears a small crown */
+#myhand .card .wl{position:absolute;top:-11px;right:-7px;font-size:17px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6)) drop-shadow(0 0 5px rgba(243,217,144,.8));animation:wlbob 1.5s ease-in-out infinite;pointer-events:none}
+@keyframes wlbob{50%{transform:translateY(-3px) rotate(-8deg)}}
+/* laptops: the call sits where the board's label is (the label row keeps its height, so nothing moves); phones: just above the board */
+@media (min-width:701px){.board .lbl{min-height:30px;display:flex;align-items:center;justify-content:center}.board .callpill{top:0;bottom:auto}.board.calling>.lbl{visibility:hidden}}
+@media (max-width:700px){.board .callpill{bottom:calc(100% + 6px);font-size:11px;padding:2px 10px 2px 3px;gap:6px}.callpill .cs{width:22px;height:22px;font-size:14px}.callpill .cw{font-size:9px;letter-spacing:.14em}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition-duration:.01s!important}}
 </style>
 
@@ -860,6 +914,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
         <div class="dealer"><div class="av"></div><div class="nm">HOUSE DEALER</div><div class="shoe"><i></i><i></i><i></i></div></div>
         <div class="board" id="board">
           <div class="lbl">Dealing board</div>
+          <div class="callpill" id="callpill" hidden><b class="cs">♠</b><span class="cw">called</span><span class="cl"></span></div>
           <div class="slots" id="slots"></div>
           <div class="pot"><span class="stack" id="potstack"></span><span class="lbl">Pot</span><span class="amt num" id="pot">0</span></div>
         </div>
@@ -883,6 +938,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
       <div class="tonight" id="tonight"><div class="note" style="margin:0">Scores start with the first hand.</div></div>
       <h3>Side bets</h3>
       <div class="sbs" id="sbs"><div class="note" style="margin:0">No side bets yet. Propose one from the top bar.</div></div>
+      <div class="side-loans" id="side-loans" hidden></div>
       <h3>Hand log</h3>
       <div class="log" id="log"></div>
     </aside>
@@ -892,7 +948,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
     <div class="info">
       <div><span class="eyebrow">Your total</span> <span class="big num" id="mytotal">–</span> <span class="eyebrow" style="margin-left:14px">Chips</span> <span class="big num" id="mychips">0</span></div>
       <div class="msg" id="msg">Welcome to the table.</div>
-      <div class="avbar"><button class="avbtn off" id="btn-mic" title="Microphone">🎤<span class="lbl">Mic</span></button><button class="avbtn off" id="btn-cam" title="Camera">📷<span class="lbl">Camera</span></button><button class="avbtn on" id="btn-spk" title="Hear the other players">🔊<span class="lbl">Voices</span></button><button class="avbtn sndbtn" id="btn-fx" type="button" title="Game sounds"><span class="ico"></span><span class="lbl">Sounds</span></button><button class="avbtn" id="btn-treat" type="button" title="Drinks and small chops">🍹<span class="lbl">Treats</span></button><button class="avbtn" id="btn-react" type="button" title="Shout, react or say something">💬<span class="lbl">Chat</span></button><span class="roomav" id="roomav"></span></div>
+      <div class="avbar"><button class="avbtn off" id="btn-mic" title="Microphone">🎤<span class="lbl">Mic</span></button><button class="avbtn off" id="btn-cam" title="Camera">📷<span class="lbl">Camera</span></button><button class="avbtn on" id="btn-spk" title="Hear the other players">🔊<span class="lbl">Voices</span></button><button class="avbtn sndbtn" id="btn-fx" type="button" title="Game sounds"><span class="ico"></span><span class="lbl">Sounds</span></button><button class="avbtn" id="btn-treat" type="button" title="Drinks and small chops">🍹<span class="lbl">Treats</span></button><button class="avbtn" id="btn-lend" type="button" title="Lend chips to someone, and keep a record">🤝<span class="lbl">Lend</span></button><button class="avbtn" id="btn-react" type="button" title="Shout, react or say something">💬<span class="lbl">Chat</span></button><span class="roomav" id="roomav"></span></div>
     </div>
     <div class="actions" id="actions"></div>
     <div class="reactbar" id="reactbar" hidden></div>
@@ -907,10 +963,10 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <li><b>Wager.</b> Every seated player puts the agreed wager into the pot before the deal.</li>
 <li><b>Deal.</b> Each player gets 3 cards, one at a time.</li>
 <li><b>Flush.</b> The dealer then opens players + 1 cards face up on the board, in order, so everyone can see them before dropping.</li>
-<li><b>Drop.</b> Starting left of the dealer button, each player drops one card face up. The first card sets the lead suit. If you hold that suit you must drop it; otherwise drop anything. The dropped card leaves your hand.</li>
-<li><b>Trick.</b> Highest card of the lead suit wins (Ace &gt; 10 &gt; 9 … &gt; 3). The winner picks first.</li>
+<li><b>Drop.</b> Starting left of the dealer button, each player drops one card face up. The first card dropped is the call: it wears a CALL tag, and its suit (shown in the middle of the table) is the called suit. If you hold the called suit you must drop it; otherwise drop anything. The dropped card leaves your hand.</li>
+<li><b>Trick.</b> Highest card of the called suit wins (Ace &gt; 10 &gt; 9 … &gt; 3). A crown 👑 sits on the card leading the call and hops across whenever someone beats it; cards that didn't follow suit are greyed out because they can't win. On your turn, a small crown marks any card in your hand that would take the lead. The winner picks first.</li>
 <li><b>Pick.</b> On your turn you take from the top of the board, one card at a time, as many as you like. You can't pass 21: if the next card would bust you the game stops you and you stay where you are. Then the next player clockwise picks.</li>
-<li><b>Reveal.</b> Closest to 21 wins the pot.</li>
+<li><b>Reveal.</b> When everyone has picked, the hands are turned over one player at a time, in picking order, and each player's total pops up on their seat. Closest to 21 wins the pot. A 21 stays secret until it's turned over: nobody else sees a 21 pop-up, or anyone's total, while people are still picking.</li>
 <li><b>Tie.</b> Agreed when the table is set up: either the pot stays and everyone who played puts in again and plays another hand for the bigger pot, or the tied players split the pot.</li>
 <li><b>Adasi.</b> Two Aces in your dealt hand wins the pot outright. When the drop reaches you, declare it (or the timer declares it for you), your Aces are shown to the table and the hand ends. Adasi also wins any total side bet you're in; other open side bets carry to the next hand.</li>
 <li><b>Series</b> (table option, off by default). If anyone is dealt three of the same number, or three of the same number land on the flushed board, the hand is void: the dealer redeals and the pot stays.</li>
@@ -925,6 +981,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <li><b>Timer.</b> On your turn a ring counts down around your avatar. At zero the game acts for you (drops your lowest legal card, or stays). Three timeouts in a row and you're sat out until you tap Rejoin.</li>
 <li><b>Streaks &amp; scores.</b> Win hands in a row and your seat catches fire. Scores &amp; log ranks everyone by what they're up or down since they sat; when the host closes a standing room, everyone sees the final scores.</li>
 <li><b>Chat &amp; treats.</b> Chat holds the Pidgin shouts and a box to say anything to the table. Treats buys drinks and small chops for you, a friend or the whole table. Tap a player to spray them money.</li>
+<li><b>Lending.</b> Tap 🤝 Lend at the bottom, or Lend on a player's card, to lend chips from your stack. Every loan is written down under Lend and in Scores &amp; log. The borrower pays back from Lend (all of it, or part while keeping enough for the next wager), and the lender can mark a loan settled if it was paid outside the game. Someone who ran out is back in from the next hand once they can cover the wager. Loans don't count as wins or losses in Tonight's scores, and anything still owed is listed on the final scores.</li>
 <li><b>Side bets.</b> Between two players, outside the pot. Ask, they accept, you both agree the amount. Bets on the flushed cards are made before the deal; bets on totals any time until the cards are shown. Settled from your own chips while the main game carries on.</li>
 </ol>
 <div class="ass"><b>Things I assumed, tell me if wrong:</b>
@@ -980,7 +1037,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <div class="setrow"><span>Game sounds</span><div class="seg sm"><button type="button" id="snd-on">On</button><button type="button" id="snd-off">Off</button></div></div>
 <div class="setrow"><label for="snd-vol">Volume</label><input type="range" id="snd-vol" min="0" max="100" step="5"></div>
 <div class="setrow"><span>Say shouts out loud</span><div class="seg sm"><button type="button" id="say-on">On</button><button type="button" id="say-off">Off</button></div></div>
-<h3 class="subh">My shouts <small>in your own voice</small></h3>
+<h3 class="subh" id="shout-h">My shouts <small>in your own voice</small></h3>
 <p class="note" style="margin-top:-4px">Record each shout once and everyone at your table hears you say it. Tap the red dot, shout, and it stops by itself after two seconds.</p>
 <div class="shoutlist" id="shoutlist"></div>
 <div class="setrow"><span>Launch intro <button class="linkbtn" id="intro-replay" type="button" style="margin-left:8px;font-size:13px">Watch it</button></span><div class="seg sm"><button type="button" id="intro-on">On</button><button type="button" id="intro-off">Off</button></div></div>
@@ -1085,8 +1142,17 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 
 <div class="modal" id="m-addfriend"><div class="box invited"><div class="bigav" id="af-av"></div><h2 id="af-title">Add a friend?</h2><p>You'll see when they're online and can invite each other to tables.</p><div class="actions"><button class="btn btn-ghost" id="af-no">No thanks</button><button class="btn btn-gold" id="af-yes">Add friend</button></div></div></div>
 
-<div class="modal" id="m-results"><div class="box results"><h2 id="res-title">Final scores</h2><p class="note" id="res-sub"></p><div class="podium" id="res-podium"></div><div class="res-rest" id="res-rest"></div><div class="actions"><button class="btn btn-gold" id="res-done" type="button">Done</button></div></div></div>
+<div class="modal" id="m-results"><div class="box results"><h2 id="res-title">Final scores</h2><p class="note" id="res-sub"></p><div class="podium" id="res-podium"></div><div class="res-rest" id="res-rest"></div><div class="res-owed" id="res-owed" hidden></div><div class="actions"><button class="btn btn-gold" id="res-done" type="button">Done</button></div></div></div>
 <div class="modal" id="m-player"><div class="box invited"><div class="bigav" id="pl-av"></div><h2 id="pl-name">Player</h2><p id="pl-body"></p><div class="actions" id="pl-actions"></div></div></div>
+
+<div class="modal sheet" id="m-lend"><div class="box"><div class="grab"></div>
+<h2>Lend chips</h2>
+<p class="note" style="margin-top:0">From the chips in front of you. It's written down below and they can pay you back from their stack. Someone who has run out is back in from the next hand once they can cover the wager. A loan doesn't count as a win or a loss in Tonight's scores.</p>
+<div class="field"><label>Who to?</label><div class="opts" id="ld-who"></div></div>
+<div class="field"><label>How much?</label><div class="opts" id="ld-amts"></div><input class="ld-other" id="ld-other" type="number" min="5" step="5" inputmode="numeric" placeholder="Amount" hidden><p class="note" id="ld-mine" style="margin:6px 0 0"></p></div>
+<div class="actions"><button class="btn btn-ghost" data-close type="button">Close</button><button class="btn btn-gold" id="ld-go" type="button">Lend</button></div>
+<h3 class="subh">Loans at this table</h3>
+<div class="loans" id="ld-list"></div></div></div>
 
 <div class="modal sheet" id="m-treat"><div class="box"><div class="grab"></div>
 <h2>Drinks &amp; small chops</h2>

@@ -145,11 +145,11 @@ for(const k of Object.keys(SEATS)){const s=SEATS[k];if(!s||!s.token||(!s.keep&&D
 function saveSeats(){try{localStorage.setItem('tete.seats',JSON.stringify(SEATS))}catch{}}
 function setCurrent(c){CURRENT=c;try{c?localStorage.setItem('tete.current',c):localStorage.removeItem('tete.current')}catch{}}
 function closeSheets(){$$('.modal.on').forEach(m=>{if(m.id!=='m-invited')m.classList.remove('on')});AFTER_NAME=null}
-function backToLobby(){rtcLeaveAll();S=null;ME=-1;SIDE_MANUAL=null;SIDE_HOLD=-1;$('.room').classList.remove('with-side');$('.me').classList.remove('myturn');IDS=[];REQS=[];$('#reqs').innerHTML='';clearMotion();setTimeout(()=>{renderRooms();renderFriends()},0);$('#game').classList.remove('on');$('#lobby').classList.add('on');$('#btn-join').disabled=false;$('#btn-start').disabled=false;$('#join-note').textContent='Enter the code the host sent you. Just the last four letters works too.';
+function backToLobby(){rtcLeaveAll();S=null;ME=-1;setTimeout(placeMarks,0);SIDE_MANUAL=null;SIDE_HOLD=-1;$('.room').classList.remove('with-side');$('.me').classList.remove('myturn');IDS=[];REQS=[];$('#reqs').innerHTML='';clearMotion();setTimeout(()=>{renderRooms();renderFriends()},0);$('#game').classList.remove('on');$('#lobby').classList.add('on');$('#btn-join').disabled=false;$('#btn-start').disabled=false;$('#join-note').textContent='Enter the code the host sent you. Just the last four letters works too.';
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches)$$('.tiles .tile').forEach((el,i)=>el.animate([{transform:'translateY(-40px) rotate(-8deg) scale(.9)',opacity:0},{transform:'translateY(0px) rotate(0deg) scale(1)',opacity:1}],{duration:520,delay:i*70,easing:'cubic-bezier(.2,1.25,.35,1)',fill:'backwards'}))}
 function onMessage(m){
   if(m.type==='joined'){hideReqbar();PENDING_JOIN=null;ME=m.id;if(m.token&&m.code!=='PRACTICE'){SEATS[m.code]=Object.assign({},SEATS[m.code],{token:m.token,rid:m.rid,keep:!!m.keep,t:Date.now()});saveSeats();setCurrent(m.code)}if(!S||$('#lobby').classList.contains('on')){S={code:m.code,players:[],sideBets:[],board:[],participants:[]};enterGame()}if(m.resumed)toast('Back at your seat');return}
-  if(m.type==='gone'){if(PENDING_JOIN&&m.code===PENDING_JOIN.code){const pj=PENDING_JOIN;PENDING_JOIN=null;if(SEATS[m.code]){delete SEATS[m.code];saveSeats()}send(pj.msg);return}if(m.code&&SEATS[m.code]){delete SEATS[m.code];saveSeats()}if(!m.code||CURRENT===m.code)setCurrent(null);if(!LOCALT){if(m.final&&m.final.length){if($('#game').classList.contains('on'))backToLobby();setTimeout(()=>showResults(m.final,m.tn),350)}else{toast(m.msg,3500);if($('#game').classList.contains('on'))backToLobby()}}renderRooms();return}
+  if(m.type==='gone'){if(PENDING_JOIN&&m.code===PENDING_JOIN.code){const pj=PENDING_JOIN;PENDING_JOIN=null;if(SEATS[m.code]){delete SEATS[m.code];saveSeats()}send(pj.msg);return}if(m.code&&SEATS[m.code]){delete SEATS[m.code];saveSeats()}if(!m.code||CURRENT===m.code)setCurrent(null);if(!LOCALT){if(m.final&&m.final.length){if($('#game').classList.contains('on'))backToLobby();setTimeout(()=>showResults(m.final,m.tn,m.owed),350)}else{toast(m.msg,3500);if($('#game').classList.contains('on'))backToLobby()}}renderRooms();return}
   if(m.type==='seal'){const s=SEATS[m.code];if(s){s.seal=m.seal;s.rid=m.rid;s.keep=true;if(S&&S.tableName)s.name=S.tableName;saveSeats()}return}
   if(m.type==='you'){MYID=m.id;if(!m.acct)try{localStorage.setItem('tete.myid',m.id)}catch{}handlePendingFriend();return}
   if(m.type==='voice'){MYVOICE=m.info&&m.info[1]?m.info:null;renderShoutList();return}
@@ -373,12 +373,13 @@ function openPlayer(pid){const p=S&&S.players[pid];if(!p||pid===ME)return;const 
   $('#pl-name').textContent=p.name;$('#pl-body').textContent=`${fmt(p.chips)} chips${p.isBot?' · computer player':''}${p.away?' · away':''}`;
   const isF=id&&FR()[id];const canSpray=S.started&&ME>=0&&!p.gone;const broke=canSpray&&p.chips<S.wager,mine0=S.players[ME]?S.players[ME].chips:0;
   if(broke)$('#pl-body').textContent=`${p.name} is out of chips and sitting out. Give them a buy-in and they're back in from the next hand.`;
-  $('#pl-actions').innerHTML=(broke&&mine0>=S.buyIn?`<button class="btn btn-gold" id="pl-give">Give a buy-in (${fmt(S.buyIn)})</button>`:'')+(canSpray?'<button class="btn '+(broke?'btn-ghost':'btn-gold')+'" id="pl-spray">Spray money 💸</button><button class="btn btn-ghost" id="pl-treat">Send a treat 🍹</button>':'')+(p.isBot?'':(!id?'':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-ghost" id="pl-add">Add as a friend</button>'))+'<button class="btn btn-ghost" data-close>Close</button>';
+  $('#pl-actions').innerHTML=(broke&&mine0>=S.buyIn?`<button class="btn btn-gold" id="pl-give">Give a buy-in (${fmt(S.buyIn)})</button>`:'')+(canSpray&&pid!==ME?`<button class="btn ${broke?'btn-gold':'btn-ghost'}" id="pl-lend">Lend 🤝</button>`:'')+(canSpray?'<button class="btn '+(broke?'btn-ghost':'btn-gold')+'" id="pl-spray">Spray money 💸</button><button class="btn btn-ghost" id="pl-treat">Send a treat 🍹</button>':'')+(p.isBot?'':(!id?'':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-ghost" id="pl-add">Add as a friend</button>'))+'<button class="btn btn-ghost" data-close>Close</button>';
   const add=$('#pl-add');if(add)add.onclick=()=>{closeModal('#m-player');addFriend(id,p.name,p.av)};
   const sp=$('#pl-spray');if(sp)sp.onclick=()=>{const w=S.wager||50,mine=S.players[ME]?S.players[ME].chips:0;$('#pl-body').innerHTML=`Spray ${esc(p.name)} from your ${fmt(mine)} chips:<div class="opts sprayopts">${[w,w*2,w*5,w*10].map(v=>`<button type="button" data-amt="${v}" ${v>mine?'disabled':''}>${fmt(v)}</button>`).join('')}</div>`;
     $$('#pl-body [data-amt]').forEach(b=>b.onclick=()=>{closeModal('#m-player');act({type:'spray',to:pid,amt:+b.dataset.amt})});SND('flick')};
   const tb=$('#pl-treat');if(tb)tb.onclick=()=>{closeModal('#m-player');openTreats(pid)};
   const gv=$('#pl-give');if(gv)gv.onclick=()=>{closeModal('#m-player');act({type:'spray',to:pid,amt:S.buyIn})};
+  const lb=$('#pl-lend');if(lb)lb.onclick=()=>{closeModal('#m-player');setTimeout(()=>openLend(pid),180)};
   openModal('#m-player');SND('flick')}
 function onPresence(list){const first=!PRES_READY;PRES_READY=true;const lobby=$('#lobby').classList.contains('on');
   for(const p of list){const was=PRES[p.id];PRES[p.id]={on:!!p.on,room:p.room||null};const f=FR()[p.id];if(!f)continue;
@@ -502,8 +503,8 @@ function celebrate(amount,title,sub){
 // ---------- state ----------
 function applyState(o,fx){
   const prev=S;const before=prev&&prev.players&&prev.players.length?snapCards():new Map();
-  S={tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,tieSplit:!!o.ts,fill:!!o.fl,pub:!!o.pb,pending:o.pc||null,
-    players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||'',streak:a[17]||0,bought:a[18]||0,wins:a[19]||0,best:a[20]||0,voice:a[21]||null})),
+  S={tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,leadBy:o.lb!=null?o.lb:-1,loans:(o.ln||[]).map(a=>({id:a[0],from:a[1],to:a[2],amt:a[3],paid:a[4],fromName:a[5],toName:a[6],out:!!a[7]})),boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,tieSplit:!!o.ts,fill:!!o.fl,pub:!!o.pb,pending:o.pc||null,
+    players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||'',streak:a[17]||0,bought:a[18]!=null?a[18]:null,wins:a[19]||0,best:a[20]||0,voice:a[21]||null})),
     sideBets:o.sbs.map(a=>({id:a[0],a:a[1],b:a[2],type:a[3],amt:a[4],mine:a[5],theirs:a[6],status:a[7],result:a[8],winner:a[9],desc:sbDesc(a[3],a[5],a[6])}))};
   ME=o.me;HOST=o.host===ME;
   $('#t-name').textContent=S.tableName;$('#t-wager').textContent=S.pending&&S.pending.wager!=null&&S.pending.wager!==S.wager?`${fmt(S.wager)} → ${fmt(S.pending.wager)} next hand`:fmt(S.wager);$('#t-decks').textContent=`${S.decks} deck${S.decks>1?'s':''} · ${36*S.decks} cards`;
@@ -515,6 +516,8 @@ function applyState(o,fx){
   $('#btn-close').hidden=true;$('#btn-close').onclick=()=>{if(!$('#btn-close').dataset.arm){$('#btn-close').dataset.arm='1';$('#btn-close').textContent='Tap again to close for everyone';setTimeout(()=>{delete $('#btn-close').dataset.arm;$('#btn-close').textContent='Close room'},4000);return}send({type:'close'})};
   renderAll();
   motion(prev,before);
+  placeMarks();
+  if($('#m-lend').classList.contains('on'))renderLend();renderSideLoans();
   SPRAYED=new Set((fx||[]).filter(e=>e.k==='spray').map(e=>e.to));
   cues(prev);
   turnTick();requestAnimationFrame(updateTurnMark);prefetchVoices();
@@ -532,7 +535,7 @@ function cues(prev){
   if(!S.started){const h=x=>x.players.filter(p=>!p.isBot&&!p.gone).length;if(h(S)>h(prev))SND('join')}
   S.players.forEach(p=>{const q=prev.players[p.id];if(!q||q.name!==p.name||SPRAYED.has(p.id))return;const d=p.chips-q.chips;if(d>0)setTimeout(()=>popGain(p.id,d),60)});
   const me=ME>=0&&S.players[ME],pm=ME>=0&&prev.players[ME];
-  if(me&&pm&&S.handNo===prev.handNo&&S.phase>=3&&S.phase<=5&&me.hand.length===2&&total(me)===21&&!(pm.hand.length===2&&total(pm)===21)){fx21(ME,'mine');toast('Twenty-one in your hand! 🔥',2600)}
+  if(me&&pm&&S.handNo===prev.handNo&&S.phase>=3&&S.phase<=5&&me.hand.length>=2&&total(me)===21&&total(pm)!==21){fx21(ME,'mine');toast('21 in your hand 🤫 Only you can see it until the cards are turned over',3400)}
 }
 function showWait(){
   const w=$('#wait');w.hidden=false;$('#wait-code').textContent=S.code||'—';
@@ -549,7 +552,7 @@ function runFx(e){
     case 'bubble':if(e.t==='21!')fx21(e.pid,'hit');if(e.t!=='21!'||RM())bubble(e.pid,e.t,e.ms);break;
     case 'chip':flyChip(e.from==='pot'?$('#pot'):seatEl(e.from),e.to==='pot'?$('#pot'):seatEl(e.to),e.cls,e.n2||1);if(e.to==='pot'){const pe=$('.pot');pe.classList.remove('grow');void pe.offsetWidth;pe.classList.add('grow')}break;
     case 'banner':banner(e.t);SND('stamp');break;
-    case 'win':{const el=$('#seat-'+e.pid);if(el){el.classList.add('winner');setTimeout(()=>el.classList.remove('winner'),2500)}const wp=S.players[e.pid],w21=!!(wp&&total(wp)===21);if(w21)fx21(e.pid,'win');else SND('win');if(e.pid===ME||w21){confetti();if(w21)setTimeout(confetti,450)}if(e.pid===ME)buzz([40,30,80]);break}
+    case 'win':{const el=$('#seat-'+e.pid);if(el){el.classList.add('winner','won');setTimeout(()=>el.classList.remove('winner'),2500)}const wp=S.players[e.pid],w21=!!(wp&&total(wp)===21);if(w21)fx21(e.pid,'win');else SND('win');if(e.pid===ME||w21){confetti();if(w21)setTimeout(confetti,450)}if(e.pid===ME)buzz([40,30,80]);break}
     case 'log':logLocal(e.t,e.cls||'');break;
     case 'toast':if(e.pid===undefined||e.pid===ME)toast(e.t,e.ms||2200);break;
     case 'nudge':if(e.pid===ME){nudge(e.t);SND('error');buzz(40)}break;
@@ -558,6 +561,7 @@ function runFx(e){
     case 'sel':if(e.pid===ME){const el=$(`#myhand .card[data-id="${e.id}"]`);el&&el.classList.add('pop')}break;
     case 'shuffle':shuffleFx();break;
     case 'spray':sprayFx(e.from,e.to,e.amt);break;
+    case 'lend':lendFx(e.from,e.to,e.amt,e.back);break;
     case 'treat':treatFx(e.from,e.to,e.item);break;
     case 'react':reactFx(e.pid,e.r);break;
     case 'chat':bubble(e.pid,e.t,Math.min(6500,2200+e.t.length*55),'chat');if(e.pid!==ME)SND('pop');break;
@@ -608,14 +612,18 @@ function renderSeats(fresh){
     const mini=el.querySelector('.mini');
     const showDrop=p.dropped&&S.phase>=3&&S.phase<=4;const dropHTML=showDrop?`<div class="dropwrap ${S.trickWinner===p.id?'win':''}">${cardHTML(p.dropped,FLY.has(p.dropped.id)?'incoming':'')}<small>drop</small></div>`:'';
     if(p.id!==ME){const show=p.revealed;mini.innerHTML=dropHTML+p.hand.map(c=>show&&c.r!==undefined?cardHTML(c,FLY.has(c.id)?'incoming':''):`<div class="card back" data-id="${c.id}"></div>`).join('');
-      const t=el.querySelector('.tot');if(show&&p.hand.length&&p.hand[0].r!==undefined){const tt=total(p);t.textContent=tt>21?'bust':tt;t.classList.toggle('bust',tt>21);t.classList.remove('count')}else{const k=Math.max(0,p.hand.length-(FLYC[p.id]||0));t.textContent=k?k:'';t.classList.remove('bust');t.classList.add('count')}
-    }else{mini.innerHTML=dropHTML;el.querySelector('.tot').textContent=''}
+      const t=el.querySelector('.tot');if(show&&p.hand.length&&p.hand[0].r!==undefined)seatTot(t,p);else{const k=Math.max(0,p.hand.length-(FLYC[p.id]||0));t.textContent=k?k:'';t.classList.remove('bust','t21','big');t.classList.add('count')}
+    }else{mini.innerHTML=dropHTML;const t=el.querySelector('.tot');if(S.phase>=6&&p.revealed&&p.hand.length)seatTot(t,p);else{t.textContent='';t.classList.remove('bust','t21','big','count')}}
+    if(S.phase<6)el.classList.remove('won');
   });
   countTo($('#pot'),S.pot);
   const st=$('#potstack');const k=Math.min(6,Math.ceil(S.pot/S.wager));st.innerHTML=Array.from({length:k},(_,i)=>`<span class="chip ${['c1','c5','c25','c100','c500'][i%5]}" style="top:${18-i*3}px"></span>`).join('');
   $('#t-hand').textContent=S.handNo;
   const live=S.players.filter(p=>!p.isBot&&!p.gone&&(p.cam||p.mic)).length;$('#roomav').textContent=live?`${live} on video/voice`:'Join the room with voice or video';
 }
+// a seat's total once its cards are turned over: big at the end of the hand, so nobody has to add up
+function seatTot(t,p){const tt=total(p),txt=tt>21?'bust':String(tt),was=t.textContent,big=S.phase>=6;t.textContent=txt;t.classList.toggle('bust',tt>21);t.classList.toggle('t21',tt===21);t.classList.toggle('big',big);t.classList.remove('count');
+  if(big&&was!==txt&&!RM())t.animate([{transform:'scale(.3)',opacity:0},{offset:.6,transform:'scale(1.35)',opacity:1},{transform:'scale(1)',opacity:1}],{duration:420,easing:'cubic-bezier(.2,.9,.3,1.2)'})}
 // the flushed cards always sit in one row: shrink to fit, then fan (overlap) so every corner index stays readable
 function sizeBoard(){
   const slots=$('#slots');const n=(S&&S.boardSize)||0;if(!slots||!n)return;
@@ -652,7 +660,7 @@ function renderMe(){
   const tt=total(me);$('#mytotal').textContent=!me.hand.length?'–':(S.phase<=3&&me.hand.length===3?'drop one':tt);$('#mytotal').style.color=tt>21?'var(--bad)':tt===21?'var(--good)':'';
   countTo($('#mychips'),me.chips);
   if(!S.started)return;
-  const tp=S.turn>=0?S.players[S.turn]:null;const nm=tp?esc(tp.name):'';
+  const tp=S.turn>=0?S.players[S.turn]:null;const nm=tp?esc(tp.name):'';$$('#myhand .wl').forEach(x=>x.remove());
   const out=!S.participants.includes(ME);
   if(S.phase===0){msg(S.msgHost||`Hand ${S.handNo}. Everyone puts ${fmt(S.wager)} into the pot.`);actions(HOST?'<button class="btn btn-gold" id="btn-deal">Deal now</button><span class="note" style="margin:0;align-self:center">auto-deals in 8s</span>':'');const b=$('#btn-deal');if(b)b.onclick=()=>act({type:'deal'})}
   else if(S.phase===1){msg('The dealer shuffles and deals three cards each…');actions('')}
@@ -660,11 +668,12 @@ function renderMe(){
   else if(S.phase===3){
     if(out){msg('You sit this hand out.');actions('')}
     else if(myTurn&&S.adasiTurn===ME){msg('<b>Two Aces!</b> You hold Adasi. Declare it and the pot is yours.');actions('<button class="btn btn-adasi" id="btn-adasi">DECLARE ADASI</button>');$('#btn-adasi').onclick=()=>{actions('');act({type:'adasi'})}}
-    else if(myTurn){const must=S.leadSuit&&me.hand.some(c=>c.s===S.leadSuit);
-      msg(S.leadSuit?(must?`Lead suit is ${S.leadSuit} — you must drop a ${S.leadSuit}. Tap a card.`:`Lead suit is ${S.leadSuit}. You have none, so drop any card.`):'You lead. Tap the card you want to drop. It leaves your hand.');actions('');
+    else if(myTurn){const must=S.leadSuit&&me.hand.some(c=>c.s===S.leadSuit),ci=callInfo(),tv=ci?ci.tv:-1,beats=c=>!!(c&&S.leadSuit&&c.s===S.leadSuit&&val(c)>tv),anyBeat=me.hand.some(beats);
+      msg(S.leadSuit?(must?`${S.leadSuit} is called: you must drop a ${S.leadSuit}.${anyBeat?' 👑 marks a card that would take the lead.':''} Tap a card.`:`${S.leadSuit} is called. You have none, so drop any card.`):'You make the call: everyone has to follow the suit you drop. Tap a card.');actions('');
       $$('#myhand .card').forEach(el=>{const c=me.hand.find(x=>x.id===el.dataset.id);
+        if(beats(c)){const w=document.createElement('span');w.className='wl';w.textContent='👑';el.appendChild(w)}
         if(must&&c.s!==S.leadSuit){el.classList.add('dim');el.classList.remove('pickable');el.onclick=()=>{nudge(`You hold a ${S.leadSuit}, so you have to follow suit.`);SND('error')};return}
-        el.onclick=()=>{const keep=me.hand.filter(x=>x!==c);const kt=keep.reduce((a,x)=>a+val(x),0);if(kt>21){nudge(`Keeping ${keep.map(cname).join(' + ')} makes ${kt}. That's over 21 before you even pick, so you'd be bust. Drop a different card.`);SND('error');return}el.classList.add('sel');$$('#myhand .card').forEach(x=>{x.classList.remove('pickable');x.onclick=null});act({type:'drop',card:c.id})}})}
+        el.onclick=()=>{const keep=me.hand.filter(x=>x!==c);const kt=keep.reduce((a,x)=>a+val(x),0);if(kt>21){nudge(`Keeping ${keep.map(cname).join(' + ')} makes ${kt}. That's over 21 before you even pick, so you'd be bust. Drop a different card.`);SND('error');return}el.classList.add('sel');$$('#myhand .wl').forEach(x=>x.remove());$$('#myhand .card').forEach(x=>{x.classList.remove('pickable');x.onclick=null});act({type:'drop',card:c.id})}})}
     else{msg(me.dropped?`You dropped ${cname(me.dropped)}. Waiting for ${nm}…`:`${nm} is choosing a card to drop…`);actions('')}
   }
   else if(S.phase===4){const w=S.trickWinner>=0?S.players[S.trickWinner]:null;msg(w?`<b>${esc(w.name)}</b> wins the trick and picks first.`:'');actions('')}
@@ -680,14 +689,15 @@ function renderMe(){
     }else{msg(`${nm} is picking… you're on <b>${total(me)}</b>.`);actions('')}
   }
   else if(S.phase===6){
-    const summary=S.participants.map(id=>{const p=S.players[id];return p?`${esc(p.name)}: ${total(p)>21?'bust':total(p)}`:''}).join(' · ');
-    if(S.busy){msg(S.msgHost||summary);actions('')}
+    const shown=S.participants.map(id=>S.players[id]).filter(p=>p&&p.revealed&&p.hand.length&&p.hand.every(c=>c.r!==undefined)).sort((a,b)=>{const x=total(a),y=total(b);return (x>21?-1:x)>(y>21?-1:y)?-1:1});
+    const summary=shown.map(p=>`${esc(p.id===ME?'You':p.name)} <b>${total(p)>21?'bust':total(p)}</b>`).join(' · '),tl=summary?`<span class="totline">${summary}</span>`:'';
+    if(S.busy){msg(S.msgHost?`${S.msgHost} ${tl}`:`Turning the cards over… ${tl}`);actions('')}
     else{
       let a='';
       if(me.satOutByTimer)a+='<button class="btn btn-gold" id="btn-rejoin">Rejoin the table</button>';
       else if(me.chips<S.wager)a+=`<button class="btn btn-gold" id="btn-rebuy">Rebuy ${fmt(S.buyIn)}</button>`;
       if(HOST){if(S.msgHost&&!S.next)a+='<button class="btn btn-gold" id="btn-rebuy-all">Rebuy everyone</button>';else a+=`<button class="btn ${a?'btn-ghost':'btn-gold'}" id="btn-next">${S.tiebreak?'Play for the bigger pot':'Next hand'}</button><span class="note" style="margin:0;align-self:center">auto in 12s</span>`}
-      msg(S.msgHost||`${summary}. ${HOST?'Ready when you are.':'Waiting for the host to deal the next hand.'}`);
+      msg(S.msgHost?`${S.msgHost} ${tl}`:`${tl} ${HOST?'Ready when you are.':'Waiting for the host to deal the next hand.'}`);
       actions(a);
       const bn=$('#btn-next');if(bn)bn.onclick=()=>act({type:'next'});const br=$('#btn-rejoin');if(br)br.onclick=()=>act({type:'rejoin'});const bb=$('#btn-rebuy');if(bb)bb.onclick=()=>act({type:'rebuy'});const ba=$('#btn-rebuy-all');if(ba)ba.onclick=()=>act({type:'rebuy_all'});
     }
@@ -771,7 +781,7 @@ function ghost(o){
   let done=false;const fin=()=>{if(done)return;done=true;el.remove();if(o.onland)o.onland()};
   const a=el.animate(kf,{duration:o.dur||440,delay:o.delay||0,easing:'cubic-bezier(.3,.7,.35,1)',fill:'backwards'});a.onfinish=fin;a.oncancel=fin;setTimeout(fin,(o.dur||440)+(o.delay||0)+600);
 }
-function reveal(id,flip){FLY.delete(id);const el=$$(CARDSEL).find(x=>x.dataset.id===id);if(!el)return;el.classList.remove('incoming');
+function reveal(id,flip){FLY.delete(id);const el=$$(CARDSEL).find(x=>x.dataset.id===id);if(!el)return;el.classList.remove('incoming');if(el.closest('.dropwrap'))placeMarks();
   if(flip){el.animate([{transform:'perspective(700px) rotateY(-90deg)'},{transform:'perspective(700px) rotateY(0deg)'}],{duration:200,easing:'cubic-bezier(.2,.8,.3,1)'});SND('flip')}
   else el.animate([{transform:'scale(1.08)'},{transform:'scale(1)'}],{duration:180,easing:'ease-out'})}
 function setCount(pid,bump){const p=S&&S.players[pid];if(!p||pid===ME)return;const el=$(`#seat-${pid} .tot.count`);if(!el)return;const n=Math.max(0,p.hand.filter(c=>c.r===undefined).length-(FLYC[pid]||0));el.textContent=n?n:'';if(bump&&n)el.animate([{transform:'scale(1.6)'},{transform:'scale(1)'}],{duration:240,easing:'ease-out'})}
@@ -820,6 +830,43 @@ function renderTreats(){const others=S.players.filter(p=>!p.gone&&p.id!==ME),n=S
   $('#treats').innerHTML=Object.entries(TREATS).map(([id,t])=>`<button class="tbtn" type="button" data-item="${id}" ${t.price*k>mine?'disabled':''}><span class="e">${t.e}</span><b>${esc(t.n)}</b><small>${fmt(t.price*k)}</small></button>`).join('');
   $$('#treats .tbtn').forEach(b=>b.onclick=()=>{closeModal('#m-treat');act({type:'treat',item:b.dataset.item,to:TREAT_TO})})}
 $('#btn-treat').onclick=()=>openTreats('all');
+// ---------- lending: chips to someone (usually someone who has run out), written down, paid back later ----------
+let LEND_TO=null,LEND_AMT=0,ARMED={id:-1,until:0};
+// redraw a part of a sheet only when what it shows has changed, so a button never moves under a finger
+function setH(el,html,bind){if(!el||el._h===html)return false;el.innerHTML=html;el._h=html;if(bind)bind(el);return true}
+function openLend(to){if(!S||!S.started||ME<0){toast('Lending is for when the game is on');return}
+  const others=S.players.filter(p=>!p.gone&&p.id!==ME);LEND_TO=to!=null?to:((others.find(p=>p.chips<S.wager)||others[0]||{}).id);LEND_AMT=0;$('#ld-other').hidden=true;$('#ld-other').value='';
+  renderLend();openModal('#m-lend');SND('flick')}
+function renderLend(){if(!S||ME<0)return;const me=S.players[ME],mine=me?me.chips:0,others=S.players.filter(p=>!p.gone&&p.id!==ME);
+  if(LEND_TO!=null&&!others.some(p=>p.id===LEND_TO))LEND_TO=others.length?others[0].id:null;
+  setH($('#ld-who'),others.length?others.map(p=>`<button type="button" data-to="${p.id}" class="${p.id===LEND_TO?'on':''}">${esc(p.name)}${p.chips<S.wager?' <small class="out">out of chips</small>':''}</button>`).join(''):'<span class="note" style="margin:0">Nobody else is at the table yet.</span>',
+    el=>el.querySelectorAll('button').forEach(b=>b.onclick=()=>{LEND_TO=+b.dataset.to;renderLend();SND('flick')}));
+  const pre=[...new Set([S.wager*2,Math.round(S.buyIn/2),S.buyIn,S.buyIn*2].filter(v=>v>=5))].sort((a,b)=>a-b),other=$('#ld-other');
+  if(!LEND_AMT&&other.hidden)LEND_AMT=pre.filter(v=>v<=mine&&v<=S.buyIn).pop()||0;
+  setH($('#ld-amts'),pre.map(v=>`<button type="button" data-v="${v}" class="${other.hidden&&v===LEND_AMT?'on':''}" ${v>mine?'disabled':''}>${fmt(v)}</button>`).join('')+`<button type="button" data-v="other" class="${other.hidden?'':'on'}">Other</button>`,
+    el=>el.querySelectorAll('button').forEach(b=>b.onclick=()=>{SND('flick');if(b.dataset.v==='other'){other.hidden=false;other.focus();LEND_AMT=Math.round(+other.value)||0}else{other.hidden=true;LEND_AMT=+b.dataset.v}renderLend()}));
+  lendBtn();renderLoans()}
+function lendBtn(){const me=S&&S.players[ME],mine=me?me.chips:0,tp=S&&LEND_TO!=null?S.players[LEND_TO]:null,b=$('#ld-go'),ok=!!tp&&LEND_AMT>=5&&LEND_AMT<=mine;
+  b.textContent=tp&&LEND_AMT>=5?`Lend ${fmt(LEND_AMT)} to ${tp.name}`:'Lend';b.disabled=!ok;$('#ld-mine').textContent=`You have ${fmt(mine)} in front of you.`+(LEND_AMT>mine?' Not enough for that.':'')}
+$('#ld-other').addEventListener('input',()=>{LEND_AMT=Math.round(+$('#ld-other').value)||0;lendBtn()});
+$('#ld-go').onclick=()=>{const tp=S&&S.players[LEND_TO];if(!tp||!(LEND_AMT>=5))return;closeModal('#m-lend');act({type:'lend',to:LEND_TO,amt:LEND_AMT})};
+$('#btn-lend').onclick=()=>openLend();
+// the record: who lent whom, what's still owed; the borrower can pay back, the lender can mark it settled
+function loanRows(list,withActions){const me=S&&S.players[ME],can=me?me.chips:0;return list.map(l=>{const owe=l.amt-l.paid,who=`${esc(l.from===ME?'You':l.fromName)} → ${esc(l.to===ME?'you':l.toName)}`;
+    const st=owe<=0?(l.out?'Settled outside the game ✓':'Paid back ✓'):l.paid>0?`${fmt(owe)} still owed · ${fmt(l.paid)} paid`:`${fmt(owe)} owed`;let a='';
+    if(withActions&&owe>0&&l.to===ME){const part=Math.min(owe,can-(S?S.wager:0));a=can>=owe?`<button class="btn btn-gold" type="button" data-pay="${l.id}" data-amt="${owe}">Pay back</button>`:part>=5?`<button class="btn btn-ghost" type="button" data-pay="${l.id}" data-amt="${part}">Pay ${fmt(part)}</button>`:''}
+    else if(withActions&&owe>0&&l.from===ME){const armed=ARMED.id===l.id&&Date.now()<ARMED.until;a=`<button class="btn ${armed?'btn-gold':'btn-ghost'}" type="button" data-settle="${l.id}">${armed?'Tap again: paid outside the game':'Settled'}</button>`}
+    return`<div class="loan${owe<=0?' done':''}"><span class="lt">${who} <b class="num">${fmt(l.amt)}</b><span class="ls">${st}</span></span>${a}</div>`}).join('')}
+function renderLoans(){const box=$('#ld-list');if(!box||!S)return;const ls=(S.loans||[]).slice().reverse();if(!setH(box,ls.length?loanRows(ls,true):'<p class="note" style="margin:0">No loans yet at this table.</p>'))return;
+  box.querySelectorAll('[data-pay]').forEach(b=>b.onclick=()=>{act({type:'repay',loan:+b.dataset.pay,amt:+b.dataset.amt});SND('chips')});
+  // marking a loan settled takes two taps; the list redraws as the game moves, so the first tap is remembered here
+  box.querySelectorAll('[data-settle]').forEach(b=>b.onclick=()=>{const id=+b.dataset.settle;if(!(ARMED.id===id&&Date.now()<ARMED.until)){ARMED={id,until:Date.now()+4000};renderLoans();setTimeout(()=>{if(ARMED.id===id){ARMED={id:-1,until:0};renderLoans()}},4100);return}ARMED={id:-1,until:0};act({type:'settle_loan',loan:id});SND('flick')})}
+// the scores panel lists what's still owed
+function renderSideLoans(){const box=$('#side-loans');if(!box||!S)return;const open=(S.loans||[]).filter(l=>l.paid<l.amt);box.hidden=!open.length;const k=open.map(l=>l.id+':'+l.paid).join(',');if(box.dataset.k===k)return;box.dataset.k=k;
+  box.innerHTML=open.length?'<h3>Loans</h3>'+loanRows(open.slice().reverse(),false)+'<button class="btn btn-ghost" type="button" id="side-lend">Lend or pay back</button>':'';const b=$('#side-lend');if(b)b.onclick=()=>openLend()}
+// notes fly from lender to borrower (or back again), with a word over the seat
+function lendFx(from,to,amt,back){const a=seatEl(from),b=seatEl(to);if(a&&b&&!RM())flyChip(a,b,'c100',Math.min(5,2+Math.floor(amt/Math.max(1,S?S.buyIn:1000))));SND('chips');
+  setTimeout(()=>bubble(to,back?`Paid back ${fmt(amt)} ✓`:`Loan ${fmt(amt)} 🤝`,2000),350)}
 // shouts said out loud: the player's own recording if they made one, otherwise the device's voice, a Nigerian
 // English one when the phone or laptop has it (Edge does; Android can download one; iPhones don't), with each
 // player's voice pitched a little differently
@@ -830,7 +877,16 @@ function voicesFor(){if(!('speechSynthesis' in window))return[];const vs=speechS
   const tiers=[v=>/^en[-_]NG/i.test(v.lang)||/nigeria/i.test(v.name),v=>/^en[-_](GH|KE|ZA|TZ|UG)/i.test(v.lang),v=>/^en[-_]GB/i.test(v.lang),v=>/^en/i.test(v.lang)];
   for(const f of tiers){const m=vs.filter(f);if(m.length)return m}return vs.slice(0,1)}
 if('speechSynthesis' in window)speechSynthesis.onvoiceschanged=()=>{VOICES=voicesFor()};
+// the house voice: every shout in one Nigerian voice, the same on every phone and laptop
+// (clips made once with Microsoft Azure's Nigerian English voice "Abeo" by tools/make-shouts.mjs)
+let HV=null;
+function loadHouseVoice(){fetch('/shouts/abeo/index.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(!j||!(j.n>0))return;HV=j;renderShoutList();if(S)prefetchHouse()}).catch(()=>{})}
+function houseUrl(r){return`/shouts/abeo/${r}.mp3?v=${HV.v}`}
+function playHouse(r){if(!HV||!(r>=0&&r<HV.n)||!window.TeteSound||!TeteSound.clip)return false;TeteSound.clip(houseUrl(r),{gain:1.4});return true}
+function prefetchHouse(){if(!HV||!window.TeteSound||!TeteSound.loadClip)return;for(let r=0;r<HV.n;r++)TeteSound.loadClip(houseUrl(r)).catch(()=>{})}
+loadHouseVoice();
 function sayShout(pid,r){const t=REACTS[r];if(!t||!SPEAK||document.hidden||(window.TeteSound&&TeteSound.muted))return;
+  if(playHouse(r))return;
   if(playRecorded(pid,r))return;
   if(!('speechSynthesis' in window))return;VOICES=VOICES&&VOICES.length?VOICES:voicesFor();
   const u=new SpeechSynthesisUtterance(SAY[t]||t),k=Math.max(0,pid),v=VOICES[k%Math.max(1,VOICES.length)];if(v){u.voice=v;u.lang=v.lang}else u.lang='en-NG';
@@ -845,10 +901,13 @@ function voiceOf(pid){const p=S&&S.players[pid];return(p&&p.voice)||(pid===ME?MY
 function playRecorded(pid,r){const v=voiceOf(pid);if(!v||!((v[1]>>r)&1))return false;const a=clipAudio(clipUrl(v,r));
   try{a.currentTime=0;a.volume=Math.min(1,((window.TeteSound&&TeteSound.volume)||.7)+.25);const pr=a.play();if(pr&&pr.catch)pr.catch(()=>{})}catch{}return true}
 // fetch everyone's recordings ahead of time so a shout plays the moment it's made
-function prefetchVoices(){if(!S)return;for(const p of S.players){const v=p.voice;if(!v)continue;for(let r=0;r<16;r++)if((v[1]>>r)&1)clipAudio(clipUrl(v,r))}}
+function prefetchVoices(){if(!S)return;prefetchHouse();if(HV)return;for(const p of S.players){const v=p.voice;if(!v)continue;for(let r=0;r<16;r++)if((v[1]>>r)&1)clipAudio(clipUrl(v,r))}}
 // ---------- record your own shouts ----------
 let REC=null;
 function renderShoutList(){const box=$('#shoutlist');if(!box)return;const words=REACTS.map((t,i)=>i).filter(i=>!isEmo(REACTS[i]));
+  const hh=$('#shout-h');if(hh)hh.innerHTML=HV?'Shouts <small>in the house voice, Abeo</small>':'My shouts <small>in your own voice</small>';
+  if(HV){box.innerHTML=REACTS.map((t,i)=>`<div class="shrow house"><b>${esc(t)}</b><span class="who">Abeo</span><button type="button" class="sh-play" data-i="${i}" aria-label="Hear ${esc(t)}">▶</button></div>`).join('');
+    box.querySelectorAll('.sh-play').forEach(b=>b.onclick=()=>{if(window.TeteSound)TeteSound.unlock();playHouse(+b.dataset.i)});return}
   box.innerHTML=words.map(i=>{const mine=MYVOICE&&((MYVOICE[1]>>i)&1);return`<div class="shrow${mine?' mine':''}"><b>${esc(REACTS[i])}</b><span class="who">${mine?'Your voice':'Phone voice'}</span><button type="button" class="sh-play" data-i="${i}" aria-label="Hear ${esc(REACTS[i])}">▶</button><button type="button" class="sh-rec" data-i="${i}" aria-label="Record ${esc(REACTS[i])}"><i></i></button>${mine?`<button type="button" class="sh-del" data-i="${i}" aria-label="Go back to the phone voice">✕</button>`:'<span class="sh-gap"></span>'}</div>`}).join('');
   box.querySelectorAll('.sh-play').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;if(!playRecorded(ME>=0?ME:-1,i)){const v=MYVOICE;if(v&&((v[1]>>i)&1))return;const was=SPEAK;SPEAK=true;sayShout(ME>=0?ME:0,i);SPEAK=was}});
   box.querySelectorAll('.sh-rec').forEach(b=>b.onclick=()=>recordShout(+b.dataset.i,b));
@@ -973,12 +1032,13 @@ const avOf=(r,me)=>me?avStyle(AV,esc(r.name[0].toUpperCase())):r.bot||r.isBot?{s
 let TSIG='';
 function renderTonight(){const box=$('#tonight');if(!box||!S)return;
   if(!S.started){if(TSIG!=='-'){TSIG='-';box.innerHTML='<div class="note" style="margin:0">Scores start with the first hand.</div>'}return}
-  const rows=S.players.filter(p=>!p.gone).map(p=>({p,net:p.chips-(p.bought||S.buyIn)})).sort((a,b)=>b.net-a.net||b.p.wins-a.p.wins);
+  const rows=S.players.filter(p=>!p.gone).map(p=>({p,net:p.chips-(p.bought!=null?p.bought:S.buyIn)})).sort((a,b)=>b.net-a.net||b.p.wins-a.p.wins);
   const sig=rows.map(r=>[r.p.id,r.net,r.p.wins,r.p.best,r.p.name,r.p.id===ME].join(':')).join('|');if(sig===TSIG)return;TSIG=sig;
   box.innerHTML=rows.map((r,i)=>{const p=r.p,a=avOf(p,p.id===ME),medal=r.net>0&&i<3?['🥇','🥈','🥉'][i]:String(i+1),cls=r.net>0?'up':r.net<0?'down':'even';
     return`<div class="trow${p.id===ME?' me':''}"><span class="rk">${medal}</span><span class="dot" style="${a.style}">${a.text}</span><span class="who">${esc(p.name)}${p.id===ME?'<small>you</small>':''}</span><span class="meta">${p.wins?p.wins+' won':''}${p.best>=2?' · 🔥'+p.best:''}</span><span class="net ${cls}">${signed(r.net)}</span></div>`}).join('')}
 // the host closed the room: everyone sees the final table, winner on top
-function showResults(final,tn){
+function showResults(final,tn,owed){
+  const ow=$('#res-owed');if(ow){ow.innerHTML=owed&&owed.length?'<h3>Still owed</h3>'+owed.map(l=>`<div class="owe"><b>${esc(l.to)}</b> owes <b>${esc(l.from)}</b> <span class="num">${fmt(l.owe)}</span></div>`).join(''):'';ow.hidden=!(owed&&owed.length)}
   const w=final[0];$('#res-title').textContent=(tn&&tn!=='Table'?tn+': ':'')+'final scores';
   $('#res-sub').textContent=w.net>0?`${w.name} takes the night, ${signed(w.net)}.`:'Nobody finished up. The house thanks you all.';
   const pod=(r,place)=>{if(!r)return'<div class="pod empty"></div>';const a=avOf(r,false);return`<div class="pod p${place}"><div class="pav" style="${a.style}">${a.text}${place===1&&r.net>0?'<span class="crown">👑</span>':''}</div><b>${esc(r.name)}</b><span class="net ${r.net>0?'up':r.net<0?'down':'even'}">${signed(r.net)}</span><small>${r.wins} won${r.best>=2?' · best run '+r.best:''}</small><div class="step">${place}</div></div>`};
@@ -987,9 +1047,58 @@ function showResults(final,tn){
   openModal('#m-results');SND('sting',{bg:true});buzz([40,30,90]);
   if(!RM()){const b=$('#m-results .box');$$('#res-podium .pod').forEach((el,i)=>el.animate([{transform:'translateY(40px)',opacity:0},{transform:'none',opacity:1}],{duration:520,delay:[260,0,420][i],easing:'cubic-bezier(.2,1.3,.4,1)',fill:'backwards'}));if(w.net>0)setTimeout(()=>confetti(b),300)}}
 $('#res-done').onclick=()=>closeModal('#m-results');
+// ---------- the call: the first card dropped calls the suit; a crown rides on the card leading the call ----------
+let MKL=null,MKS={hand:-1,by:-1,top:-1};
+function markLayer(){if(MKL)return MKL;MKL=document.createElement('div');MKL.className='marklayer';MKL.innerHTML='<div class="crownmk" hidden><i>👑</i></div><div class="callmk" hidden>CALL</div>';document.body.appendChild(MKL);
+  try{new ResizeObserver(()=>placeMarks()).observe($('#table'))}catch{}return MKL}
+function callInfo(){if(!S||S.phase<3||S.phase>4||!S.leadSuit||!$('#game').classList.contains('on'))return null;
+  let top=-1,tv=-1;for(const id of S.participants){const c=S.players[id]&&S.players[id].dropped;if(c&&c.r!==undefined&&c.s===S.leadSuit&&val(c)>tv){tv=val(c);top=id}}
+  if(S.phase===4&&S.trickWinner>=0)top=S.trickWinner;
+  return{suit:S.leadSuit,by:S.leadBy,top,tv}}
+// a seat's dropped card once it has landed (not while it is still flying in)
+function landedDrop(pid){if(pid==null||pid<0)return null;const c=$(`#seat-${pid} .dropwrap .card`);return c&&!c.classList.contains('incoming')&&c.getBoundingClientRect().width?c:null}
+function hideMark(el){if(el.hidden||el.dataset.out)return;el.dataset.out='1';const done=()=>{if(!el.dataset.out)return;delete el.dataset.out;el.hidden=true};if(RM()){done();return}el.animate([{opacity:1},{opacity:0}],{duration:220}).onfinish=done;setTimeout(done,400)}
+function showMark(el){const fresh=el.hidden||!!el.dataset.out;delete el.dataset.out;el.hidden=false;return fresh}
+function placeMarks(){
+  const L=markLayer(),cr=L.querySelector('.crownmk'),cl=L.querySelector('.callmk'),ci=callInfo();
+  $$('#seats .dropwrap').forEach(w=>w.classList.remove('call','top','off'));
+  if(!ci){hideMark(cr);hideMark(cl);MKS={hand:-1,by:-1,top:-1};callPill(null);return}
+  if(MKS.hand!==S.handNo)MKS={hand:S.handNo,by:-1,top:-1};
+  // cards that didn't follow the call can't win: greyed
+  for(const id of S.participants){const c=S.players[id]&&S.players[id].dropped,w=$(`#seat-${id} .dropwrap`);if(w&&c&&c.r!==undefined&&c.s!==ci.suit)w.classList.add('off')}
+  // the call card wears a CALL tag, and its suit flies to the middle of the table
+  const cc=landedDrop(ci.by);
+  if(cc){cc.parentNode.classList.add('call');const r=cc.getBoundingClientRect();cl.style.left=Math.round(r.left+r.width/2)+'px';cl.style.top=Math.round(r.bottom-2)+'px';cl.classList.toggle('sm',r.width<36);
+    if(showMark(cl)&&!RM())cl.animate([{transform:'translate(-50%,-10%) scale(.3)',opacity:0},{offset:.6,transform:'translate(-50%,-50%) scale(1.2)',opacity:1},{transform:'translate(-50%,-50%) scale(1)',opacity:1}],{duration:420,easing:'cubic-bezier(.2,.9,.3,1.2)'});
+    if(MKS.by!==ci.by){MKS.by=ci.by;callFly(cc,ci.suit)}}
+  else if(ci.by<0)hideMark(cl);
+  // the crown sits on the card leading the call; when someone beats it, it hops across
+  const want=landedDrop(ci.top)?ci.top:(landedDrop(MKS.top)?MKS.top:-1),tc=landedDrop(want);
+  if(tc){tc.parentNode.classList.add('top');const r=tc.getBoundingClientRect(),x=Math.round(r.left+r.width/2),y=Math.round(r.top+2);cr.style.setProperty('--cs',Math.round(Math.max(15,Math.min(26,r.width*.52)))+'px');
+    const px=parseFloat(cr.style.left),py=parseFloat(cr.style.top),hop=!cr.hidden&&!cr.dataset.out&&MKS.top>=0&&MKS.top!==want;
+    cr.style.left=x+'px';cr.style.top=y+'px';
+    if(showMark(cr)){if(!RM())cr.animate([{transform:'translateY(-30px) scale(1.9)',opacity:0},{offset:.6,transform:'translateY(3px) scale(.92)',opacity:1},{transform:'none',opacity:1}],{duration:560,delay:MKS.by===ci.by&&want===ci.by?380:0,easing:'cubic-bezier(.3,.7,.3,1)',fill:'backwards'})}
+    else if(hop){const dx=px-x,dy=py-y,lift=Math.min(110,46+Math.hypot(dx,dy)*.22);if(!RM()){cr.animate([{transform:`translate(${dx}px,${dy}px)`},{offset:.5,transform:`translate(${dx*.5}px,${dy*.5-lift}px) rotate(200deg) scale(1.55)`},{transform:'none'}],{duration:640,easing:'cubic-bezier(.45,0,.3,1)'});setTimeout(()=>sparksAt(x,y,'spark',12,Math.PI*2,48,0),600)}SND('sparkle')}
+    MKS.top=want}
+  else hideMark(cr);
+  callPill(ci);
+}
+// the middle of the table says which suit is called and who leads it
+function callPill(ci){const el=$('#callpill');if(!el)return;$('#board').classList.toggle('calling',!!ci);if(!ci){el.hidden=true;return}
+  el.classList.toggle('red',ci.suit==='♥'||ci.suit==='♦');el.querySelector('.cs').textContent=ci.suit;
+  const tp=MKS.top>=0?S.players[MKS.top]:null,tc=tp&&tp.dropped,k=tp&&tc&&tc.r!==undefined?`👑 ${tp.id===ME?'You':tp.name} · ${cname(tc)}`:'',cl=el.querySelector('.cl');
+  if(cl.textContent!==k){cl.textContent=k;if(!el.hidden&&k&&!RM())cl.animate([{transform:'translateY(7px)',opacity:0},{transform:'none',opacity:1}],{duration:280,easing:'ease-out'})}
+  el.hidden=false}
+function callFly(card,suit){const pill=$('#callpill');SND('snap');if(!pill||RM())return;
+  callPill(callInfo());const tgt=pill.querySelector('.cs').getBoundingClientRect(),a=card.getBoundingClientRect();if(!tgt.width)return;
+  const g=document.createElement('div');g.className='suitfly'+(suit==='♥'||suit==='♦'?' red':'');g.textContent=suit;layer().appendChild(g);
+  const x1=tgt.left+tgt.width/2,y1=tgt.top+tgt.height/2,dx=a.left+a.width/2-x1,dy=a.top+a.height/2-y1;g.style.left=x1+'px';g.style.top=y1+'px';
+  g.animate([{transform:`translate(-50%,-50%) translate(${dx}px,${dy}px) scale(.6)`,opacity:0},{offset:.15,opacity:1},{offset:.55,transform:`translate(-50%,-50%) translate(${dx*.4}px,${dy*.4-56}px) scale(2.3)`,opacity:1},{transform:'translate(-50%,-50%) scale(1)',opacity:.2}],{duration:720,easing:'cubic-bezier(.3,.6,.3,1)'}).onfinish=()=>g.remove();setTimeout(()=>g.remove(),1600);
+  pill.animate([{transform:'translateX(-50%) scale(.5)',opacity:0},{offset:.7,transform:'translateX(-50%) scale(1.12)',opacity:1},{transform:'translateX(-50%) scale(1)',opacity:1}],{duration:480,delay:560,easing:'cubic-bezier(.2,.9,.3,1.2)',fill:'backwards'})}
 // ---------- hot streaks and twenty-one ----------
 // glowing bits that shoot out from a seat: embers for a streak, gold sparks for 21, smoke when a run ends
-function sparks(pid,cls,n,spread,reach,up){const a=seatCenterRect(pid);if(!a||RM())return;const cx=a.left+a.width/2,cy=a.top+a.height/2;
+function sparks(pid,cls,n,spread,reach,up){const a=seatCenterRect(pid);if(!a)return;sparksAt(a.left+a.width/2,a.top+a.height/2,cls,n,spread,reach,up)}
+function sparksAt(cx,cy,cls,n,spread,reach,up){if(RM())return;
   for(let i=0;i<n;i++){const e=document.createElement('div');e.className=cls;layer().appendChild(e);const ang=-Math.PI/2+(Math.random()-.5)*spread,dist=reach*(.45+Math.random()*.55),dx=Math.cos(ang)*dist,dy=Math.sin(ang)*dist-(up||0),s=.6+Math.random()*.8;
     e.style.left=cx+'px';e.style.top=cy+'px';
     e.animate([{transform:`translate(-50%,-50%) scale(${s.toFixed(2)})`,opacity:1},{offset:.55,opacity:1},{transform:`translate(calc(-50% + ${dx.toFixed(0)}px),calc(-50% + ${dy.toFixed(0)}px)) scale(${(s*.25).toFixed(2)})`,opacity:0}],{duration:650+Math.random()*650,delay:Math.random()*140,easing:'cubic-bezier(.2,.7,.3,1)',fill:'backwards'}).onfinish=()=>e.remove();setTimeout(()=>e.remove(),2000)}}
@@ -1004,7 +1113,7 @@ function streakEndFx(pid,n){SND('fizzle',{bg:true});bubble(pid,n>=5?'Fire out �
 // 21: a gold burst from the seat; bigger when it wins the pot, with a glow round your screen when it's yours
 function fx21(pid,mode){
   const big=mode==='win',mine=pid===ME;
-  if(mode==='mine')SND('sparkle',{bg:true});else{SND('twentyone',{bg:true});if(big)SND('sparkle',{bg:true,delay:.5})}
+  if(mode!=='mine'){SND('twentyone',{bg:true});if(big)SND('sparkle',{bg:true,delay:.5})}
   if(mine)buzz(big?[50,40,50,40,160]:[30,40,30,40,90]);
   const a=seatCenterRect(pid);if(!a||RM())return;
   const cx=a.left+a.width/2,cy=a.top+a.height/2,size=Math.max(a.width,a.height);
@@ -1205,7 +1314,7 @@ function lobbyEnter(){if(ENTERED)return;ENTERED=true;if(!$('#lobby').classList.c
 function afterIntro(fn){const st=window.TETE_INTRO;if(!st||st==='exit'||st==='done'){fn();return}let ran=false;const go=()=>{if(!ran){ran=true;fn()}};window.addEventListener('tete:introexit',go,{once:true});window.addEventListener('tete:introdone',go,{once:true})}
 afterIntro(()=>{lobbyEnter();if(JOIN_LINK)setTimeout(()=>{if($('#lobby').classList.contains('on'))openJoin()},700)});
 
-if(location.search.includes('demo')){window.__fx=runFx;window.__t={get S(){return S},get L(){return LOCALT},get ME(){return ME},get PC(){return PC},get TRIES(){return TRIES},get PSID(){return PSID},fx21,streakFx,streakEndFx,setFelt}}
+if(location.search.includes('demo')){window.__fx=runFx;window.__t={get S(){return S},get L(){return LOCALT},get ME(){return ME},get PC(){return PC},get TRIES(){return TRIES},get PSID(){return PSID},get MKS(){return MKS},act,fx21,streakFx,streakEndFx,setFelt}}
 setInterval(()=>{if(!LOCALT&&S&&$('#game').classList.contains('on')&&navigator.onLine!==false)fetch('/health',{cache:'no-store'}).catch(()=>{})},240000);
 window.addEventListener('online',()=>{if(!CONNECTED)connect();else setStatus('ok','Connected.')});
 window.addEventListener('offline',()=>{setStatus('off','Offline. Practice against the computer still works; hosting and joining need a connection.');renderRooms()});
