@@ -468,7 +468,6 @@ details.more summary small{color:var(--fg-dim);font-weight:400;font-size:12.5px}
 .celebrate .rain{position:absolute;top:-30px;z-index:1}
 
 /* ---------- spray money and treats ---------- */
-.naira{width:38px;height:20px;border-radius:3px;background:linear-gradient(135deg,#3d8b5a,#1f5e3a 55%,#4f2f74);border:1px solid rgba(255,255,255,.55);color:#f6efdc;font:700 11px/18px var(--body);text-align:center;box-shadow:0 3px 8px rgba(0,0,0,.45);will-change:transform,opacity}
 .naira::before{content:"\20A6";margin-right:1px}
 .seat .av .treat{position:absolute;left:-15px;top:-13px;font-size:21px;line-height:1;z-index:3;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));animation:bob 2.6s ease-in-out infinite;pointer-events:none}
 .seat .av .treat:empty{display:none}
@@ -643,6 +642,16 @@ html[data-felt="midnight"] .felt .ring{border-color:rgba(217,178,95,.32)}
 #m-tset.readonly .opts button,#m-tset.readonly .seg button,#m-tset.readonly input{pointer-events:none;opacity:.75}
 @media (max-width:700px){.tname{max-width:40vw}}
 @media (max-width:420px){.tname{flex:1 1 auto;max-width:none}.tname h1{max-width:none}}
+/* the money shower: three kinds of note, a glow on the receiver, a green banner for big sprays */
+.naira{width:46px;height:23px;border-radius:3px;display:grid;place-items:center;font:800 10px/1 var(--body);letter-spacing:.02em;color:#fbf6e6;text-shadow:0 1px 0 rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.55);box-shadow:0 3px 8px rgba(0,0,0,.45);will-change:transform,opacity;backface-visibility:visible;overflow:hidden}
+.naira::before{content:"\20A6";margin-right:1px}
+.naira::after{content:"";position:absolute;left:4px;top:4px;width:9px;height:13px;border-radius:50%;background:rgba(255,255,255,.2);box-shadow:30px 0 0 -2px rgba(255,255,255,.12)}
+.naira.n1000{background:linear-gradient(135deg,#8a5a34,#5b3820 48%,#2f6496)}
+.naira.n500{background:linear-gradient(135deg,#3d8b5a,#1f5e3a 55%,#4f2f74)}
+.naira.n200{background:linear-gradient(135deg,#3a7fb0,#1d4466 55%,#8a2f5b)}
+.seat.showered .av{box-shadow:0 0 0 3px rgba(243,217,144,.55),0 0 36px rgba(243,217,144,.85);animation:bounce .6s}
+.banner.cash{top:30%;color:#dcffd2;border-color:#4fc98b;background:linear-gradient(180deg,rgba(14,64,36,.88),rgba(5,26,14,.88));text-shadow:0 2px 0 #0b3a1f,0 0 24px rgba(79,201,139,.7);white-space:nowrap;font-size:clamp(17px,3.4vw,36px)}
+.gain.cashgain{font-size:30px;color:#dcffd2;text-shadow:0 2px 0 #0b3a1f,0 0 18px rgba(79,201,139,.9)}
 [hidden]{display:none!important}
 .pill:empty{display:none}
 @media (max-width:520px){.row>.field:has(.seg){min-width:100%}}

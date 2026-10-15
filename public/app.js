@@ -502,6 +502,7 @@ function applyState(o,fx){
   $('#btn-close').hidden=!(S.keep&&HOST);$('#btn-close').onclick=()=>{if(!$('#btn-close').dataset.arm){$('#btn-close').dataset.arm='1';$('#btn-close').textContent='Tap again to close for everyone';setTimeout(()=>{delete $('#btn-close').dataset.arm;$('#btn-close').textContent='Close room'},4000);return}send({type:'close'})};
   renderAll();
   motion(prev,before);
+  SPRAYED=new Set((fx||[]).filter(e=>e.k==='spray').map(e=>e.to));
   cues(prev);
   turnTick();requestAnimationFrame(updateTurnMark);
   for(const e of fx)runFx(e);
@@ -516,7 +517,7 @@ function cues(prev){
   if(mine&&!(prev.turn===ME&&prev.phase===S.phase)){SND('turn',{bg:true});buzz(30)}
   if(S.phase===4&&prev.phase!==4)SND('trick');
   if(!S.started){const h=x=>x.players.filter(p=>!p.isBot&&!p.gone).length;if(h(S)>h(prev))SND('join')}
-  S.players.forEach(p=>{const q=prev.players[p.id];if(!q||q.name!==p.name)return;const d=p.chips-q.chips;if(d>0)setTimeout(()=>popGain(p.id,d),60)});
+  S.players.forEach(p=>{const q=prev.players[p.id];if(!q||q.name!==p.name||SPRAYED.has(p.id))return;const d=p.chips-q.chips;if(d>0)setTimeout(()=>popGain(p.id,d),60)});
   const me=ME>=0&&S.players[ME],pm=ME>=0&&prev.players[ME];
   if(me&&pm&&S.handNo===prev.handNo&&S.phase>=3&&S.phase<=5&&me.hand.length===2&&total(me)===21&&!(pm.hand.length===2&&total(pm)===21)){fx21(ME,'mine');toast('Twenty-one in your hand! 🔥',2600)}
 }
@@ -626,7 +627,7 @@ function renderSide(){setTimeout(updateSide,0);renderTonight();
   const el=$('#sbs');const bets=S.sideBets.filter(b=>b.status!=='pending');if(!bets.length){el.innerHTML='<div class="note" style="margin:0">No side bets yet. Propose one from the top bar.</div>';return}
   el.innerHTML=bets.slice().reverse().map(b=>{const A=S.players[b.a],B=S.players[b.b];let st=b.status;if(st==='won')st=b.winner===ME?'won':(b.a===ME||b.b===ME?'lost':'won');return`<div class="sb ${b.a===ME||b.b===ME?'mine':''}"><span class="st ${st}">${st}</span><b>${esc(A?A.name:'?')}</b> vs <b>${esc(B?B.name:'?')}</b> · ${fmt(b.amt)}<br><span style="color:var(--fg-dim)">${esc(b.desc)}</span>${b.result?`<br><span>${esc(b.result)}</span>`:''}</div>`}).join('');
 }
-let NUDGE=null;
+let NUDGE=null,SPRAYED=new Set();
 function msg(t){if(NUDGE)return;$('#msg').innerHTML=t}
 function nudge(t){NUDGE=t;$('#msg').innerHTML=`<span class="nudge">${t}</span>`;clearTimeout(nudge.t);nudge.t=setTimeout(()=>{NUDGE=null;renderMe()},2600)}
 function actions(html){$('#actions').innerHTML=html}
@@ -819,14 +820,48 @@ function reactFx(pid,r){const t=REACTS[r];if(t===undefined)return;const a=seatCe
   e.style.left=(a.left+a.width/2-w/2)+'px';e.style.top=(a.top-h*.4)+'px';const wob=(Math.random()-.5)*16;
   e.animate([{transform:'translateY(10px) scale(.4)',opacity:0},{offset:.15,transform:`translateY(-12px) scale(1.25) rotate(${wob}deg)`,opacity:1},{offset:.3,transform:`translateY(-20px) scale(1) rotate(${-wob/2}deg)`,opacity:1},{offset:.8,transform:'translateY(-58px) scale(1)',opacity:1},{transform:'translateY(-76px) scale(.95)',opacity:0}],{duration:2100,easing:'ease-out'}).onfinish=()=>e.remove();setTimeout(()=>e.remove(),2600)}
 function seatCenterRect(pid){return rectOf($(`#seat-${pid} .av`))}
-function sprayFx(from,to,amt){const a=seatCenterRect(from),b=seatCenterRect(to);SND('spray',{bg:true});if(S.players[from])bubble(from,'Oya! 💸',1500);
-  if(!a||!b||document.hidden)return;const w=S.wager||50,n=Math.max(6,Math.min(18,Math.round(4+amt/w*2)));
-  for(let i=0;i<n;i++){const e=document.createElement('div');e.className='naira';e.textContent=fmt(Math.max(1,Math.round(amt/n)));layer().appendChild(e);
-    const sx=a.left+a.width/2-19,sy=a.top+a.height/2-10,ex=b.left+b.width/2-19+(Math.random()-.5)*46,ey=b.top+b.height/2-10+(Math.random()-.5)*30;e.style.left=sx+'px';e.style.top=sy+'px';
-    const dx=ex-sx,dy=ey-sy,lift=60+Math.random()*60,r1=(Math.random()-.5)*120,r2=(Math.random()-.5)*360;
-    const an=e.animate([{transform:'translate(0px,0px) rotate(0deg) rotateY(0deg) scale(.5)',opacity:0},{offset:.12,opacity:1},{offset:.5,transform:`translate(${(dx*.5+(Math.random()-.5)*60).toFixed(1)}px,${(dy*.5-lift).toFixed(1)}px) rotate(${r1.toFixed(0)}deg) rotateY(180deg) scale(1.05)`},{offset:.85,transform:`translate(${dx.toFixed(1)}px,${dy.toFixed(1)}px) rotate(${r2.toFixed(0)}deg) rotateY(360deg) scale(.9)`,opacity:1},{transform:`translate(${dx.toFixed(1)}px,${(dy+14).toFixed(1)}px) rotate(${(r2+30).toFixed(0)}deg) rotateY(360deg) scale(.8)`,opacity:0}],{duration:1150+Math.random()*350,delay:i*75,easing:'cubic-bezier(.3,.6,.4,1)',fill:'backwards'});
-    an.onfinish=()=>e.remove();setTimeout(()=>e.remove(),3200)}
-  const tel=$('#seat-'+to);if(tel)setTimeout(()=>{tel.classList.add('winner');setTimeout(()=>tel.classList.remove('winner'),1400)},700);buzz(30)}
+// spraying money, party style: notes peel off the sprayer's hand, flutter across, rain on the receiver and pile up at
+// their seat, then get gathered in; a big spray (ten wagers or more) also makes it rain over the whole table
+const NOTES=[['n1000','1000'],['n500','500'],['n200','200'],['n1000','1000'],['n500','500']];
+function noteEl(i){const e=document.createElement('div');const [c,v]=NOTES[i%NOTES.length];e.className='naira '+c;e.textContent=v;return e}
+function sprayFx(from,to,amt){
+  const P=S.players,w=S.wager||50,mult=amt/w,big=mult>=10;
+  SND('spray',{bg:true});setTimeout(()=>SND('cash',{bg:true}),650);if(big)setTimeout(()=>SND('spray',{bg:true}),380);
+  if(P[from])bubble(from,big?'Make it rain! 💸':'Spray am! 💸',1700);
+  if(big&&P[from]&&P[to])setTimeout(()=>banner(`${P[from].name} is spraying ${P[to].name}! 💸`,'cash'),250);
+  if(to===ME)buzz([30,40,30,40,30,40,140]);else if(from===ME)buzz(25);
+  const a=seatCenterRect(from),b=seatCenterRect(to),land=650+Math.min(1400,amt/w*60);
+  setTimeout(()=>{cashGain(to,amt);const tel=$('#seat-'+to);if(tel){tel.classList.add('showered');setTimeout(()=>tel.classList.remove('showered'),2200)}},land);
+  if(!a||!b||RM())return;
+  const n=Math.round(Math.max(14,Math.min(80,8+mult*7))),L=layer(),ax=a.left+a.width/2,ay=a.top+a.height/2,bx=b.left+b.width/2,by=b.top+b.height/2;
+  for(let i=0;i<n;i++){const e=noteEl(i);L.appendChild(e);const W=e.offsetWidth||38,H=e.offsetHeight||20;
+    e.style.left=(ax-W/2)+'px';e.style.top=(ay-H/2)+'px';
+    const hx=bx-ax+(Math.random()-.5)*90,hy=Math.max(24-ay,(b.top-ay)-50-Math.random()*70); // over their head, never off the top
+    const px=bx-ax+(Math.random()-.5)*(70+Math.min(60,n)),py=by-ay+6+Math.random()*30; // the pile round their seat
+    const r0=(Math.random()-.5)*60,r1=(Math.random()-.5)*540,r2=(Math.random()-.5)*50,f=Math.random()<.5?1:-1;
+    const dur=1500+Math.random()*500,delay=i*Math.max(18,Math.min(45,1400/n)),hold=1300+Math.random()*500;
+    const an=e.animate([
+      {transform:`translate(0px,0px) rotate(${r0}deg) rotateY(0deg) scale(.55)`,opacity:0},
+      {offset:.06,opacity:1},
+      {offset:.42,transform:`translate(${hx.toFixed(0)}px,${hy.toFixed(0)}px) rotate(${(r1*.6).toFixed(0)}deg) rotateY(${180*f}deg) scale(1.08)`},
+      {offset:.7,transform:`translate(${((hx+px)/2+f*14).toFixed(0)}px,${((hy+py)/2).toFixed(0)}px) rotate(${(r1*.85).toFixed(0)}deg) rotateY(${300*f}deg) scale(1)`},
+      {offset:1,transform:`translate(${px.toFixed(0)}px,${py.toFixed(0)}px) rotate(${(r1+r2).toFixed(0)}deg) rotateY(${360*f}deg) scale(.92)`,opacity:1}
+    ],{duration:dur,delay,easing:'cubic-bezier(.25,.6,.35,1)',fill:'both'});
+    // gathered in: the pile slides into their seat and is gone
+    an.onfinish=()=>{const g=e.animate([{transform:`translate(${px.toFixed(0)}px,${py.toFixed(0)}px) rotate(${(r1+r2).toFixed(0)}deg) scale(.92)`,opacity:1},{offset:.7,opacity:1},{transform:`translate(${(bx-ax).toFixed(0)}px,${(by-ay).toFixed(0)}px) rotate(0deg) scale(.2)`,opacity:0}],{duration:420,delay:hold,easing:'cubic-bezier(.5,0,.75,0)',fill:'forwards'});g.onfinish=()=>e.remove()};
+    setTimeout(()=>e.remove(),dur+delay+hold+900)}
+  if(big)rainFx(Math.min(46,Math.round(mult*2.5)),450);
+}
+// money rain over the whole table
+function rainFx(n,delay0){const tr=rectOf($('#table'));if(!tr||RM())return;const L=layer();
+  for(let i=0;i<n;i++){const e=noteEl(i+2);L.appendChild(e);const x=tr.left+Math.random()*tr.width,y0=tr.top-30,fall=tr.height+60,sway=(Math.random()-.5)*120,f=Math.random()<.5?1:-1;
+    e.style.left=x+'px';e.style.top=y0+'px';
+    e.animate([{transform:'translate(0px,0px) rotate(0deg) rotateY(0deg)',opacity:0},{offset:.08,opacity:1},{offset:.5,transform:`translate(${(sway*.6).toFixed(0)}px,${(fall*.5).toFixed(0)}px) rotate(${f*200}deg) rotateY(${f*240}deg)`},{offset:.88,opacity:1},{transform:`translate(${sway.toFixed(0)}px,${fall.toFixed(0)}px) rotate(${f*420}deg) rotateY(${f*520}deg)`,opacity:0}],{duration:1800+Math.random()*900,delay:delay0+Math.random()*900,easing:'linear',fill:'both'}).onfinish=()=>e.remove();
+    setTimeout(()=>e.remove(),4200)}}
+// the big "+₦" over the receiver
+function cashGain(pid,amt){const el=pid===ME?$('#mychips'):$(`#seat-${pid} .chips`),r=rectOf(el);if(!r||document.hidden)return;
+  const g=document.createElement('div');g.className='gain cashgain';g.textContent='+₦'+fmt(amt);g.style.left=(r.left+r.width/2)+'px';g.style.top=(r.top-10)+'px';layer().appendChild(g);
+  g.animate([{transform:'translate(-50%,0px) scale(.5)',opacity:0},{offset:.12,transform:'translate(-50%,-18px) scale(1.35)',opacity:1},{offset:.25,transform:'translate(-50%,-24px) scale(1)',opacity:1},{offset:.8,transform:'translate(-50%,-58px) scale(1)',opacity:1},{transform:'translate(-50%,-78px) scale(.95)',opacity:0}],{duration:2100,easing:'ease-out'}).onfinish=()=>g.remove();setTimeout(()=>g.remove(),2600)}
 function treatFx(from,to,item){const t=TREATS[item];if(!t)return;SND('pour',{bg:true});if(to.length>1)bubble(from,'Round on me! 🥂',1800);
   const a=seatCenterRect(from);let landed=false;
   to.forEach((pid,i)=>{const b=seatCenterRect(pid);if(!a||!b||document.hidden)return;const e=document.createElement('div');e.className='flytreat';e.textContent=t.e;layer().appendChild(e);

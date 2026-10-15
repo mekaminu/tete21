@@ -83,6 +83,8 @@
     whoosh(t) { burst(t, { dur: 0.25, freq: 600, q: 0.7, gain: 0.18, sweepTo: 3000 }); },
     clink(t) { [2637, 3951, 5274].forEach((f, i) => tone(t + i * 0.004, { f: f * (0.99 + Math.random() * 0.02), dur: 0.5 - i * 0.12, gain: 0.09 / (i + 1), wet: 0.6 })); tone(t + 0.09, { f: 3136, dur: 0.35, gain: 0.05, wet: 0.6 }); },
     pour(t) { burst(t, { dur: 0.5, freq: 900, q: 2, gain: 0.08, sweepTo: 1800 }); for (let i = 0; i < 6; i++) tone(t + 0.05 + i * 0.07, { f: 500 + i * 90 + Math.random() * 60, dur: 0.05, gain: 0.03 }); },
+    // the cash register: ka-ching
+    cash(t) { burst(t, { dur: 0.035, freq: 3200, q: 1, gain: 0.26 }); tone(t, { f: 180, dur: 0.08, gain: 0.12, slideTo: 90 }); [2093, 2637, 3136].forEach((f, i) => tone(t + 0.07 + i * 0.045, { f, type: 'triangle', dur: 0.5, gain: 0.085, wet: 0.5 })); tone(t + 0.07, { f: 4186, dur: 0.7, gain: 0.035, wet: 0.7 }); },
     // a win streak catches fire: a roaring swell with crackles, hotter the longer the run
     flare(t, n = 2) {
       const k = Math.min(1, (n - 1) / 4);
