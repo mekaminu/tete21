@@ -1,0 +1,175 @@
+{
+ "v": "202610151136",
+ "songs": [
+  {
+   "id": "naija-flow",
+   "title": "Naija Flow",
+   "artist": "DPStudioMusic",
+   "page": "https://pixabay.com/music/afrobeat-naija-flow-300340/",
+   "f": "naija-flow.mp3",
+   "d": 239.9,
+   "bytes": 2879261,
+   "was_lufs": -16.88
+  },
+  {
+   "id": "lagos-nights",
+   "title": "Lagos Nights",
+   "artist": "DPStudioMusic",
+   "page": "https://pixabay.com/music/afrobeat-lagos-nights-300332/",
+   "f": "lagos-nights.mp3",
+   "d": 201.9,
+   "bytes": 2423476,
+   "was_lufs": -15.1
+  },
+  {
+   "id": "lagos-groove-flow",
+   "title": "Lagos Groove Flow",
+   "artist": "DPStudioMusic",
+   "page": "https://pixabay.com/music/afrobeat-lagos-groove-flow-293955/",
+   "f": "lagos-groove-flow.mp3",
+   "d": 187.9,
+   "bytes": 2255143,
+   "was_lufs": -15.78
+  },
+  {
+   "id": "afrofire",
+   "title": "Afrofire",
+   "artist": "DPStudioMusic",
+   "page": "https://pixabay.com/music/afrobeat-afrofire-300338/",
+   "f": "afrofire.mp3",
+   "d": 239.9,
+   "bytes": 2878947,
+   "was_lufs": -15.14
+  },
+  {
+   "id": "vibe-republic",
+   "title": "Vibe Republic",
+   "artist": "DPStudioMusic",
+   "page": "https://pixabay.com/music/afrobeat-vibe-republic-300333/",
+   "f": "vibe-republic.mp3",
+   "d": 239.9,
+   "bytes": 2878947,
+   "was_lufs": -16.0
+  },
+  {
+   "id": "savanna-beats",
+   "title": "Savanna Beats",
+   "artist": "DPStudioMusic",
+   "page": "https://pixabay.com/music/afrobeat-savanna-beats-293956/",
+   "f": "savanna-beats.mp3",
+   "d": 138.3,
+   "bytes": 1660178,
+   "was_lufs": -16.22
+  },
+  {
+   "id": "not-joking",
+   "title": "Not Joking!",
+   "artist": "artbybigvee",
+   "page": "https://pixabay.com/music/beats-not-joking-instrumental-200069/",
+   "f": "not-joking.mp3",
+   "d": 194.6,
+   "bytes": 2335705,
+   "was_lufs": -8.72
+  },
+  {
+   "id": "take-over",
+   "title": "Take Over",
+   "artist": "artbybigvee",
+   "page": "https://pixabay.com/music/afrobeat-take-over-109982/",
+   "f": "take-over.mp3",
+   "d": 189.0,
+   "bytes": 2268936,
+   "was_lufs": -8.81
+  },
+  {
+   "id": "my-story",
+   "title": "My Story",
+   "artist": "PGbeat",
+   "page": "https://pixabay.com/music/afrobeat-my-story-prod-by-p-g-beat-aka-stopman-199271/",
+   "f": "my-story.mp3",
+   "d": 146.7,
+   "bytes": 1761116,
+   "was_lufs": -15.92
+  },
+  {
+   "id": "grace-of-god",
+   "title": "Grace Of God",
+   "artist": "DAHIT202",
+   "page": "https://pixabay.com/music/afrobeat-grace-of-god-dahit-records-124203/",
+   "f": "grace-of-god.mp3",
+   "d": 205.4,
+   "bytes": 2465481,
+   "was_lufs": -13.68
+  },
+  {
+   "id": "juju-waves",
+   "title": "Juju Waves",
+   "artist": "Free_Audio_Library",
+   "page": "https://pixabay.com/music/afrobeat-juju-waves-302586/",
+   "f": "juju-waves.mp3",
+   "d": 212.8,
+   "bytes": 2554507,
+   "was_lufs": -16.09
+  },
+  {
+   "id": "background-afrobeat",
+   "title": "Background Afrobeat",
+   "artist": "LP-Studio-music",
+   "page": "https://pixabay.com/music/afrobeat-background-afrobeat-310801/",
+   "f": "background-afrobeat.mp3",
+   "d": 173.2,
+   "bytes": 2078974,
+   "was_lufs": -14.1
+  },
+  {
+   "id": "dancing-in-abuja",
+   "title": "Dancing in Abuja",
+   "artist": "u_98673jp944",
+   "page": "https://pixabay.com/music/world-dancing-in-abuja-310985/",
+   "f": "dancing-in-abuja.mp3",
+   "d": 100.2,
+   "bytes": 1202513,
+   "was_lufs": -11.92
+  },
+  {
+   "id": "african-city-lights",
+   "title": "African City Lights",
+   "artist": "u_98673jp944",
+   "page": "https://pixabay.com/music/afrobeat-african-city-lights-470768/",
+   "f": "african-city-lights.mp3",
+   "d": 173.9,
+   "bytes": 2087124,
+   "was_lufs": -15.27
+  },
+  {
+   "id": "obasi",
+   "title": "Obasi (highlife)",
+   "artist": "RoyaltyFreeBeats",
+   "page": "https://pixabay.com/music/afrobeat-afrobeat-gitaar-beat-energieke-highlife-afropop-type-beat-obasi-300885/",
+   "f": "obasi.mp3",
+   "d": 232.4,
+   "bytes": 2788668,
+   "was_lufs": -9.54
+  },
+  {
+   "id": "ifunanya",
+   "title": "Ifunanya (highlife)",
+   "artist": "RoyaltyFreeBeats",
+   "page": "https://pixabay.com/music/afrobeat-afrobeat-gitaar-beat-energieke-highlife-afropop-type-beat-ifunanya-303023/",
+   "f": "ifunanya.mp3",
+   "d": 157.0,
+   "bytes": 1883996,
+   "was_lufs": -10.55
+  },
+  {
+   "id": "sunny-accra-groove",
+   "title": "Sunny Accra Groove",
+   "artist": "Vadim_Makes_Sound",
+   "page": "https://pixabay.com/music/afrobeat-sunny-accra-groove-567649/",
+   "f": "sunny-accra-groove.mp3",
+   "d": 166.6,
+   "bytes": 1999666,
+   "was_lufs": -14.73
+  }
+ ]
+}
