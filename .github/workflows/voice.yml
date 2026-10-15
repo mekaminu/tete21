@@ -1,16 +1,20 @@
 # Makes the house voice: every shout spoken by Microsoft Azure's Nigerian English voice, Abeo.
-# Run it from the Actions tab ("Make the shout clips" → Run workflow) or by pushing to the make-voice branch. The Azure key stays in the
-# repository's secrets (AZURE_SPEECH_KEY, AZURE_SPEECH_REGION); the clips land on the voice-clips branch.
+# A push to make-voice-lab makes three versions of every shout to choose from (onto the voice-lab branch);
+# a push to make-voice (or Run workflow in the Actions tab) makes the chosen ones (tools/voice-picks.json)
+# onto the voice-clips branch. The Azure key stays in the repository's secrets (AZURE_SPEECH_KEY, AZURE_SPEECH_REGION).
 name: Make the shout clips
 on:
   workflow_dispatch:
   push:
-    branches: [make-voice]
+    branches: [make-voice, make-voice-lab]
 permissions:
   contents: write
 jobs:
   clips:
     runs-on: ubuntu-latest
+    env:
+      MODE: ${{ github.ref_name == 'make-voice-lab' && 'lab' || 'final' }}
+      OUT: ${{ github.ref_name == 'make-voice-lab' && 'voice-lab' || 'voice-clips' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,11 +25,11 @@ jobs:
           AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
           AZURE_SPEECH_REGION: ${{ secrets.AZURE_SPEECH_REGION }}
         run: node tools/make-shouts.mjs
-      - name: Put the clips on the voice-clips branch
+      - name: Put the clips on their branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c voice-clips
+          git switch -c "$OUT"
           git add public/shouts
-          git commit -m "House voice: the shouts in Azure's Nigerian English voice (Abeo)"
-          git push -f origin voice-clips
+          git commit -m "Shout clips in Azure's Nigerian English voice (Abeo), $MODE"
+          git push -f origin "$OUT"
