@@ -1,0 +1,271 @@
+{
+ "voice": "en-NG-AbeoNeural",
+ "how": [
+  {
+   "rate": "-25%",
+   "pitch": "+4%"
+  },
+  {
+   "rate": "-40%",
+   "contour": "(0%,+5%) (40%,+20%) (100%,-15%)"
+  },
+  {
+   "rate": "-55%",
+   "contour": "(0%,+10%) (30%,+25%) (100%,-25%)"
+  }
+ ],
+ "list": [
+  {
+   "id": "0a",
+   "shout": "Oya!",
+   "text": "Oyaaa!",
+   "bytes": 11232
+  },
+  {
+   "id": "0b",
+   "shout": "Oya!",
+   "text": "Oooyaaa!",
+   "bytes": 13680
+  },
+  {
+   "id": "0c",
+   "shout": "Oya!",
+   "text": "Ooooyaaaaa!",
+   "bytes": 18288
+  },
+  {
+   "id": "1a",
+   "shout": "Chai!",
+   "text": "Chaaai!",
+   "bytes": 11664
+  },
+  {
+   "id": "1b",
+   "shout": "Chai!",
+   "text": "Chaaaaai!",
+   "bytes": 15696
+  },
+  {
+   "id": "1c",
+   "shout": "Chai!",
+   "text": "Chaaaaaaiii!",
+   "bytes": 19008
+  },
+  {
+   "id": "2a",
+   "shout": "Na wa o!",
+   "text": "Na waa o!",
+   "bytes": 13536
+  },
+  {
+   "id": "2b",
+   "shout": "Na wa o!",
+   "text": "Na waaa ooo!",
+   "bytes": 18720
+  },
+  {
+   "id": "2c",
+   "shout": "Na wa o!",
+   "text": "Naaa waaaa ooooo!",
+   "bytes": 20592
+  },
+  {
+   "id": "3a",
+   "shout": "E choke!",
+   "text": "E chooke!",
+   "bytes": 12240
+  },
+  {
+   "id": "3b",
+   "shout": "E choke!",
+   "text": "Eeh chooooke!",
+   "bytes": 15408
+  },
+  {
+   "id": "3c",
+   "shout": "E choke!",
+   "text": "Eeeeh chooooke ooo!",
+   "bytes": 22752
+  },
+  {
+   "id": "4a",
+   "shout": "Wahala!",
+   "text": "Wahaala!",
+   "bytes": 12528
+  },
+  {
+   "id": "4b",
+   "shout": "Wahala!",
+   "text": "Waaahaaalaaa!",
+   "bytes": 17136
+  },
+  {
+   "id": "4c",
+   "shout": "Wahala!",
+   "text": "Waaaahaaaalaaaa!",
+   "bytes": 22320
+  },
+  {
+   "id": "5a",
+   "shout": "Ehen!",
+   "text": "Eheen!",
+   "bytes": 11232
+  },
+  {
+   "id": "5b",
+   "shout": "Ehen!",
+   "text": "Eheeen!",
+   "bytes": 13536
+  },
+  {
+   "id": "5c",
+   "shout": "Ehen!",
+   "text": "Eheeeeen!",
+   "bytes": 16128
+  },
+  {
+   "id": "6a",
+   "shout": "Abeg!",
+   "text": "Abeeg!",
+   "bytes": 11376
+  },
+  {
+   "id": "6b",
+   "shout": "Abeg!",
+   "text": "Abeeeg!",
+   "bytes": 14112
+  },
+  {
+   "id": "6c",
+   "shout": "Abeg!",
+   "text": "Aaabeeeeg!",
+   "bytes": 18144
+  },
+  {
+   "id": "7a",
+   "shout": "🔥",
+   "text": "Fiiire!",
+   "bytes": 11808
+  },
+  {
+   "id": "7b",
+   "shout": "🔥",
+   "text": "Fiiiiire!",
+   "bytes": 14688
+  },
+  {
+   "id": "7c",
+   "shout": "🔥",
+   "text": "Fiiiiire ooo!",
+   "bytes": 22752
+  },
+  {
+   "id": "8a",
+   "shout": "😂",
+   "text": "Ha ha ha haaa!",
+   "bytes": 17136
+  },
+  {
+   "id": "8b",
+   "shout": "😂",
+   "text": "Haa haa haa haaa!",
+   "bytes": 21312
+  },
+  {
+   "id": "8c",
+   "shout": "😂",
+   "text": "Haaa haaa haaa haaaa!",
+   "bytes": 32256
+  },
+  {
+   "id": "9a",
+   "shout": "👏",
+   "text": "Well dooone!",
+   "bytes": 13680
+  },
+  {
+   "id": "9b",
+   "shout": "👏",
+   "text": "Weeell dooone!",
+   "bytes": 16848
+  },
+  {
+   "id": "9c",
+   "shout": "👏",
+   "text": "Weeell doooone ooo!",
+   "bytes": 23472
+  },
+  {
+   "id": "10a",
+   "shout": "🙏",
+   "text": "Thank God ooo!",
+   "bytes": 15696
+  },
+  {
+   "id": "10b",
+   "shout": "🙏",
+   "text": "Thaank Gaad ooo!",
+   "bytes": 19440
+  },
+  {
+   "id": "10c",
+   "shout": "🙏",
+   "text": "Thaaank Gaaad ooooo!",
+   "bytes": 20448
+  },
+  {
+   "id": "11a",
+   "shout": "😱",
+   "text": "Yeeeh!",
+   "bytes": 11232
+  },
+  {
+   "id": "11b",
+   "shout": "😱",
+   "text": "Yeeeeeh!",
+   "bytes": 13680
+  },
+  {
+   "id": "11c",
+   "shout": "😱",
+   "text": "Yeeeeeeeh!",
+   "bytes": 18576
+  },
+  {
+   "id": "12a",
+   "shout": "Conjour!",
+   "text": "Conjoour!",
+   "bytes": 12384
+  },
+  {
+   "id": "12b",
+   "shout": "Conjour!",
+   "text": "Conjouuur!",
+   "bytes": 15264
+  },
+  {
+   "id": "12c",
+   "shout": "Conjour!",
+   "text": "Cooonjouuur!",
+   "bytes": 18144
+  },
+  {
+   "id": "13a",
+   "shout": "School boi!",
+   "text": "School booy!",
+   "bytes": 13824
+  },
+  {
+   "id": "13b",
+   "shout": "School boi!",
+   "text": "Schoool boooy!",
+   "bytes": 17280
+  },
+  {
+   "id": "13c",
+   "shout": "School boi!",
+   "text": "Schoooool booooy!",
+   "bytes": 20592
+  }
+ ]
+}
