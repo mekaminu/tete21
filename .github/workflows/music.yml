@@ -1,0 +1,26 @@
+# Fetches the songs for the table music: every song in tools/music-sources.json (Pixabay, free to use under the
+# Pixabay Content License), trimmed and evened out in loudness by tools/fetch-music.py, onto the music-lab branch.
+# Nothing changes in the game until the chosen songs are copied into public/music.
+name: Fetch the table music
+on:
+  push:
+    branches: [get-music]
+permissions:
+  contents: write
+jobs:
+  music:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ffmpeg
+        run: which ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+      - name: Download and prepare the songs
+        run: python3 tools/fetch-music.py music-lab
+      - name: Put them on the music-lab branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c music-lab
+          git add -f music-lab
+          git commit -m "Candidate songs for the table music"
+          git push -f origin music-lab
