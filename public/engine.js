@@ -25,7 +25,7 @@ function cleanAv(av) {
 function newToken() { return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
 // treats you can buy for your seat, a friend or the whole table (play chips go to the house)
 const TREATS = { chapman: { e: '🍹', n: 'Chapman', price: 30 }, palm: { e: '🥥', n: 'Palm wine', price: 40 }, zobo: { e: '🍷', n: 'Zobo', price: 25 }, malt: { e: '🍺', n: 'Malt', price: 30 }, suya: { e: '🍢', n: 'Suya', price: 60 }, puff: { e: '🍩', n: 'Puff-puff', price: 20 }, jollof: { e: '🍛', n: 'Jollof', price: 80 }, pepper: { e: '🍲', n: 'Pepper soup', price: 70 } };
-const REACTS = ['Oya!', 'Chai!', 'Na wa o!', 'E choke!', 'Wahala!', 'Ehen!', 'Abeg!', '🔥', '😂', '👏', '🙏', '😱', 'Conjour!', 'School boi!'];
+const REACTS = ['Oya!', 'Chai!', 'Na wa o!', 'E choke!', 'Wahala!', 'Ehen!', 'Abeg!', '🔥', '😂', '👏', '🙏', '😱', 'Conjour!', 'School boi!', 'Guy play nowwww!', 'Witch people!', 'You be idiot!', 'We go fry egg for you!'];
 const THANKS = ['E se o! 🙏', 'Thank you o!', 'Ah, my person!', 'Oya, more!', 'Big man! 🔥'];
 const BOT_CHAT = ['Ehen?', 'No wahala 👍', 'Abeg, focus on the game 😂', 'I hear you o', 'We go see 😏', 'Oya, deal!', 'You dey whine me?', 'E go better'];
 function sbDesc(type, mine, theirs) { return type === 'first' ? '1st card flushed beats the 2nd' : type === 'cardvcard' ? `board card #${mine + 1} beats #${theirs + 1}` : "final total beats the other's"; }

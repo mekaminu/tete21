@@ -8,9 +8,12 @@ shout, for everyone at every table.
   python3 tools/house-voice.py voice-note.m4a --name Meka
   python3 tools/house-voice.py voice-note.m4a --list          # just show the parts it heard
   python3 tools/house-voice.py voice-note.m4a --keep 2,3,4,5,6,7,8,9,10,11,12,13,14,15 --name Meka
+  python3 tools/house-voice.py new-shouts.m4a --from 14       # a note of just the shouts added after the 14th
 
 The order is REACTS in public/engine.js: Oya, Chai, Na wa o, E choke, Wahala, Ehen, Abeg, Fire, a laugh,
-Well done, Thank God o, Yeh, Conjour, School boi.
+Well done, Thank God o, Yeh, Conjour, School boi, then the ones added later (Guy play nowwww, Witch people,
+You be idiot, We go fry egg for you). With --from, the note holds only the shouts from that number on, and the
+clips already made for the earlier ones are kept.
 
 It finds the spoken parts by loudness and leaves out taps, bumps and rustles (anything with no voice in it).
 If it doesn't hear exactly one part per shout it stops and lists what it heard, and --keep picks the parts
@@ -141,9 +144,11 @@ def main():
     ap.add_argument('--out', default=os.path.join(ROOT, 'public', 'shouts', 'house'))
     ap.add_argument('--keep', help='comma-separated part numbers from --list, in shout order')
     ap.add_argument('--list', action='store_true', help='only list the parts it heard')
+    ap.add_argument('--from', dest='start', type=int, default=0, help='the first shout in this note (0 = all of them); earlier clips are kept')
     a = ap.parse_args()
 
-    names = reacts()
+    every = reacts()
+    names = every[a.start:]
     x = decode(a.note)
     y, db, floor, hdb, hfloor, parts = find_parts(x)
     for p in parts:
@@ -156,15 +161,16 @@ def main():
             return
     pick = [parts[int(i)] for i in a.keep.split(',')] if a.keep else [p for p in parts if p['speech']]
     if len(pick) != len(names):
-        sys.exit(f'Heard {len(pick)} shouts but the game has {len(names)}. Check the list above and pass --keep.')
+        sys.exit(f'Heard {len(pick)} shouts but expected {len(names)} ({", ".join(names)}). Check the list above and pass --keep.')
 
     os.makedirs(a.out, exist_ok=True)
-    for f in os.listdir(a.out):
-        if f.endswith('.mp3') or f == 'index.json':
-            os.remove(os.path.join(a.out, f))
+    if a.start == 0:
+        for f in os.listdir(a.out):
+            if f.endswith('.mp3') or f == 'index.json':
+                os.remove(os.path.join(a.out, f))
     print(f'\n{"":3}{"shout":12} {"from":>14}  {"length":>6}  {"gain":>6}')
     order = sorted(parts, key=lambda p: p['s'])
-    for i, (name, p) in enumerate(zip(names, pick)):
+    for i, (name, p) in enumerate(zip(names, pick), start=a.start):
         j = order.index(p)
         nxt = order[j + 1]['s'] if j + 1 < len(order) else len(db) + 40
         prev = order[j - 1]['e'] if j > 0 else -10
@@ -177,10 +183,14 @@ def main():
                          f'afade=t=in:d=0.012,afade=t=out:st={max(0, dur - 0.08):.3f}:d=0.08,aresample=24000',
                       out=os.path.join(a.out, f'{i}.mp3'), fmt=(None, ['-ac', '1', '-c:a', 'libmp3lame', '-b:a', '64k']))
         print(f'{i:<3}{name:12} {t0:6.2f}-{t1:6.2f}s  {dur:5.2f}s  {gain:+5.1f}dB')
+    # the clips run 0, 1, 2 ... with no gaps; the game plays the house voice for that many shouts
+    n = 0
+    while os.path.exists(os.path.join(a.out, f'{n}.mp3')):
+        n += 1
     stamp = np.base_repr(int(time.time() * 1000), 36).lower()
     with open(os.path.join(a.out, 'index.json'), 'w') as f:
-        f.write(json.dumps({'voice': a.name, 'n': len(names), 'v': stamp}) + '\n')
-    print(f'\n{len(names)} clips in {os.path.relpath(a.out, ROOT)} (version {stamp})')
+        f.write(json.dumps({'voice': a.name, 'n': n, 'v': stamp}) + '\n')
+    print(f'\n{n} clips in {os.path.relpath(a.out, ROOT)} (version {stamp})' + ('' if n == len(every) else f'; the game has {len(every)} shouts, so the rest use the phone voice'))
 
 
 if __name__ == '__main__':

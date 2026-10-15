@@ -905,7 +905,7 @@ function lendFx(from,to,amt,back){const a=seatEl(from),b=seatEl(to);if(a&&b&&!RM
 // shouts said out loud: the player's own recording if they made one, otherwise the device's voice, a Nigerian
 // English one when the phone or laptop has it (Edge does; Android can download one; iPhones don't), with each
 // player's voice pitched a little differently
-const SAY={'Oya!':'Oya!','Chai!':'Chaai!','Na wa o!':'Na wa o!','E choke!':'E choke!','Wahala!':'Wahala!','Ehen!':'Ehen!','Abeg!':'Abeg!','Conjour!':'Conjour!','School boi!':'School boy!','🔥':'Fire!','😂':'Ha ha ha ha!','👏':'Well done!','🙏':'Thank God o!','😱':'Ye!'};
+const SAY={'Oya!':'Oya!','Chai!':'Chaai!','Na wa o!':'Na wa o!','E choke!':'E choke!','Wahala!':'Wahala!','Ehen!':'Ehen!','Abeg!':'Abeg!','Conjour!':'Conjour!','School boi!':'School boy!','Guy play nowwww!':'Guy, play now!','Witch people!':'Witch people!','You be idiot!':'You be idiot!','We go fry egg for you!':'We go fry egg for you!','🔥':'Fire!','😂':'Ha ha ha ha!','👏':'Well done!','🙏':'Thank God o!','😱':'Ye!'};
 let SPEAK=true;try{SPEAK=localStorage.getItem('tete.speak')!=='off'}catch{}
 let VOICES=null;
 function voicesFor(){if(!('speechSynthesis' in window))return[];const vs=speechSynthesis.getVoices()||[];if(!vs.length)return[];
@@ -936,7 +936,7 @@ function voiceOf(pid){const p=S&&S.players[pid];return(p&&p.voice)||(pid===ME?MY
 function playRecorded(pid,r){const v=voiceOf(pid);if(!v||!((v[1]>>r)&1))return false;const a=clipAudio(clipUrl(v,r));
   try{a.currentTime=0;a.volume=Math.min(1,((window.TeteSound&&TeteSound.volume)||.7)+.25);const pr=a.play();if(pr&&pr.catch)pr.catch(()=>{})}catch{}return true}
 // fetch everyone's recordings ahead of time so a shout plays the moment it's made
-function prefetchVoices(){if(!S)return;prefetchHouse();if(HV)return;for(const p of S.players){const v=p.voice;if(!v)continue;for(let r=0;r<16;r++)if((v[1]>>r)&1)clipAudio(clipUrl(v,r))}}
+function prefetchVoices(){if(!S)return;prefetchHouse();if(HV)return;for(const p of S.players){const v=p.voice;if(!v)continue;for(let r=0;r<REACTS.length;r++)if((v[1]>>r)&1)clipAudio(clipUrl(v,r))}}
 // ---------- record your own shouts ----------
 let REC=null;
 function renderShoutList(){const box=$('#shoutlist');if(!box)return;const words=REACTS.map((t,i)=>i).filter(i=>!isEmo(REACTS[i]));

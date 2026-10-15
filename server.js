@@ -511,7 +511,7 @@ async function handle(ws, m) {
     case 'hello': if (T) T.updateHuman(ws.pid, m); break;
     case 'voice_get': { const vk = vkOf(ws.me); if (!vk) return; const o = await loadVoice(vk); send(ws, { type: 'voice', info: voiceInfo(vk, o) || [vk, 0, o.v] }); break; }
     case 'shout_set': {
-      const vk = vkOf(ws.me); if (!vk) return; const i = Math.floor(+m.i); if (!(i >= 0 && i < 16)) return;
+      const vk = vkOf(ws.me); if (!vk) return; const i = Math.floor(+m.i); if (!(i >= 0 && i < 32)) return;
       const b = Buffer.from(String(m.wav || ''), 'base64');
       if (b.length < 800 || b.length > 47000 || b.toString('ascii', 0, 4) !== 'RIFF' || b.toString('ascii', 8, 12) !== 'WAVE') return send(ws, { type: 'error', msg: "That recording didn't come through. Try again, a little shorter." });
       const o = await loadVoice(vk); o.clips[i] = b; o.v++; saveVoice(vk, o); voiceChanged(vk, o); send(ws, { type: 'voice', info: voiceInfo(vk, o) }); break;
