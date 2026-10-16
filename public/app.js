@@ -1112,15 +1112,16 @@ function placeMarks(){
   if(MKS.hand!==S.handNo)MKS={hand:S.handNo,by:-1,top:-1};
   // cards that didn't follow the call can't win: greyed
   for(const id of S.participants){const c=S.players[id]&&S.players[id].dropped,w=$(`#seat-${id} .dropwrap`);if(w&&c&&c.r!==undefined&&c.s!==ci.suit)w.classList.add('off')}
-  // the call card wears a CALL tag, and its suit flies to the middle of the table
+  // the call card wears a CALL tag just under it (the card's number stays clear), and its suit flies to the middle of the table
   const cc=landedDrop(ci.by);
-  if(cc){cc.parentNode.classList.add('call');const r=cc.getBoundingClientRect();cl.style.left=Math.round(r.left+r.width/2)+'px';cl.style.top=Math.round(r.bottom-2)+'px';cl.classList.toggle('sm',r.width<36);
+  if(cc){cc.parentNode.classList.add('call');const r=cc.getBoundingClientRect();cl.style.left=Math.round(r.left+r.width/2)+'px';cl.style.top=Math.round(r.bottom+(r.width<36?6:8))+'px';cl.classList.toggle('sm',r.width<36);
     if(showMark(cl)&&!RM())cl.animate([{transform:'translate(-50%,-10%) scale(.3)',opacity:0},{offset:.6,transform:'translate(-50%,-50%) scale(1.2)',opacity:1},{transform:'translate(-50%,-50%) scale(1)',opacity:1}],{duration:420,easing:'cubic-bezier(.2,.9,.3,1.2)'});
     if(MKS.by!==ci.by){MKS.by=ci.by;callFly(cc,ci.suit)}}
   else if(ci.by<0)hideMark(cl);
-  // the crown sits on the card leading the call; when someone beats it, it hops across
+  // the crown sits on the top-right corner of the card leading the call, clear of its number (top left and
+  // bottom right); when someone beats it, it hops across
   const want=landedDrop(ci.top)?ci.top:(landedDrop(MKS.top)?MKS.top:-1),tc=landedDrop(want);
-  if(tc){tc.parentNode.classList.add('top');const r=tc.getBoundingClientRect(),x=Math.round(r.left+r.width/2),y=Math.round(r.top+2);cr.style.setProperty('--cs',Math.round(Math.max(15,Math.min(26,r.width*.52)))+'px');
+  if(tc){tc.parentNode.classList.add('top');const r=tc.getBoundingClientRect(),x=Math.round(r.right-r.width*.1),y=Math.round(r.top+1);cr.style.setProperty('--cs',Math.round(Math.max(14,Math.min(24,r.width*.5)))+'px');
     const px=parseFloat(cr.style.left),py=parseFloat(cr.style.top),hop=!cr.hidden&&!cr.dataset.out&&MKS.top>=0&&MKS.top!==want;
     cr.style.left=x+'px';cr.style.top=y+'px';
     if(showMark(cr)){if(!RM())cr.animate([{transform:'translateY(-30px) scale(1.9)',opacity:0},{offset:.6,transform:'translateY(3px) scale(.92)',opacity:1},{transform:'none',opacity:1}],{duration:560,delay:MKS.by===ci.by&&want===ci.by?380:0,easing:'cubic-bezier(.3,.7,.3,1)',fill:'backwards'})}
