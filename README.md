@@ -43,6 +43,16 @@ TURN_PASS=...
 - **Invite:** inside a room, Invite shows the code, copies the link, opens the phone's share menu (WhatsApp, Messages, contacts) and lists your friends with an Invite button.
 - **Friends:** each device has a private key; its public id is derived from it, so nothing needs storing on the server. Share your friend link once and you're friends. Friend lists live on each device; the server only tracks who is online and at which table.
 
+## Members only
+
+Only people the owner (Meka, username `meka`) lets in can open Tete at all. Everyone else gets a small sign-in page (`pages/gate.html`) that carries none of the game: not the tables, not practice, not the code (the game's files answer 403 and the socket closes with 4003).
+
+- **Asking:** a new account (or an old one coming back) lands on "Waiting for Meka" and the request drops in for Meka as a card with **Let in** / **Not now**; the page lets them in by itself the moment he says yes.
+- **Members sheet** (the 👥 button in Meka's lobby, with how many are waiting): Waiting for you, Invite a friend, Members (**Remove** takes someone off at once, even mid-game), Not let in, everyone else who had an account before members only, and the **Members only On/Off** switch (Off: anyone with the link can play; switching it back on sends anyone who isn't a member back to the sign-in page).
+- **Invite links:** a link for 1 person or up to 5, valid 3 days; whoever opens it and makes an account (or signs in) is straight in.
+- **How it knows you:** signing in sets a cookie holding the account's session (HttpOnly, SameSite=Lax, Secure on https); a phone that was signed in before members only is carried over automatically. Sign-in, accounts made per address (5 an hour) and failed passwords are rate-limited.
+- **Settings:** `OWNERS` (usernames, default `meka`), `OWNER_NAME` (default Meka), `MEMBERS_ONLY=0` switches it all off (for running locally). The list is kept in the database (`t21_kv`, key `members`).
+
 ## Standing rooms
 
 A host can keep a room open until they close it. Each player's device keeps a sealed (signed) copy of the room, so if the server restarts or the free plan sleeps, the first player back restores it with everyone's chips. Set `ROOM_SECRET` (any long random string; Render's "Generate" button works) so copies stay valid across deploys; without it the server falls back to Render's service id.

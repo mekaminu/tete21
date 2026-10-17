@@ -18,6 +18,12 @@ const CLOSED_PAGE = '<!doctype html><html lang="en"><head><meta charset="utf-8">
   + 'h1{font:700 36px/1.1 Georgia,serif;color:#e3c278;letter-spacing:.08em;margin:0 0 12px}p{margin:0;color:#b8a98e}</style></head>'
   + '<body><main><h1>TETE 21</h1><p>The tables are closed for now.<br>Check back later.</p></main></body></html>';
 const accounts = require('./accounts');
+const members = require('./members');
+// Members only: anyone the owner hasn't let in gets this sign-in page at / and nothing else (no game code)
+const GATE_FILE = path.join(__dirname, 'pages', 'gate.html');
+const escHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let GATE = '';
+function gatePage() { if (!GATE || !process.env.RENDER) { try { GATE = fs.readFileSync(GATE_FILE, 'utf8').replace(/\{\{OWNER\}\}/g, escHtml(members.OWNER_NAME)); } catch (e) { console.error('gate page:', e.message); GATE = '<!doctype html><title>Tete 21</title><p>Members only.'; } } return GATE; }
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
@@ -162,6 +168,7 @@ function becomeDevice(ws) {
   o.socks.add(ws); o.name = ws.devName || o.name; o.av = ws.devAv || o.av; o.friends = cleanFriends(ws.devFriends, id);
   send(ws, { type: 'you', id });
   sendPresence(ws);
+  send(ws, roleOf(null));
   for (const [uid, u] of online) if (uid !== id && u.socks.size && !u.acct && u.friends.has(id) && !o.friends.has(uid)) send(ws, { type: 'friend_added', id: uid, name: u.name, av: u.av });
   if (!wasOn) presenceChanged(id);
 }
@@ -179,6 +186,7 @@ async function becomeAccount(ws, u) {
   if (p && !p.uid && !p.isBot && freeChips(u.id) >= p.chips) { p.uid = u.id; if (T.handStart && T.handStart.has(p)) T.handStart.set(p, T.handStart.get(p)); if (T.persistent) saveRoom(T); }
   await sendAccount(ws);
   sendPresence(ws);
+  send(ws, roleOf(u)); if (members.isOwner(u)) send(ws, await membersView());
   if (!wasOn) presenceChanged(u.id);
 }
 
@@ -282,11 +290,153 @@ function iceServers() {
   return s;
 }
 
+// ---------- members only ----------
+// The page, its files and the socket open only for people the owner has let in. Who you are comes from a cookie
+// holding your account's session (set by the sign-in page); a page's files are checked against a minute's memory of
+// it so they don't each ask the database.
+const COOKIE = 'tete_s';
+const OPEN_FILES = new Set(['/icon.svg', '/manifest.webmanifest', '/sw.js']);
+function cookieOf(req) { const m = /(?:^|;\s*)tete_s=([A-Za-z0-9_-]{20,100})(?:;|$)/.exec(String(req.headers.cookie || '')); return m ? m[1] : null; }
+const httpsReq = req => String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
+function setCookie(res, req, token) { res.setHeader('set-cookie', `${COOKIE}=${token || ''}; Path=/; Max-Age=${token ? 180 * 86400 : 0}; HttpOnly; SameSite=Lax${httpsReq(req) ? '; Secure' : ''}`); }
+const SEEN = new Map(); // session token -> { uid, t }
+async function viewer(req) {
+  const tok = cookieOf(req); if (!tok) return { tok: null, u: null };
+  const c = SEEN.get(tok);
+  if (c && Date.now() - c.t < 60000) return { tok, u: c.uid ? (accounts.cached(c.uid) || await accounts.get(c.uid)) : null };
+  let u = null; try { u = await accounts.fromSession(tok); } catch (e) { console.error('session:', e.message); return { tok, u: null }; }
+  if (SEEN.size > 5000) SEEN.clear();
+  SEEN.set(tok, { uid: u ? u.id : null, t: Date.now() });
+  return { tok, u };
+}
+const ipOf = req => String((req.headers['x-forwarded-for'] || '').split(',')[0] || req.socket.remoteAddress || '').trim();
+const NEWACCTS = new Map(); // ip -> times accounts were made from it (5 an hour)
+function tooManyAccounts(ip) { const now = Date.now(), l = (NEWACCTS.get(ip) || []).filter(t => now - t < 3600000); NEWACCTS.set(ip, l); return l.length >= 5; }
+function readJSON(req, max) {
+  return new Promise(res => {
+    if (req.method !== 'POST' || !/application\/json/.test(String(req.headers['content-type'] || ''))) return res(null);
+    const o = req.headers.origin; if (o) { try { if (new URL(o).host !== req.headers.host) return res(null); } catch { return res(null); } }
+    let n = 0; const ch = [];
+    req.on('data', d => { n += d.length; if (n > max) { res(null); req.destroy(); } else ch.push(d); });
+    req.on('end', () => { try { const v = JSON.parse(Buffer.concat(ch).toString('utf8') || '{}'); res(v && typeof v === 'object' ? v : null); } catch { res(null); } });
+    req.on('error', () => res(null));
+  });
+}
+// what the sign-in page shows: none (signed out) · wait · no · yes · owner
+function gateView(u) {
+  const base = { on: members.on() ? 1 : 0, owner: members.OWNER_NAME };
+  if (!u) return Object.assign(base, { status: 'none' });
+  const st = members.isOwner(u) ? 'owner' : members.allowed(u) ? 'yes' : members.status(u);
+  return Object.assign(base, { status: st, name: u.display, user: u.username });
+}
+async function api(req, res, url) {
+  const out = (o, tok) => { if (tok !== undefined) setCookie(res, req, tok); res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(o)); };
+  const ip = ipOf(req);
+  if (url === '/api/me') {
+    const v = await viewer(req);
+    // an invite link's key, checked before anyone types anything: still good, or used up / expired
+    let key = null; try { key = new URL(req.url, 'http://x').searchParams.get('key'); } catch {}
+    const kv = key ? { key: members.liveInvite(key) ? 1 : 0 } : {};
+    if (!v.u) return out(Object.assign(gateView(null), kv), v.tok ? '' : undefined);
+    if (!members.allowed(v.u)) members.ask(v.u, 'signed in');
+    return out(Object.assign(gateView(v.u), kv));
+  }
+  const body = await readJSON(req, 4096);
+  if (!body) return out({ error: 'Something went wrong. Refresh the page and try again.' });
+  if (url === '/api/signin' || url === '/api/signup') {
+    const up = url === '/api/signup';
+    if (up && tooManyAccounts(ip)) return out({ error: 'Too many new accounts from here. Try again in an hour.' });
+    const args = { username: body.username, password: body.password, display: cleanName(body.display) || '', av: null, dev: null, ip };
+    let r; try { r = up ? await accounts.signup(args) : await accounts.signin(args); } catch (e) { console.error('gate', url, e.message); r = { error: 'Something went wrong. Try again.' }; }
+    if (r.error) return out({ error: r.error });
+    if (up) NEWACCTS.get(ip).push(Date.now());
+    const u = r.user;
+    if (body.key) members.redeem(u, String(body.key));
+    if (!members.allowed(u)) members.ask(u, up ? 'new account' : 'signed in');
+    return out(Object.assign(gateView(u), { token: r.token, welcome: r.welcome || 0 }), r.token);
+  }
+  if (url === '/api/session') { // a session the app already held (from before members only) moves into the cookie
+    const tok = typeof body.token === 'string' && /^[A-Za-z0-9_-]{20,100}$/.test(body.token) ? body.token : '';
+    let u = null; try { u = tok ? await accounts.fromSession(tok) : null; } catch (e) { console.error('session:', e.message); }
+    if (!u) return out(gateView(null), '');
+    if (body.key) members.redeem(u, String(body.key));
+    if (!members.allowed(u)) members.ask(u, 'signed in');
+    return out(gateView(u), tok);
+  }
+  if (url === '/api/key') { // an invite link opened while signed in
+    const v = await viewer(req); if (!v.u) return out(gateView(null));
+    const ok = members.redeem(v.u, String(body.key || ''));
+    return out(Object.assign(gateView(v.u), { keyOk: ok ? 1 : 0 }));
+  }
+  if (url === '/api/signout') {
+    const v = await viewer(req);
+    if (v.tok) { SEEN.delete(v.tok); await accounts.signout(v.tok).catch(() => {}); }
+    return out(gateView(null), '');
+  }
+  res.writeHead(404, { 'content-type': 'application/json' }); res.end('{"error":"Not found"}');
+}
+// the owner's view of everyone: waiting, members, not let in, everyone else with an account, and the invite links
+async function membersView() {
+  const P = members.people();
+  let users = [];
+  try {
+    users = await accounts.listUsers(300);
+    const have = new Set(users.map(u => u.id)), missing = Object.keys(P).filter(id => !have.has(id) && isId(id)).slice(0, 500);
+    if (missing.length) users = users.concat(await accounts.usersByIds(missing));
+  } catch (e) { console.error('members list:', e.message); }
+  const row = u => { const p = P[u.id] || {}; return { id: u.id, name: u.display, user: u.username, av: u.av || null, hands: (u.stats && u.stats.hands) || 0, since: u.created_at || 0, asked: p.asked || 0, at: p.at || 0, via: p.via || '', here: online.has(u.id) ? 1 : 0 }; };
+  const v = { type: 'members', on: members.on() ? 1 : 0, forced: members.forcedOff() ? 1 : 0, waiting: [], yes: [], no: [], others: [], invites: members.invites() };
+  for (const u of users) {
+    if (members.isOwner(u)) continue;
+    const s = (P[u.id] || {}).s;
+    (s === 'wait' ? v.waiting : s === 'yes' ? v.yes : s === 'no' ? v.no : v.others).push(row(u));
+  }
+  v.waiting.sort((a, b) => b.asked - a.asked); v.yes.sort((a, b) => b.at - a.at); v.no.sort((a, b) => b.at - a.at);
+  v.othersTotal = v.others.length; v.others = v.others.slice(0, 80);
+  const names = new Map(users.map(u => [u.id, u.display]));
+  for (const i of v.invites) i.names = i.users.map(id => names.get(id) || 'someone');
+  return v;
+}
+const ownerOf = ws => !!ws.uid && members.isOwner(accounts.cached(ws.uid));
+function ownerSocks() { const out = []; for (const [uid, o] of online) if (o.acct && members.isOwner(accounts.cached(uid))) for (const s of o.socks) out.push(s); return out; }
+let pmT = null;
+function pushMembers() { clearTimeout(pmT); pmT = setTimeout(async () => { const socks = ownerSocks(); if (!socks.length) return; const v = await membersView(); for (const s of socks) send(s, v); }, 120); }
+function roleOf(u) { return { type: 'members_role', on: members.on() ? 1 : 0, owner: members.isOwner(u) ? 1 : 0, forced: members.forcedOff() ? 1 : 0, waiting: members.isOwner(u) ? members.waitingCount() : 0 }; }
+// someone taken off (or everyone who isn't a member, when the gate goes back up) goes back to the sign-in page
+function sendOut(s, msg) { send(s, { type: 'members_out', msg }); setTimeout(() => { try { s.close(4003, 'members only'); } catch {} }, 400); }
+members.onEvent((kind, a, b) => {
+  if (kind === 'ask') {
+    const u = a, who = { id: u.id, name: u.display, user: u.username, av: u.av || null, hands: (u.stats && u.stats.hands) || 0 };
+    for (const s of ownerSocks()) send(s, { type: 'members_ask', who });
+  }
+  if (kind === 'set' && b === 'no') { const o = online.get(a); if (o) for (const s of [...o.socks]) sendOut(s, `${members.OWNER_NAME} took you off Tete.`); }
+  if (kind === 'open') {
+    for (const ws of wss.clients) {
+      const u = ws.uid ? accounts.cached(ws.uid) : null;
+      if (a && !members.allowed(u)) sendOut(ws, 'Tete is members only now.');
+      else send(ws, roleOf(u));
+    }
+  }
+  pushMembers();
+});
+
 // ---------- http ----------
 const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
   if (url === '/health') { res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' }); return res.end(accounts.isReady() ? 'ok' : 'ok (accounts offline)'); }
   if (CLOSED) { res.writeHead(503, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'retry-after': '3600' }); return res.end(CLOSED_PAGE); }
+  if (url.startsWith('/api/')) { api(req, res, url).catch(e => { console.error('api:', e.message); if (!res.headersSent) { res.writeHead(500, { 'content-type': 'application/json' }); res.end('{"error":"Something went wrong. Try again."}'); } }); return; }
+  if (!members.on() || OPEN_FILES.has(url)) return serve(req, res, url);
+  viewer(req).then(v => {
+    if (members.allowed(v.u)) return serve(req, res, url);
+    if (url === '/' || url === '/index.html') {
+      if (v.tok && !v.u) setCookie(res, req, '');
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', vary: 'Cookie' }); return res.end(gatePage());
+    }
+    res.writeHead(403, { 'content-type': 'text/plain', 'cache-control': 'no-store', vary: 'Cookie' }); res.end('Members only');
+  }).catch(e => { console.error('gate:', e.message); res.writeHead(500); res.end(); });
+});
+function serve(req, res, url) {
   if (url === '/ice') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify(iceServers())); }
   const sv = /^\/shout\/([0-9a-f]{12})\/(\d{1,2})$/.exec(url);
   if (sv) { loadVoice(sv[1]).then(o => { const b = o.clips[+sv[2]]; if (!b) { res.writeHead(404); return res.end(); } res.writeHead(200, { 'content-type': 'audio/wav', 'content-length': b.length, 'cache-control': 'public, max-age=31536000, immutable' }); res.end(b); }).catch(() => { res.writeHead(500); res.end(); }); return; }
@@ -298,10 +448,10 @@ const server = http.createServer((req, res) => {
     const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.mp3': 'audio/mpeg', '.wav': 'audio/wav' };
     // the house voice's clips and the songs are asked for with a version (?v=), so they can be kept for good
     const forever = (url.startsWith('/shouts/') || url.startsWith('/music/')) && url.endsWith('.mp3') && /[?&]v=/.test(req.url);
-    res.writeHead(200, { 'content-type': types[path.extname(fp)] || 'application/octet-stream', 'content-length': data.length, 'cache-control': forever ? 'public, max-age=31536000, immutable' : 'no-cache' });
+    res.writeHead(200, { 'content-type': types[path.extname(fp)] || 'application/octet-stream', 'content-length': data.length, 'cache-control': forever ? 'public, max-age=31536000, immutable' : 'no-cache', vary: 'Cookie' });
     res.end(data);
   });
-});
+}
 
 // ---------- websocket ----------
 const wss = new WebSocketServer({ server, maxPayload: 64 * 1024 });
@@ -310,16 +460,18 @@ wss.on('connection', (ws, req) => {
   ws.sid = rand(6); // this screen's session: voice/video links are rebuilt when a player comes back on a new one
   ws.table = null; ws.pid = -1; ws.lastFx = 0; ws.isAlive = true; ws.me = null; ws.uid = null; ws.dev = null; ws.request = null; ws.tz = 0;
   ws.ip = String((req.headers['x-forwarded-for'] || '').split(',')[0] || req.socket.remoteAddress || '').trim();
+  ws.cookieTok = cookieOf(req);
   ws.on('pong', () => (ws.isAlive = true));
-  sendRooms(ws);
+  // members only: the socket opens only for someone the owner has let in (the same check as the page)
+  const gate = !members.on() ? Promise.resolve(true) : viewer(req).then(v => members.allowed(v.u)).catch(() => false);
   // signing in finishes before anything that depends on who you are; game moves never wait on the database
-  let ident = Promise.resolve();
+  let ident = gate.then(ok => { ws.ok = ok; if (!ok) { try { ws.close(4003, 'members only'); } catch {} return; } sendRooms(ws); });
   const fail = e => console.error('message error:', (e && e.stack) || e);
   ws.on('message', raw => {
     let m; try { m = JSON.parse(raw); } catch { return; }
     if (!m || typeof m !== 'object') return;
-    if (m.type === 'id' || m.type === 'signup' || m.type === 'signin' || m.type === 'signout') ident = ident.then(() => handle(ws, m)).catch(fail);
-    else ident.then(() => handle(ws, m)).catch(fail);
+    if (m.type === 'id' || m.type === 'signup' || m.type === 'signin' || m.type === 'signout') ident = ident.then(() => ws.ok && handle(ws, m)).catch(fail);
+    else ident.then(() => ws.ok && handle(ws, m)).catch(fail);
   });
   ws.on('close', () => { ident.then(() => { leave(ws, true); dropPresence(ws); }); });
 });
@@ -332,9 +484,12 @@ async function handle(ws, m) {
       const secret = String(m.secret || ''); if (!/^[0-9a-f]{32,128}$/.test(secret)) return;
       ws.dev = sha('id:' + secret).slice(0, 16); ws.devFriends = Array.isArray(m.friends) ? m.friends : []; ws.devName = cleanName(m.name); ws.devAv = cleanAv(m.av);
       if (typeof m.tz === 'number') ws.tz = m.tz;
-      let u = null;
-      if (m.session) { try { u = await accounts.fromSession(String(m.session)); } catch (e) { console.error('session:', e.message); } if (!u && accounts.isReady()) send(ws, { type: 'signed_out', reason: 'expired' }); }
-      if (u) { ws.session = String(m.session); await becomeAccount(ws, u); } else becomeDevice(ws);
+      let u = null, sess = m.session ? String(m.session) : '';
+      // members only: the account is the one the page was opened with (the cookie); the app's copy follows it
+      if (members.on() && ws.cookieTok) { if (sess !== ws.cookieTok) send(ws, { type: 'session', token: ws.cookieTok, quiet: 1 }); sess = ws.cookieTok; }
+      if (sess) { try { u = await accounts.fromSession(sess); } catch (e) { console.error('session:', e.message); } if (!u && accounts.isReady()) send(ws, { type: 'signed_out', reason: 'expired', gate: members.on() ? 1 : 0 }); }
+      if (u && members.on() && !members.allowed(u)) { sendOut(ws, 'Ask ' + members.OWNER_NAME + ' to let you in.'); return; }
+      if (u) { ws.session = sess; await becomeAccount(ws, u); } else becomeDevice(ws);
       break;
     }
     case 'me': {
@@ -347,6 +502,7 @@ async function handle(ws, m) {
 
     // ----- accounts -----
     case 'signup': case 'signin': {
+      if (members.on()) return send(ws, { type: 'auth_error', msg: 'Sign out first, then sign in with the other account on the front page.' });
       if (!ws.dev) return send(ws, { type: 'auth_error', msg: 'Still connecting. Try again in a moment.' });
       const args = { username: m.username, password: m.password, display: cleanName(m.display) || ws.devName, av: cleanAv(m.av) || ws.devAv, dev: ws.dev, ip: ws.ip };
       let r; try { r = m.type === 'signup' ? await accounts.signup(args) : await accounts.signin(args); } catch (e) { console.error(m.type, e.message); r = { error: 'Something went wrong. Try again.' }; }
@@ -359,7 +515,9 @@ async function handle(ws, m) {
       break;
     }
     case 'signout': {
-      if (!ws.uid) return; await accounts.signout(ws.session); ws.session = null;
+      if (!ws.uid) return;
+      if (members.on()) { if (ws.session) SEEN.delete(ws.session); await accounts.signout(ws.session); ws.session = null; dropPresence(ws); ws.uid = null; send(ws, { type: 'signed_out', reason: 'asked', gate: 1 }); return; }
+      await accounts.signout(ws.session); ws.session = null;
       dropPresence(ws); ws.uid = null; becomeDevice(ws); send(ws, { type: 'signed_out', reason: 'asked' }); break;
     }
     case 'password': {
@@ -518,6 +676,18 @@ async function handle(ws, m) {
       break;
     }
 
+    // ----- members only: the owner lets people in -----
+    case 'members': if (ownerOf(ws)) send(ws, await membersView()); break;
+    case 'member_set': {
+      if (!ownerOf(ws) || !isId(m.id)) return;
+      const who = await accounts.get(m.id).catch(() => null); if (!who || members.isOwner(who)) return;
+      if (!members.set(m.id, m.s === 'yes' ? 'yes' : 'no', ws.uid)) pushMembers();
+      break;
+    }
+    case 'invite_new': { if (!ownerOf(ws)) return; const key = members.newInvite(ws.uid, m.max); send(ws, { type: 'invite_link', key, max: Math.max(1, Math.min(10, Math.floor(+m.max) || 1)) }); break; }
+    case 'invite_cancel': if (ownerOf(ws)) members.cancelInvite(String(m.key || '')); break;
+    case 'members_open': { if (!ownerOf(ws) || members.forcedOff()) return; if (!members.setOpen(!!m.open)) pushMembers(); break; }
+
     // ----- at the table -----
     case 'hello': if (T) T.updateHuman(ws.pid, m); break;
     case 'voice_get': { const vk = vkOf(ws.me); if (!vk) return; const o = await loadVoice(vk); send(ws, { type: 'voice', info: voiceInfo(vk, o) || [vk, 0, o.v] }); break; }
@@ -561,7 +731,13 @@ function restoreSaved(saved, from) {
   if (n) console.log(`restored ${n} room(s) from ${from}:`, [...tables.keys()].join(', '));
 }
 if (!CLOSED) restoreSaved(store.load(), 'disk');
+let membersStarted = false;
+function startMembers() {
+  const go = () => { if (membersStarted || !accounts.isReady()) return membersStarted; membersStarted = true; members.init({ get: k => accounts.kvGet(k), set: (k, v) => accounts.kvSet(k, v) }); return true; };
+  if (!go()) { const iv = setInterval(() => { if (go()) clearInterval(iv); }, 5000); }
+}
 accounts.init().then(async () => {
+  startMembers();
   if (!accounts.isReady() || CLOSED) return;
   try { const saved = await accounts.kvGet('rooms'); if (saved) restoreSaved(saved, 'the database'); } catch (e) { console.error('rooms load:', e.message); }
 });

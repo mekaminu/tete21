@@ -154,7 +154,7 @@ function connect(){
   const proto=location.protocol==='https:'?'wss':'ws';
   WS=new WebSocket(`${proto}://${location.host}`);
   WS.onopen=()=>{CONNECTED=true;identify();setStatus('ok','Connected.');renderRooms();$('#conn').style.display='';$('#conn').textContent='live';if(!LOCALT&&CURRENT&&SEATS[CURRENT]){const s=SEATS[CURRENT];WS.send(JSON.stringify({type:'resume',code:CURRENT,token:s.token,seal:s.seal}))}};
-  WS.onclose=function(){if(WS!==this&&WS&&WS.readyState<=1)return;CONNECTED=false;PRES_READY=false;hideReqbar();if(navigator.onLine===false)setStatus('off','Offline. Practice against the computer still works; hosting and joining need a connection.');else setStatus('warn','Connection lost. Reconnecting… (the free server can take up to a minute to wake)');$('#conn').textContent='reconnecting…';setTimeout(connect,1500)};
+  WS.onclose=function(ev){if(WS!==this&&WS&&WS.readyState<=1)return;if(ev&&ev.code===4003){CONNECTED=false;toGate();return}CONNECTED=false;PRES_READY=false;hideReqbar();if(navigator.onLine===false)setStatus('off','Offline. Practice against the computer still works; hosting and joining need a connection.');else setStatus('warn','Connection lost. Reconnecting… (the free server can take up to a minute to wake)');$('#conn').textContent='reconnecting…';setTimeout(connect,1500)};
   WS.onerror=()=>{};
   WS.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch{return}onMessage(m)};
 }
@@ -177,13 +177,19 @@ function onMessage(m){
   if(m.type==='seal'){const s=SEATS[m.code];if(s){s.seal=m.seal;s.rid=m.rid;s.keep=true;if(S&&S.tableName)s.name=S.tableName;saveSeats()}return}
   if(m.type==='you'){MYID=m.id;if(!m.acct)try{localStorage.setItem('tete.myid',m.id)}catch{}handlePendingFriend();return}
   if(m.type==='voice'){MYVOICE=m.info&&m.info[1]?m.info:null;renderShoutList();return}
-  if(m.type==='session'){SESSION=m.token;try{localStorage.setItem('tete.session',m.token)}catch{}closeModal('#m-auth');$('#au-pass').value='';if(m.welcome)setTimeout(()=>celebrate(m.welcome,'Welcome bonus','chips to start you off'),450);else toast('Signed in. Welcome back');return}
+  if(m.type==='session'){SESSION=m.token;try{localStorage.setItem('tete.session',m.token)}catch{}if(m.quiet)return;closeModal('#m-auth');$('#au-pass').value='';if(m.welcome)setTimeout(()=>celebrate(m.welcome,'Welcome bonus','chips to start you off'),450);else toast('Signed in. Welcome back');return}
   if(m.type==='account'){setAccount(m);return}
+  if(m.type==='members_role'){MO=m;renderMbrBtn();return}
+  if(m.type==='members'){MBR=m;MO.waiting=m.waiting.length;renderMbrBtn();if($('#m-members').classList.contains('on'))renderMembers();return}
+  if(m.type==='members_ask'){mbrAsk(m.who);return}
+  if(m.type==='invite_link'){MBR_FRESH=m.key;toast('Link ready: tap Share to send it',2600);SND('pop');if($('#m-members').classList.contains('on'))renderMembers();return}
+  if(m.type==='members_out'){toGate(m.msg||'Members only',true);return}
   if(m.type==='account_lite'){if(!ACCT)return;Object.assign(ACCT,{user:m.user,inPlay:m.inPlay,bonus:m.bonus});renderAcct(true);renderRooms();return}
   if(m.type==='friends'){if(!ACCT)return;Object.assign(ACCT,{friends:m.friends,incoming:m.incoming,outgoing:m.outgoing});syncAcctFriends();renderFriends();renderFriendReqs();renderMeChip();return}
   if(m.type==='friend_req_in'){toast(`${m.from.name} (@${m.from.username}) wants to be friends`,3500);SND('join',{bg:true});buzz([40,30,40]);return}
   if(m.type==='friend_msg'){if($('#m-friends').classList.contains('on')){const el=$('#fr-msg');el.textContent=m.msg;el.className='fr-msg '+(m.ok?'ok':'bad');if(m.ok)$('#fr-user').value=''}else toast(m.msg,3000);if(m.ok)SND('pop');return}
   if(m.type==='auth_error'){showAuthErr(m.msg);return}
+  if(m.type==='signed_out'&&m.gate){SESSION=null;ACCT=null;try{localStorage.removeItem('tete.session')}catch{}toGate(m.reason==='asked'?'Signed out':'Please sign in again.',true);return}
   if(m.type==='signed_out'){SESSION=null;ACCT=null;ACCT_FR={};try{localStorage.removeItem('tete.session')}catch{}if(m.reason==='expired')toast('You were signed out. Sign in again from your profile.',3500);else toast('Signed out');renderAcct();renderFriends();renderRooms();return}
   if(m.type==='need_account'){openAuth('up',m.why==='friend'?`Make a free account to be friends with ${m.name||'them'}. It takes ten seconds, and you start with 10,000 chips.`:m.why==='wheel'?'The daily wheel is for account holders. Make one free: you start with 10,000 chips.':'Friend requests need a free account. You start with 10,000 chips.');if(m.why==='friend'&&m.id)PENDING_ACCT=()=>send({type:'friend_add',id:m.id});return}
   if(m.type==='spun'){wheelResult(m);return}
@@ -429,7 +435,65 @@ function setAccount(m){const first=!ACCT;ACCT=m;syncAcctFriends();
   const u=m.user;if(u.display&&u.display!==myName()){$('#f-name').value=u.display;try{localStorage.setItem('tete.name',u.display)}catch{}}
   if(u.av&&AV.kind!=='photo'&&JSON.stringify(u.av)!==JSON.stringify(AV)){AV=u.av;try{localStorage.setItem('tete.av',JSON.stringify(AV))}catch{}}
   refreshAv();renderAcct();renderFriends();renderFriendReqs();renderRooms();
+  if(first){let w=0;try{w=+localStorage.getItem('tete.welcome')||0;localStorage.removeItem('tete.welcome')}catch{}if(w){const go=()=>setTimeout(()=>celebrate(w,'Welcome bonus','chips to start you off'),500);if(window.TETE_INTRO==='done'||!document.getElementById('intro'))go();else addEventListener('tete:introdone',go,{once:true})}}
   if(first&&PENDING_ACCT){const f=PENDING_ACCT;PENDING_ACCT=null;setTimeout(f,300)}}
+// ---------- members only ----------
+// The owner (Meka) lets people in: the lobby's Members button (with how many are waiting), the Members sheet, and a
+// card that drops in when someone asks. Anyone else lands here only once they've been let in; if they're taken off,
+// or sign out, they go back to the sign-in page.
+let MO={on:0,owner:0,forced:0,waiting:0},MBR=null,MBR_FRESH=null,MBR_INVN=1,MBR_ASK=null,MBR_ASKT=null;
+function toGate(msg,force){let last=0;try{last=+sessionStorage.getItem('tete.gate')||0}catch{}
+  if(!force&&Date.now()-last<8000){setStatus('warn','Members only: ask Meka to let you in, then reload.');return}
+  try{sessionStorage.setItem('tete.gate',String(Date.now()))}catch{}
+  if(msg)toast(msg,2400);setTimeout(()=>location.replace(location.pathname+location.search),msg?1300:0)}
+function renderMbrBtn(){const b=$('#btn-members');if(!b)return;const was=+(b.dataset.n||0),n=MBR?MBR.waiting.length:(MO.waiting||0);
+  b.hidden=!MO.owner;const bd=$('#mbr-badge');bd.hidden=!n;bd.textContent=n;b.dataset.n=n;
+  b.setAttribute('aria-label',n?`Members: ${n} waiting to be let in`:'Members: who can play');
+  if(n>was&&!matchMedia('(prefers-reduced-motion: reduce)').matches){b.classList.remove('ping');void b.offsetWidth;b.classList.add('ping')}}
+function openMembers(){if(!MO.owner)return;send({type:'members'});renderMembers();openModal('#m-members');SND('flick')}
+const invUrl=k=>location.origin+'/?key='+encodeURIComponent(k);
+function shareInvite(k){shareOrCopy({title:'Tete 21',text:`${myName()||'Meka'} invited you to Tete 21. Open the link, make an account, and you're straight in.`,url:invUrl(k)},'Invite link copied. Send it to your friend.')}
+function invRow(x,i){const until=new Date(x.exp).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}),who=x.names&&x.names.length?' · '+x.names.map(esc).join(', '):'';
+  const st=x.live?`used ${x.used} of ${x.max} · until ${until}${who}`:x.used>=x.max?`used${who}`:'expired';
+  return`<div class="inv ${x.live?'':'dead'} ${x.key===MBR_FRESH?'fresh':''}" data-key="${esc(x.key)}" style="animation-delay:${i*.04}s"><span class="tk" aria-hidden="true">🎟</span><div style="min-width:0"><div class="fname">Invite for ${x.max===1?'1 person':'up to '+x.max+' people'}</div><div class="fstat">${st}</div></div><div class="acts">${x.live?'<button class="btn btn-gold" data-share type="button">Share</button><button class="btn btn-ghost" data-cancel type="button">Cancel</button>':''}</div></div>`}
+function renderMembers(){
+  const m=MBR,body=$('#mbr-body');if(!body)return;
+  if(!m){body.innerHTML='<p class="mempty">Loading…</p>';return}
+  $('#mbr-count').textContent=m.yes.length+(m.yes.length===1?' member':' members');
+  $('#mbr-note').textContent=m.on?'Only people you let in can open Tete. Anyone else gets a sign-in page and asks you first.':'Members only is off: anyone with the link can play.';
+  const hands=p=>p.hands?`${p.hands} hand${p.hands===1?'':'s'} played`:'new to Tete';
+  const row=(p,i,meta,acts)=>`<div class="frow" data-id="${esc(p.id)}" style="animation-delay:${i*.035}s">${avHTML(p.av,p.name||p.user)}${p.here?'<span class="dot on"></span>':''}</div><div style="min-width:0"><div class="fname">${esc(p.name||p.user)}</div><div class="fstat">@${esc(p.user)}${meta?' · '+meta:''}</div></div><div class="acts">${acts}</div></div>`;
+  let h='';
+  if(m.waiting.length)h+=`<div class="msec waiting"><h3 class="subh">Waiting for you · ${m.waiting.length}</h3>${m.waiting.map((p,i)=>row(p,i,`asked ${ago(p.asked)} · ${hands(p)}`,'<button class="btn btn-gold" data-yes type="button">Let in</button><button class="btn btn-ghost" data-no type="button">Not now</button>')).join('')}</div>`;
+  const invs=m.invites.filter(x=>x.live).concat(m.invites.filter(x=>!x.live).slice(0,3));
+  h+=`<div class="msec"><h3 class="subh">Invite a friend</h3><p class="note" style="margin-top:0">A link that lets them straight in, no waiting. It works for 3 days.</p><div class="invmake"><div class="seg sm" id="mbr-invn"><button type="button" data-n="1" class="${MBR_INVN===1?'on':''}">1 person</button><button type="button" data-n="5" class="${MBR_INVN===5?'on':''}">Up to 5</button></div><button class="btn btn-gold" id="mbr-invnew" type="button">Make a link</button></div>${invs.map(invRow).join('')}</div>`;
+  h+=`<div class="msec"><h3 class="subh">Members · ${m.yes.length}</h3>${m.yes.length?m.yes.map((p,i)=>row(p,i,p.via==='invite link'?'came with your invite':`let in ${ago(p.at)}`,'<button class="btn btn-ghost" data-rm type="button">Remove</button>')).join(''):'<p class="mempty">Nobody yet. People you let in show here.</p>'}</div>`;
+  if(m.no.length)h+=`<div class="msec"><h3 class="subh">Not let in · ${m.no.length}</h3>${m.no.map((p,i)=>row(p,i,ago(p.at),'<button class="btn btn-ghost" data-yes type="button">Let in</button>')).join('')}</div>`;
+  if(m.others.length)h+=`<div class="msec"><h3 class="subh">Everyone else with an account · ${m.othersTotal}</h3><p class="note" style="margin-top:0">They made accounts before members only. They ask when they next come back, or you can let them in now.</p>${m.others.map((p,i)=>row(p,i,hands(p),'<button class="btn btn-ghost" data-yes type="button">Let in</button>')).join('')}${m.othersTotal>m.others.length?`<p class="note more">and ${m.othersTotal-m.others.length} more</p>`:''}</div>`;
+  h+=m.forced?'<p class="note">Members only is switched off on the server.</p>':`<div class="setrow mswitch"><span>Members only<small>${m.on?'On: only people you let in can play':'Off: anyone with the link can play'}</small></span><div class="seg sm"><button type="button" id="mbr-on" class="${m.on?'on':''}">On</button><button type="button" id="mbr-off" class="${m.on?'':'on'}">Off</button></div></div>`;
+  body.innerHTML=h;
+  body.querySelectorAll('.frow').forEach(r=>{const id=r.dataset.id,y=r.querySelector('[data-yes]'),n=r.querySelector('[data-no]'),rm=r.querySelector('[data-rm]');
+    if(y)y.onclick=()=>{r.classList.add('go-yes');SND('pop');buzz(20);send({type:'member_set',id,s:'yes'})};
+    if(n)n.onclick=()=>{r.classList.add('go-no');send({type:'member_set',id,s:'no'})};
+    if(rm)rm.onclick=()=>{if(!rm.dataset.arm){rm.dataset.arm='1';rm.textContent='Tap again';setTimeout(()=>{if(rm.isConnected){delete rm.dataset.arm;rm.textContent='Remove'}},3500);return}r.classList.add('go-no');send({type:'member_set',id,s:'no'})}});
+  const seg=$('#mbr-invn');if(seg)seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{MBR_INVN=+b.dataset.n;seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b))});
+  const nb=$('#mbr-invnew');if(nb)nb.onclick=()=>{nb.disabled=true;send({type:'invite_new',max:MBR_INVN});setTimeout(()=>{if(nb.isConnected)nb.disabled=false},1500)};
+  body.querySelectorAll('.inv').forEach(r=>{const k=r.dataset.key,sh=r.querySelector('[data-share]'),c=r.querySelector('[data-cancel]');
+    if(sh)sh.onclick=()=>shareInvite(k);
+    if(c)c.onclick=()=>{if(!c.dataset.arm){c.dataset.arm='1';c.textContent='Tap again';setTimeout(()=>{if(c.isConnected){delete c.dataset.arm;c.textContent='Cancel'}},3000);return}r.classList.add('dead');send({type:'invite_cancel',key:k})}});
+  const on=$('#mbr-on'),off=$('#mbr-off');
+  if(on)on.onclick=()=>{if(!m.on)send({type:'members_open',open:false})};
+  if(off)off.onclick=()=>{if(!m.on)return;if(!off.dataset.arm){off.dataset.arm='1';off.textContent='Sure?';toast('Off means anyone with the link can play. Tap again to open Tete to everyone.',3500);setTimeout(()=>{if(off.isConnected){delete off.dataset.arm;off.textContent='Off'}},4000);return}send({type:'members_open',open:true})};
+}
+function mbrAsk(who){if(!who||!MO.owner)return;MBR_ASK=who;const el=$('#mbr-ask');
+  $('#mbr-ask-av').innerHTML=avHTML(who.av,who.name||who.user)+'</div>';$('#mbr-ask-name').textContent=who.name||who.user;
+  $('#mbr-ask-sub').textContent=`@${who.user} wants to join Tete`+(who.hands?` · ${who.hands} hands played`:'');
+  el.classList.remove('out');el.hidden=false;SND('join',{bg:true});buzz([40,30,40]);clearTimeout(MBR_ASKT);MBR_ASKT=setTimeout(hideMbrAsk,30000)}
+function hideMbrAsk(){const el=$('#mbr-ask');if(el.hidden)return;el.classList.add('out');setTimeout(()=>{el.hidden=true;el.classList.remove('out')},360)}
+$('#btn-members').onclick=openMembers;
+$('#mbr-ask-yes').onclick=()=>{if(MBR_ASK){send({type:'member_set',id:MBR_ASK.id,s:'yes'});toast(`${MBR_ASK.name||MBR_ASK.user} is in`);SND('pop')}hideMbrAsk()};
+$('#mbr-ask-no').onclick=()=>{if(MBR_ASK)send({type:'member_set',id:MBR_ASK.id,s:'no'});hideMbrAsk()};
+$('#mbr-ask-x').onclick=hideMbrAsk;
 function until(t){const ms=Math.max(0,t-Date.now()),h=Math.floor(ms/36e5),mn=Math.ceil((ms%36e5)/6e4);return h?`${h}h ${mn}m`:`${mn} min`}
 let STATSIG='';
 function renderAcct(lite){

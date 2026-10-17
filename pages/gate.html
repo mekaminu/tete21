@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#140d12">
+<meta name="robots" content="noindex">
+<title>Tete 21</title>
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* The sign-in page for members only. It never carries the game: just who you are, and whether you're in. */
+:root{
+  --velvet:#140d12; --velvet-2:#1f1419; --gold:#d9b25f; --gold-hi:#f3d990; --gold-dim:#8a7140;
+  --cream:#f6efdc; --ink:#1a1612; --red:#b8322c; --fg:#f1e8d6; --fg-dim:#b8a98e; --good:#4fc98b; --bad:#ef7a72;
+  --display:'Cinzel',Georgia,serif; --body:'Source Sans 3','Segoe UI',system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;min-height:100dvh;background:radial-gradient(1200px 700px at 50% -10%,#3a2230 0%,var(--velvet) 55%,#0b0709 100%);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold-hi);outline-offset:2px}
+.bg{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+.bg i{position:absolute;font-style:normal;font-size:clamp(110px,22vw,240px);line-height:1;color:rgba(217,178,95,.035);animation:drift 46s ease-in-out infinite}
+.bg i:nth-child(1){left:4%;top:8%}
+.bg i:nth-child(2){left:70%;top:4%;color:rgba(184,50,44,.05);animation-duration:54s;animation-delay:-12s}
+.bg i:nth-child(3){left:62%;top:62%;color:rgba(184,50,44,.045);animation-duration:50s;animation-delay:-22s}
+.bg i:nth-child(4){left:6%;top:70%;animation-duration:60s;animation-delay:-6s}
+@keyframes drift{0%,100%{transform:translate(0,0) rotate(-8deg)}50%{transform:translate(28px,-36px) rotate(8deg)}}
+main{position:relative;z-index:1;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 16px calc(28px + env(safe-area-inset-bottom))}
+
+/* two cards, face down until you're in: then an Ace and a 10, which make 21 */
+.fan{position:relative;width:132px;height:96px;margin-bottom:10px;perspective:700px}
+.card{position:absolute;top:6px;width:58px;height:82px;border-radius:7px;transform-style:preserve-3d;transition:transform .7s cubic-bezier(.2,1.3,.4,1)}
+.card .f,.card .b{position:absolute;inset:0;border-radius:7px;backface-visibility:hidden;-webkit-backface-visibility:hidden;box-shadow:0 3px 8px rgba(0,0,0,.45),0 10px 24px rgba(0,0,0,.35)}
+.card .b{background:repeating-linear-gradient(45deg,#7b1f2b 0 5px,#8e2633 5px 10px);border:3px solid var(--cream)}
+.card .b::after{content:'';position:absolute;inset:5px;border:1px solid rgba(243,217,144,.55);border-radius:3px}
+.card .f{background:var(--cream);color:var(--ink);transform:rotateY(180deg);font-weight:800}
+.card .f b{position:absolute;left:6px;top:4px;font-size:20px;line-height:1;letter-spacing:-.06em}
+.card .f s{position:absolute;left:7px;top:26px;font-size:13px;text-decoration:none}
+.card .f u{position:absolute;inset:0;display:grid;place-items:center;font-size:30px;text-decoration:none;padding-top:10px}
+.card .f.red{color:var(--red)}
+.card.c1{left:18px;transform:rotate(-11deg)}
+.card.c2{left:56px;transform:rotate(11deg)}
+.fan.deal .card{animation:deal .75s cubic-bezier(.2,1.25,.35,1) backwards}
+.fan.deal .card.c2{animation-delay:.12s}
+@keyframes deal{from{transform:translate(40px,-120px) rotate(40deg);opacity:0}}
+.fan.bob .card.c1{animation:bob1 3.2s ease-in-out infinite}
+.fan.bob .card.c2{animation:bob2 3.2s ease-in-out -1.6s infinite}
+@keyframes bob1{0%,100%{transform:rotate(-11deg) translateY(0)}50%{transform:rotate(-14deg) translateY(-6px)}}
+@keyframes bob2{0%,100%{transform:rotate(11deg) translateY(0)}50%{transform:rotate(14deg) translateY(-6px)}}
+.fan.open .card.c1{transform:rotate(-13deg) rotateY(180deg)}
+.fan.open .card.c2{transform:rotate(13deg) rotateY(180deg);transition-delay:.15s}
+.fan.dim .card{filter:grayscale(.6) brightness(.7)}
+.stamp{position:absolute;left:50%;top:50%;transform:translate(-50%,-30%) scale(.2) rotate(-14deg);opacity:0;font:700 30px/1 var(--display);color:#2a1806;background:linear-gradient(180deg,#fff3c4,#d9b25f);border:2px solid #fff3c4;border-radius:12px;padding:6px 12px;box-shadow:0 6px 22px rgba(0,0,0,.5),0 0 26px rgba(243,217,144,.55);pointer-events:none}
+.fan.open .stamp{animation:stamp .55s cubic-bezier(.2,1.6,.4,1) .55s forwards}
+@keyframes stamp{to{opacity:1;transform:translate(-50%,-30%) scale(1) rotate(-8deg)}}
+
+.logo{font:700 clamp(46px,13vw,72px)/1 var(--display);letter-spacing:.06em;display:inline-flex;gap:.22em;align-items:baseline;margin:0}
+.logo .l21{font-size:.78em}
+.gold{background-image:linear-gradient(105deg,transparent 0 44%,rgba(255,255,255,.95) 50%,transparent 56% 100%),linear-gradient(180deg,#fff3c4 0%,#f3d990 28%,#d9b25f 55%,#a17628 80%,#e9c97c 100%);background-size:300% 100%,100% 100%;background-repeat:no-repeat;background-position:200% 0,0 0;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 0 #3f2c0c) drop-shadow(0 0 18px rgba(217,178,95,.28));animation:shine 7s ease-in-out 1.2s infinite}
+@keyframes shine{0%,70%{background-position:200% 0,0 0}100%{background-position:-100% 0,0 0}}
+.tag{margin:12px 0 20px;display:inline-flex;align-items:center;gap:8px;color:var(--gold-hi);border:1px solid rgba(217,178,95,.45);border-radius:99px;padding:4px 12px;font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;background:rgba(217,178,95,.07)}
+.tag::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 10px var(--gold)}
+
+.panel{width:100%;max-width:390px;background:linear-gradient(180deg,rgba(38,25,31,.94),rgba(24,15,20,.96));border:1px solid rgba(217,178,95,.28);border-radius:20px;padding:22px 20px 20px;box-shadow:0 24px 60px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.04)}
+.panel.in{animation:rise .5s cubic-bezier(.2,1.1,.35,1) backwards}
+@keyframes rise{from{opacity:0;transform:translateY(18px) scale(.98)}}
+h2{font:700 21px/1.2 var(--display);letter-spacing:.03em;margin:0 0 6px;color:var(--cream)}
+.sub{margin:0 0 16px;color:var(--fg-dim);font-size:15px}
+.ticket{display:flex;gap:10px;align-items:flex-start;margin:0 0 16px;padding:10px 12px;border-radius:12px;background:rgba(79,201,139,.09);border:1px solid rgba(79,201,139,.4);color:#c9f3dc;font-size:14.5px}
+.ticket i{font-style:normal;font-size:18px;line-height:1.2}
+.ticket.stale{background:rgba(230,162,60,.09);border-color:rgba(230,162,60,.45);color:#f3dcb5}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:12px;background:rgba(0,0,0,.35);border:1px solid rgba(217,178,95,.18);margin-bottom:14px}
+.seg button{border:0;background:none;border-radius:9px;padding:9px 6px;font-weight:600;color:var(--fg-dim);transition:background .2s,color .2s}
+.seg button.on{background:linear-gradient(180deg,#f3d990,#d9b25f);color:#2a1806;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.field{display:block;margin-bottom:12px}
+.field span{display:block;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin:0 0 6px 2px}
+.field input{width:100%;height:46px;border-radius:12px;border:1px solid rgba(217,178,95,.28);background:#120b0f;padding:0 14px;font-size:16px;transition:border-color .2s,box-shadow .2s}
+.field input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(217,178,95,.2)}
+.field small{display:block;color:var(--fg-dim);font-size:12.5px;margin:5px 0 0 2px}
+.pw{position:relative}
+.pw input{padding-right:64px}
+.pw button{position:absolute;right:6px;top:6px;height:34px;border:0;background:none;color:var(--gold-hi);font-weight:600;font-size:14px;padding:0 10px;border-radius:8px}
+.go{width:100%;height:50px;border:0;border-radius:14px;background:linear-gradient(180deg,#f8e29c,#d9b25f 60%,#b88d3d);color:#2a1806;font-weight:700;font-size:16.5px;letter-spacing:.02em;box-shadow:0 6px 18px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.5);margin-top:4px;transition:transform .12s,filter .2s}
+.go:active{transform:scale(.98)}
+.go[disabled]{filter:saturate(.4) brightness(.8);cursor:default}
+.go .dots{display:inline-flex;gap:4px;vertical-align:middle}
+.go .dots i{width:6px;height:6px;border-radius:50%;background:#2a1806;animation:dot 1s ease-in-out infinite}
+.go .dots i:nth-child(2){animation-delay:.15s}.go .dots i:nth-child(3){animation-delay:.3s}
+@keyframes dot{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+.ghost{width:100%;height:46px;border-radius:14px;border:1px solid rgba(217,178,95,.35);background:none;color:var(--gold-hi);font-weight:600;margin-top:10px}
+.err{margin:2px 0 10px;color:var(--bad);font-size:14.5px;min-height:0}
+.err:empty{display:none}
+.err.shake{animation:shake .4s}
+@keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.fine{margin:14px 0 0;color:var(--fg-dim);font-size:13px;text-align:center}
+.who{margin:16px 0 0;color:var(--fg-dim);font-size:13.5px;text-align:center}
+.link{border:0;background:none;color:var(--gold-hi);font-weight:600;padding:2px 4px;text-decoration:underline;text-underline-offset:3px}
+
+/* waiting for the owner: your initial, with rings going out to them */
+.ask{display:grid;place-items:center;margin:4px 0 14px}
+.av{position:relative;width:76px;height:76px;border-radius:50%;display:grid;place-items:center;font:700 32px/1 var(--display);color:#2a1806;background:linear-gradient(180deg,#f8e29c,#c99a3a);box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.av::before,.av::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid rgba(243,217,144,.55);animation:ring 2.6s cubic-bezier(.2,.6,.3,1) infinite}
+.av::after{animation-delay:1.3s}
+@keyframes ring{from{transform:scale(1);opacity:.9}to{transform:scale(1.9);opacity:0}}
+.av.no::before,.av.no::after{display:none}
+.av.no{filter:grayscale(.7) brightness(.8)}
+.center{text-align:center}
+.live{display:inline-flex;align-items:center;gap:8px;margin-top:4px;color:var(--fg-dim);font-size:13.5px}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 0 0 rgba(79,201,139,.6);animation:pulse 1.8s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgba(79,201,139,0)}100%{box-shadow:0 0 0 0 rgba(79,201,139,0)}}
+.spin{width:30px;height:30px;border-radius:50%;border:3px solid rgba(217,178,95,.25);border-top-color:var(--gold);animation:sp .9s linear infinite;margin:6px auto 12px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.burst{position:fixed;left:50%;top:22%;width:0;height:0;pointer-events:none;z-index:5}
+.burst i{position:absolute;width:8px;height:12px;border-radius:2px;opacity:0}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+@media (max-height:640px){.fan{transform:scale(.8);margin-bottom:0}.tag{margin:8px 0 12px}}
+</style>
+</head>
+<body data-owner="{{OWNER}}">
+<div class="bg" aria-hidden="true"><i>♠</i><i>♥</i><i>♦</i><i>♣</i></div>
+<main>
+  <div class="fan deal" id="fan" aria-hidden="true">
+    <div class="card c1"><div class="b"></div><div class="f"><b>A</b><s>♠</s><u>♠</u></div></div>
+    <div class="card c2"><div class="b"></div><div class="f red"><b>10</b><s>♥</s><u>♥</u></div></div>
+    <div class="stamp">21</div>
+  </div>
+  <h1 class="logo"><span class="gold">TETE</span><span class="gold l21">21</span></h1>
+  <p class="tag">Members only</p>
+  <section class="panel" id="panel" aria-live="polite"></section>
+</main>
+<div class="burst" id="burst" aria-hidden="true"></div>
+<script>
+'use strict';
+(function(){
+const OWNER = (document.body.dataset.owner || 'Meka').replace(/^\{\{.*\}\}$/, 'Meka');
+const $ = s => document.querySelector(s);
+const panel = $('#panel'), fan = $('#fan');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
+// an invite link: ?key=… (kept for this visit, out of the address bar)
+let KEY = null;
+try {
+  const u = new URL(location.href); KEY = u.searchParams.get('key');
+  if (KEY) { sessionStorage.setItem('tete.key', KEY); u.searchParams.delete('key'); history.replaceState(null, '', u.pathname + (u.search || '') + u.hash); }
+  else KEY = sessionStorage.getItem('tete.key');
+} catch {}
+if (KEY && !/^[A-Za-z0-9_-]{8,40}$/.test(KEY)) KEY = null;
+let MODE = KEY ? 'up' : 'in';
+let ME = null, POLL = null, BUSY = false, STALE = false;
+
+async function call(url, body) {
+  const opt = body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin', cache: 'no-store' } : { credentials: 'same-origin', cache: 'no-store' };
+  const r = await fetch(url, opt);
+  return r.json();
+}
+function swap(html, cls) {
+  panel.classList.remove('in'); void panel.offsetWidth;
+  panel.innerHTML = html; panel.className = 'panel in' + (cls ? ' ' + cls : '');
+}
+function stopPoll() { clearInterval(POLL); POLL = null; }
+
+function showSignIn(msg) {
+  stopPoll(); fan.classList.remove('bob', 'dim', 'open');
+  const up = MODE === 'up';
+  swap(`
+    <h2>${up ? 'Make your account' : 'Sign in to play'}</h2>
+    <p class="sub">${KEY ? 'Your invite is ready.' : `Tete is members only. Sign in, or make an account and ${esc(OWNER)} will let you in.`}</p>
+    ${KEY ? `<p class="ticket"><i>🎟️</i><span><b>${esc(OWNER)} invited you.</b> Make an account (or sign in) and you're straight in.</span></p>` : ''}
+    ${STALE ? `<p class="ticket stale"><i>⌛</i><span>That invite link has been used or has expired. You can still sign in or make an account and ask ${esc(OWNER)}.</span></p>` : ''}
+    <div class="seg" role="tablist"><button type="button" id="t-in" role="tab" aria-selected="${!up}" class="${up ? '' : 'on'}">Sign in</button><button type="button" id="t-up" role="tab" aria-selected="${up}" class="${up ? 'on' : ''}">New account</button></div>
+    <form id="form" novalidate>
+      <label class="field"><span>Username</span><input id="g-user" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="17" placeholder="e.g. tolu" enterkeyhint="next" required>${up ? '<small>3 to 16 letters, numbers or _. Friends find you by it.</small>' : ''}</label>
+      <label class="field"><span>Password</span><div class="pw"><input id="g-pass" type="password" autocomplete="${up ? 'new-password' : 'current-password'}" maxlength="200" placeholder="${up ? 'At least 6 characters' : 'Your password'}" enterkeyhint="${up ? 'next' : 'go'}" required><button type="button" id="g-show">Show</button></div></label>
+      ${up ? '<label class="field"><span>Your name at the table</span><input id="g-name" autocomplete="nickname" maxlength="14" placeholder="Optional" enterkeyhint="go"></label>' : ''}
+      <p class="err" id="err" role="alert">${esc(msg || '')}</p>
+      <button class="go" id="go" type="submit">${up ? (KEY ? 'Make my account' : `Make account &amp; ask ${esc(OWNER)}`) : 'Sign in'}</button>
+    </form>
+    <p class="fine">${up ? "No email needed. Keep your password safe: there's no reset yet." : 'Forgotten your password? Ask ' + esc(OWNER) + '.'}</p>`);
+  $('#t-in').onclick = () => { if (MODE !== 'in') { MODE = 'in'; keep(showSignIn); } };
+  $('#t-up').onclick = () => { if (MODE !== 'up') { MODE = 'up'; keep(showSignIn); } };
+  $('#g-show').onclick = () => { const p = $('#g-pass'); const t = p.type === 'password'; p.type = t ? 'text' : 'password'; $('#g-show').textContent = t ? 'Hide' : 'Show'; };
+  $('#form').onsubmit = submit;
+  setTimeout(() => { const f = $('#g-user'); if (f && matchMedia('(hover:hover)').matches) f.focus(); }, 60);
+}
+// switching tabs keeps what was typed
+function keep(fn) { const u = $('#g-user') ? $('#g-user').value : '', p = $('#g-pass') ? $('#g-pass').value : ''; fn(); $('#g-user').value = u; $('#g-pass').value = p; }
+function err(msg) { const e = $('#err'); if (!e) return; e.textContent = msg; e.classList.remove('shake'); void e.offsetWidth; e.classList.add('shake'); }
+async function submit(ev) {
+  ev.preventDefault(); if (BUSY) return;
+  const user = $('#g-user').value.trim().replace(/^@/, ''), pass = $('#g-pass').value, name = $('#g-name') ? $('#g-name').value.trim() : '';
+  if (!user) return err('Type your username.');
+  if (!pass) return err('Type your password.');
+  BUSY = true; const go = $('#go'), label = go.innerHTML; go.disabled = true; go.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>';
+  let r;
+  try { r = await call(MODE === 'up' ? '/api/signup' : '/api/signin', { username: user, password: pass, display: name || undefined, key: KEY || undefined }); }
+  catch { r = { error: "Can't reach Tete right now. The free server can take up to a minute to wake. Try again." }; }
+  BUSY = false;
+  if (r.error) { go.disabled = false; go.innerHTML = label; return err(r.error); }
+  if (r.token) store.set('tete.session', r.token);
+  if (r.name && !store.get('tete.name')) store.set('tete.name', r.name);
+  if (r.welcome) store.set('tete.welcome', String(r.welcome));
+  show(r);
+}
+
+function showWait(v) {
+  fan.classList.remove('dim', 'open'); fan.classList.add('bob');
+  swap(`
+    <div class="ask"><div class="av" aria-hidden="true">${esc((v.name || v.user || '?').trim().charAt(0).toUpperCase())}</div></div>
+    <div class="center">
+      <h2>Hi ${esc(v.name || v.user)}</h2>
+      <p class="sub" style="margin-bottom:10px">${esc(OWNER)} has your request. You'll be let in as soon as ${esc(OWNER)} says yes: keep this page open, or come back later.</p>
+      <span class="live"><i></i>Checking for you</span>
+    </div>
+    <p class="who">Signed in as @${esc(v.user)} · <button class="link" id="out" type="button">Sign out</button></p>`);
+  $('#out').onclick = signOut;
+  stopPoll(); POLL = setInterval(check, 4000);
+}
+function showNo(v) {
+  stopPoll(); fan.classList.remove('bob', 'open'); fan.classList.add('dim');
+  swap(`
+    <div class="ask"><div class="av no" aria-hidden="true">${esc((v.name || v.user || '?').trim().charAt(0).toUpperCase())}</div></div>
+    <div class="center">
+      <h2>Not let in yet</h2>
+      <p class="sub">${esc(OWNER)} hasn't let you in. If you know ${esc(OWNER)}, send a message: you can be let in from the Members list any time.</p>
+    </div>
+    <button class="ghost" id="again" type="button">Check again</button>
+    <p class="who">Signed in as @${esc(v.user)} · <button class="link" id="out" type="button">Sign out</button></p>`);
+  $('#out').onclick = signOut; $('#again').onclick = check;
+}
+function showIn(v) {
+  stopPoll(); fan.classList.remove('bob', 'dim', 'deal'); void fan.offsetWidth; fan.classList.add('open');
+  swap(`<div class="center"><h2>You're in${v && v.name ? ', ' + esc(v.name) : ''}!</h2><p class="sub" style="margin:0">Taking you to the tables…</p></div>`);
+  burst();
+  try { sessionStorage.removeItem('tete.key'); } catch {}
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setTimeout(() => location.reload(), reduced ? 500 : 1700);
+}
+function showBusy(text) { swap(`<div class="spin" aria-hidden="true"></div><p class="sub center" style="margin:0">${esc(text || 'One moment…')}</p>`); }
+function showOffline() {
+  stopPoll();
+  swap(`<h2>Can't reach Tete</h2><p class="sub">The free server can take up to a minute to wake up. Check your connection, then try again.</p><button class="go" id="retry" type="button">Try again</button>`);
+  $('#retry').onclick = start;
+}
+function show(v) {
+  ME = v;
+  if (!v || v.status === 'none') return showSignIn();
+  if (v.status === 'yes' || v.status === 'owner') return showIn(v);
+  if (v.status === 'no') return showNo(v);
+  return showWait(v);
+}
+async function check() {
+  let v; try { v = await call('/api/me'); } catch { return; }
+  if (!ME || v.status !== ME.status) show(v);
+}
+async function signOut() {
+  stopPoll(); showBusy('Signing out…');
+  try { await call('/api/signout', {}); } catch {}
+  store.del('tete.session'); ME = null; MODE = 'in'; showSignIn();
+}
+function burst() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const b = $('#burst'), cols = ['#f3d990', '#d9b25f', '#fff3c4', '#4fc98b', '#b8322c', '#f6efdc'];
+  for (let i = 0; i < 46; i++) {
+    const p = document.createElement('i'); p.style.background = cols[i % cols.length]; b.appendChild(p);
+    const a = Math.random() * Math.PI * 2, d = 120 + Math.random() * 220, x = Math.cos(a) * d, y = Math.sin(a) * d * .7 - 40;
+    p.animate([{ transform: 'translate(0,0) rotate(0deg)', opacity: 1 }, { transform: `translate(${x}px,${y + 260}px) rotate(${Math.random() * 720 - 360}deg)`, opacity: 0 }], { duration: 1300 + Math.random() * 600, delay: 450 + Math.random() * 150, easing: 'cubic-bezier(.15,.7,.3,1)', fill: 'forwards' });
+  }
+}
+async function start() {
+  showBusy();
+  let v;
+  try { v = await call('/api/me' + (KEY ? '?key=' + encodeURIComponent(KEY) : '')); } catch { return showOffline(); }
+  // a used-up or expired invite: say so, and carry on as a normal request
+  if (KEY && v.key === 0) { KEY = null; MODE = 'in'; try { sessionStorage.removeItem('tete.key'); } catch {} STALE = true; }
+  // signed in on this phone before members only: the app's session carries over
+  if (v.status === 'none') {
+    const tok = store.get('tete.session');
+    if (tok) { try { v = await call('/api/session', { token: tok, key: KEY || undefined }); } catch {} if (!v || v.status === 'none') store.del('tete.session'); }
+  } else if (KEY && v.status !== 'yes' && v.status !== 'owner') {
+    try { const k = await call('/api/key', { key: KEY }); if (k && k.status) v = k; } catch {}
+  }
+  show(v || { status: 'none' });
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && ME && (ME.status === 'wait' || ME.status === 'new' || ME.status === 'no')) check(); });
+start();
+})();
+</script>
+</body>
+</html>

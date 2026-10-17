@@ -79,6 +79,13 @@ async function usersByIds(ids) {
   if (pool) { const r = await q('select * from t21_users where id = any($1)', [ids]); return r.rows.map(row2user); }
   return ids.map(id => mem.users[id]).filter(Boolean).map(u => Object.assign({}, u));
 }
+// everyone with an account, newest first (the owner's Members list); no passwords
+async function listUsers(limit) {
+  const n = Math.max(1, Math.min(2000, limit | 0 || 300));
+  const strip = u => u && ({ id: u.id, username: u.username, display: u.display, av: u.av || null, stats: u.stats || {}, created_at: u.created_at });
+  if (pool) { const r = await q('select id, username, display, av, stats, created_at from t21_users order by created_at desc limit $1', [n]); return r.rows.map(row2user).map(strip); }
+  return Object.values(mem.users).sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, n).map(strip);
+}
 async function saveUser(u) {
   if (pool) { await q('update t21_users set display=$2, av=$3, balance=$4, xp=$5, stats=$6, bonus_day=$7 where id=$1', [u.id, u.display, u.av ? JSON.stringify(u.av) : null, u.balance, u.xp, JSON.stringify(u.stats || {}), u.bonus_day]); return; }
   const m = mem.users[u.id]; if (!m) return; Object.assign(m, { display: u.display, av: u.av, balance: u.balance, xp: u.xp, stats: u.stats, bonus_day: u.bonus_day }); memSave();
@@ -153,4 +160,4 @@ async function recent(uid, n) {
 async function kvGet(k) { if (pool) { const r = await q('select v from t21_kv where k=$1', [k]); return r.rows[0] ? r.rows[0].v : null; } return mem.kv[k] ?? null; }
 async function kvSet(k, v) { if (pool) { await q('insert into t21_kv(k, v) values($1,$2) on conflict(k) do update set v=excluded.v, at=now()', [k, JSON.stringify(v)]); return; } mem.kv[k] = v; memSave(); }
 
-module.exports = { init, isPg, createUser, userByName, userById, usersByIds, saveUser, setPassword, addSession, sessionUser, dropSession, dropSessionsOf, linkDevice, deviceUsers, devicesOf, friendsOf, getFriend, setFriend, dropFriend, addHand, addLedger, daily, recent, kvGet, kvSet };
+module.exports = { init, isPg, createUser, userByName, userById, usersByIds, listUsers, saveUser, setPassword, addSession, sessionUser, dropSession, dropSessionsOf, linkDevice, deviceUsers, devicesOf, friendsOf, getFriend, setFriend, dropFriend, addHand, addLedger, daily, recent, kvGet, kvSet };
