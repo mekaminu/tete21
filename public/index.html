@@ -879,6 +879,10 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 /* the Sounds panel at the table */
 .sndpop{position:fixed;z-index:59;width:min(300px,calc(100vw - 20px));background:#1a1116;border:1px solid var(--gold-dim);border-radius:14px;padding:8px 14px 12px;box-shadow:0 14px 40px rgba(0,0,0,.6);display:grid;gap:2px;animation:popin2 .2s}
 .sndpop .setrow{padding:7px 0}
+.djbox{margin:6px 0 2px}
+.djbox:empty{display:none}
+.djbox .btn-wide{width:100%;padding:10px 14px}
+.djbox .note b{color:var(--fg)}
 /* lending: the record of who lent whom */
 .loans{display:grid;gap:6px}
 .side-loans{display:flex;flex-direction:column;gap:6px;padding:0 14px 8px;flex:none;max-height:34%;overflow:auto}
@@ -1033,7 +1037,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
       <div><span class="eyebrow">Your total</span> <span class="big num" id="mytotal">–</span> <span class="eyebrow" style="margin-left:14px">Chips</span> <span class="big num" id="mychips">0</span></div>
       <div class="msg" id="msg">Welcome to the table.</div>
       <div class="avbar"><button class="avbtn off" id="btn-mic" title="Microphone">🎤<span class="lbl">Mic</span></button><button class="avbtn off" id="btn-cam" title="Camera">📷<span class="lbl">Camera</span></button><button class="avbtn on" id="btn-spk" title="Hear the other players">🔊<span class="lbl">Voices</span></button><button class="avbtn sndbtn" id="btn-fx" type="button" title="Game sounds"><span class="ico"></span><span class="lbl">Sounds</span></button><button class="avbtn musbtn" id="btn-music" type="button" title="Music" aria-label="Music">🎵<span class="lbl">Music</span></button><button class="avbtn" id="btn-treat" type="button" title="Drinks and small chops">🍹<span class="lbl">Treats</span></button><button class="avbtn" id="btn-lend" type="button" title="Lend chips to someone, and keep a record">🤝<span class="lbl">Lend</span></button><button class="avbtn" id="btn-react" type="button" title="Shout, react or say something">💬<span class="lbl">Chat</span></button><span class="roomav" id="roomav"></span></div>
-      <div class="sndpop" id="sndpop" hidden role="dialog" aria-label="Music"><div class="np"><span class="np-k" id="sp-k">Now playing</span><b id="sp-song">Music</b><small id="sp-artist"></small></div><div class="sp-row"><button type="button" class="btn btn-gold" id="sp-next">⏭ Next song</button><div class="seg sm"><button type="button" id="sp-mus-on">On</button><button type="button" id="sp-mus-off">Off</button></div></div><div class="setrow"><label for="sp-mvol">Music volume</label><input type="range" id="sp-mvol" min="0" max="100" step="5"></div><p class="note" style="margin:2px 0 0">Real Afrobeats and highlife, shuffled. It steps back whenever someone talks.</p></div>
+      <div class="sndpop" id="sndpop" hidden role="dialog" aria-label="Music"><div class="np"><span class="np-k" id="sp-k">Now playing</span><b id="sp-song">Music</b><small id="sp-artist"></small></div><div class="sp-row"><button type="button" class="btn btn-gold" id="sp-next">⏭ Next song</button><div class="seg sm"><button type="button" id="sp-mus-on">On</button><button type="button" id="sp-mus-off">Off</button></div></div><div class="setrow"><label for="sp-mvol">Music volume</label><input type="range" id="sp-mvol" min="0" max="100" step="5"></div><div class="djbox" id="sp-dj"></div><p class="note" style="margin:2px 0 0">Real Afrobeats and highlife, shuffled. It steps back whenever someone talks.</p></div>
     </div>
     <div class="actions" id="actions"></div>
     <div class="reactbar" id="reactbar" hidden></div>

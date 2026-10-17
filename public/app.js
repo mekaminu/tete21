@@ -84,12 +84,20 @@ function toggleSound(){const T=window.TeteSound;if(!T)return;setMuted(!T.muted);
 $('#btn-sound').onclick=toggleSound;
 $('#snd-on').onclick=()=>setMuted(false);$('#snd-off').onclick=()=>setMuted(true);
 // ---------- music at the table: real Afrobeats, Afrobeat and highlife songs (sound.js), quiet, stepping back when people talk ----------
-function musicSync(){const T=window.TeteSound;if(!T||!T.music)return;T.music(!!S&&$('#game').classList.contains('on'));renderMusicBtn()}
+function musicSync(){const T=window.TeteSound;if(!T||!T.music)return;T.music(!!S&&$('#game').classList.contains('on')&&!(S.dj>=0));renderMusicBtn()}
 function setMusicOn(on){const T=window.TeteSound;if(!T||!T.setMusic)return;T.setMusic(on);if(on)T.unlock();musicSync();renderSoundSettings();renderMusicPop();toast(on?'Music on 🎶':'Music off',1300)}
 function renderMusicBtn(){const T=window.TeteSound,b=$('#btn-music');if(!b)return;const on=!!(T&&T.musicOn);b.classList.toggle('off',!on);b.title=on?'Music: on':'Music: off';b.setAttribute('aria-label',on?'Music is on':'Music is off')}
 function renderMusicPop(){const T=window.TeteSound;if(!T||!T.setMusic)return;renderMusicBtn();const on=!!T.musicOn,s=on?T.song:null;
   $('#sp-mus-on').classList.toggle('on',on);$('#sp-mus-off').classList.toggle('on',!on);$('#sp-mvol').value=Math.round(T.musicVolume*100);$('#sp-next').disabled=!on;
-  $('#sp-k').textContent=s?'Now playing':'Music';$('#sp-song').textContent=!on?'Music is off':s?s.title:(T.musicPlaying?'Starting…':'Plays at the table');$('#sp-artist').textContent=s?s.artist:''}
+  $('#sp-k').textContent=s?'Now playing':'Music';$('#sp-song').textContent=!on?'Music is off':s?s.title:(T.musicPlaying?'Starting…':'Plays at the table');$('#sp-artist').textContent=s?s.artist:'';
+  renderDjBox(on);djMonitor()}
+function renderDjBox(on){const box=$('#sp-dj');if(!box)return;const dj=S&&ME>=0&&!LOCALT?S.dj:-1;$('#sp-next').hidden=dj>=0;
+  if(dj>=0){const p=S.players[dj];$('#sp-k').textContent='Now playing';$('#sp-song').textContent=!on?'Music is off':dj===ME?'Music from your tab':`Music from ${p?p.name:'someone'}`;$('#sp-artist').textContent=!on?'':dj===ME?'Everyone at the table hears it':'It keeps playing while people talk'}
+  if(dj===ME&&DJ){box.innerHTML=`<div class="setrow"><label for="sp-djvol">Volume for the table</label><input type="range" id="sp-djvol" min="0" max="100" step="5" value="${Math.round(DJ_SEND*100)}"></div><button type="button" class="btn btn-ghost btn-wide" id="sp-djstop">Stop playing my music</button>`;
+    $('#sp-djvol').oninput=e=>setDjSend(+e.target.value/100);$('#sp-djstop').onclick=()=>stopDj()}
+  else if(dj>=0||LOCALT||!S)box.innerHTML='';
+  else if(DJ_OK){box.innerHTML='<button type="button" class="btn btn-ghost btn-wide" id="sp-djgo">🎧 Play music from a tab</button><p class="note" style="margin:6px 0 0">Play YouTube Music (or any music) in another Chrome tab, tap this, pick that tab and tick <b>Also share tab audio</b>. Everyone hears it, it doesn\'t dip when people talk, and your mic stays as it is.</p>';$('#sp-djgo').onclick=()=>{$('#sndpop').hidden=true;startDj()}}
+  else box.innerHTML='<p class="note" style="margin:6px 0 0">To play your own music for the table, open Tete in Chrome or Edge on a computer.</p>'}
 // the 🎵 Music button at the table opens a small panel: what's playing, the next song, on or off, and how loud
 function openMusicPop(){const p=$('#sndpop'),b=$('#btn-music');renderMusicPop();p.hidden=false;const r=b.getBoundingClientRect(),w=p.offsetWidth,h=p.offsetHeight;p.style.left=Math.round(Math.max(10,Math.min(innerWidth-w-10,r.left+r.width/2-w/2)))+'px';p.style.top=Math.round(Math.max(10,r.top-h-10))+'px';SND('flick');
   const close=e=>{if(e&&e.target&&(p.contains(e.target)||b.contains(e.target)))return;p.hidden=true;document.removeEventListener('pointerdown',close,true);document.removeEventListener('keydown',esc,true)},esc=e=>{if(e.key==='Escape')close()};
@@ -99,9 +107,9 @@ $('#btn-music').onclick=()=>{const p=$('#sndpop');if(!p.hidden){p.hidden=true;re
 $('#btn-fx').onclick=toggleSound;
 $('#sp-next').onclick=()=>{const T=window.TeteSound;if(!T||!T.nextSong||!T.musicOn)return;T.unlock();T.nextSong();$('#sp-k').textContent='Music';$('#sp-song').textContent='Next song…';$('#sp-artist').textContent=''};
 $('#sp-mus-on').onclick=()=>setMusicOn(true);$('#sp-mus-off').onclick=()=>setMusicOn(false);
-$('#sp-mvol').oninput=()=>{if(window.TeteSound&&TeteSound.setMusicVolume)TeteSound.setMusicVolume(+$('#sp-mvol').value/100);$('#mus-vol').value=$('#sp-mvol').value};
+$('#sp-mvol').oninput=()=>{if(window.TeteSound&&TeteSound.setMusicVolume)TeteSound.setMusicVolume(+$('#sp-mvol').value/100);$('#mus-vol').value=$('#sp-mvol').value;djMonitor()};
 $('#mus-on').onclick=()=>setMusicOn(true);$('#mus-off').onclick=()=>setMusicOn(false);
-$('#mus-vol').oninput=()=>{if(window.TeteSound&&TeteSound.setMusicVolume)TeteSound.setMusicVolume(+$('#mus-vol').value/100)};
+$('#mus-vol').oninput=()=>{if(window.TeteSound&&TeteSound.setMusicVolume)TeteSound.setMusicVolume(+$('#mus-vol').value/100);djMonitor()};
 // each new song shows in the panel; the first time music starts on this phone or laptop, say where its button is
 if(window.TeteSound)TeteSound.onSong=(s,skipped)=>{if(!$('#sndpop').hidden)renderMusicPop();if(skipped){toast(`🎵 ${s.title} · ${s.artist}`,2200);return}
   let seen=false;try{seen=localStorage.getItem('tete.musichint')==='1'}catch{}if(seen)return;try{localStorage.setItem('tete.musichint','1')}catch{}
@@ -604,10 +612,10 @@ function celebrate(amount,title,sub){
 // ---------- state ----------
 function applyState(o,fx){
   const prev=S;const before=prev&&prev.players&&prev.players.length?snapCards():new Map();
-  S={tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,leadBy:o.lb!=null?o.lb:-1,loans:(o.ln||[]).map(a=>({id:a[0],from:a[1],to:a[2],amt:a[3],paid:a[4],fromName:a[5],toName:a[6],out:!!a[7]})),boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,tieSplit:!!o.ts,fill:!!o.fl,pub:!!o.pb,pending:o.pc||null,
+  S={dj:o.dj==null?-1:o.dj,tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,leadBy:o.lb!=null?o.lb:-1,loans:(o.ln||[]).map(a=>({id:a[0],from:a[1],to:a[2],amt:a[3],paid:a[4],fromName:a[5],toName:a[6],out:!!a[7]})),boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,tieSplit:!!o.ts,fill:!!o.fl,pub:!!o.pb,pending:o.pc||null,
     players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||'',streak:a[17]||0,bought:a[18]!=null?a[18]:null,wins:a[19]||0,best:a[20]||0,voice:a[21]||null})),
     sideBets:o.sbs.map(a=>({id:a[0],a:a[1],b:a[2],type:a[3],amt:a[4],mine:a[5],theirs:a[6],status:a[7],result:a[8],winner:a[9],desc:sbDesc(a[3],a[5],a[6])}))};
-  ME=o.me;HOST=o.host===ME;
+  ME=o.me;HOST=o.host===ME;djRefresh();
   $('#t-name').textContent=S.tableName;$('#t-wager').textContent=S.pending&&S.pending.wager!=null&&S.pending.wager!==S.wager?`${fmt(S.wager)} → ${fmt(S.pending.wager)} next hand`:fmt(S.wager);$('#t-decks').textContent=`${S.decks} deck${S.decks>1?'s':''} · ${36*S.decks} cards`;
   if(!S.started)showWait();else $('#wait').hidden=true;
   $('#btn-tset2').classList.toggle('can',canEditTable());tipSettings();
@@ -1353,13 +1361,13 @@ async function buildPC(pid,initiator){
   const ice=await getIce();if(PC.has(pid))return PC.get(pid);
   const pc=new RTCPeerConnection({iceServers:ice});const c={pc,stream:new MediaStream(),polite:ME>pid,init:ME<pid,making:false,cands:[]};PC.set(pid,c);
   pc.onicecandidate=e=>{if(e.candidate)send({type:'rtc',to:pid,data:{cand:e.candidate}})};
-  pc.ontrack=e=>{c.stream.addTrack(e.track);attachRemote(pid,c)};
+  pc.ontrack=e=>{if(e.track.kind==='audio'&&e.streams&&e.streams.length){c.djStream=e.streams[0];djRefresh();return}c.stream.addTrack(e.track);attachRemote(pid,c)};
   pc.onnegotiationneeded=async()=>{try{c.making=true;await pc.setLocalDescription();send({type:'rtc',to:pid,data:{sdp:pc.localDescription}})}catch(e){}finally{c.making=false}};
   pc.onconnectionstatechange=()=>{const st=pc.connectionState;clearTimeout(c.wob);
     const rearm=()=>{clearTimeout(c.dog);c.dog=setTimeout(()=>watchdog(pid,c),c.init?9000:13000)};
     if(st==='failed'){try{pc.restartIce()}catch{}rearm()}
     else if(st==='disconnected')c.wob=setTimeout(()=>{if(pc.connectionState==='disconnected'){try{pc.restartIce()}catch{}rearm()}},4000);
-    else if(st==='connected'){clearTimeout(c.dog);TRIES.delete(pid);tuneSenders()}};
+    else if(st==='connected'){clearTimeout(c.dog);TRIES.delete(pid);tuneSenders();if(DJ&&!(c.musicTx&&c.musicTx.sender&&c.musicTx.sender.track))addMusic(c)}};
   if(c.init)replaceTracks(c,true);
   tuneSenders();
   c.dog=setTimeout(()=>watchdog(pid,c),c.init?9000:13000);
@@ -1402,14 +1410,57 @@ async function handleSignal(from,data,sid){
 }
 // someone (re)joined: whatever we had with them belongs to their old session, so start clean
 function rtcOnPeerJoined(pid,sid){if(pid===ME)return;if(sid){if(PSID.get(pid)===sid&&(PC.has(pid)||PCP.has(pid)))return;PSID.set(pid,sid)}TRIES.delete(pid);dropPC(pid);if(ME<pid)makePC(pid,true)}
-function dropPC(pid){const c=PC.get(pid);if(c){clearTimeout(c.wob);clearTimeout(c.dog);c.pc.close();PC.delete(pid)}const a=$('#voice-'+pid);if(a){a.srcObject=null;a.remove()}LEVELS.delete(pid)}
+function dropPC(pid){const c=PC.get(pid);if(c){clearTimeout(c.wob);clearTimeout(c.dog);c.pc.close();PC.delete(pid)}const a=$('#voice-'+pid);if(a){a.srcObject=null;a.remove()}LEVELS.delete(pid);if(c&&c.djStream)djRefresh()}
 function rtcOnPeerLeft(pid){dropPC(pid);SIGQ.delete(pid);PSID.delete(pid);tuneSenders()}
-function rtcLeaveAll(){for(const [pid,c] of PC){clearTimeout(c.wob);c.pc.close()}PC.clear();SIGQ.clear();PSID.clear();$$('#voices audio').forEach(a=>{a.srcObject=null;a.remove()});LEVELS.clear();if(LOCAL){LOCAL.getTracks().forEach(t=>t.stop());LOCAL=null}}
+function rtcLeaveAll(){stopDj(true);if(window.TeteSound&&TeteSound.djPlay)TeteSound.djPlay(null);DJ_LAST=-2;for(const [pid,c] of PC){clearTimeout(c.wob);c.pc.close()}PC.clear();SIGQ.clear();PSID.clear();$$('#voices audio').forEach(a=>{a.srcObject=null;a.remove()});LEVELS.clear();if(LOCAL){LOCAL.getTracks().forEach(t=>t.stop());LOCAL=null}}
 function rtcSyncPeers(){if(!S||ME<0)return;for(const p of S.players){if(p.isBot||p.gone||p.id===ME)continue;if(!PC.has(p.id)&&ME<p.id)makePC(p.id,true)}for(const [pid] of PC){const p=S.players[pid];if(!p||p.gone||p.isBot)rtcOnPeerLeft(pid)}}
 function voiceBox(){let b=$('#voices');if(!b){b=document.createElement('div');b.id='voices';b.hidden=true;document.body.appendChild(b)}return b}
 function attachRemote(pid,c){const v=$(`#seat-${pid} .vid video`);if(v&&v.srcObject!==c.stream){v.srcObject=c.stream;v.muted=true;v.play().catch(()=>{})}
   if(c.stream.getAudioTracks().length){let a=$('#voice-'+pid);if(!a){a=document.createElement('audio');a.id='voice-'+pid;a.autoplay=true;a.setAttribute('playsinline','');voiceBox().appendChild(a)}if(a.srcObject!==c.stream)a.srcObject=c.stream;a.muted=!AVS.spk;if(a.paused)a.play().catch(()=>{});watchLevel(pid,c.stream)}}
 function rtcAttachAll(){attachLocal();for(const [pid,c] of PC)attachRemote(pid,c)}
+// ---------- music from your computer: a Chrome tab's sound (YouTube Music, say) played for the whole table ----------
+// It goes to everyone as its own stream, apart from your mic (which carries on as normal), and it doesn't step back
+// when people talk. You set how loud it goes to the table; everyone still has their own music volume. Phones can't
+// share another app's sound, and Safari and Firefox can't share a tab's sound, so it's offered on Chrome or Edge.
+const DJ_OK=!!(navigator.mediaDevices&&navigator.mediaDevices.getDisplayMedia)&&!/Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent)&&/Chrome\/|Chromium\/|Edg\//.test(navigator.userAgent);
+let DJ=null,DJ_SEND=0.8,DJ_LAST=-2;
+try{const v=parseFloat(localStorage.getItem('tete.djvol'));if(!isNaN(v))DJ_SEND=Math.max(0,Math.min(1,v))}catch{}
+async function startDj(){
+  if(DJ||!S||ME<0||LOCALT)return;
+  if(!DJ_OK){info('Use a computer for this',"To play your own music for the table, open Tete in Chrome or Edge on a computer, with the music playing in another tab. Phones can't share another app's sound.");return}
+  let ctx=null;try{ctx=new (window.AudioContext||window.webkitAudioContext)()}catch{}
+  let cap;
+  try{cap=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:'browser',width:{max:320},height:{max:240},frameRate:{max:1}},audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,suppressLocalAudioPlayback:true},preferCurrentTab:false,selfBrowserSurface:'exclude',surfaceSwitching:'include',systemAudio:'include'})}
+  catch(e){if(ctx)ctx.close().catch(()=>{});if(e&&e.name!=='NotAllowedError'&&e.name!=='AbortError')toast("Sharing didn't start: "+(e.message||e.name),3500);return}
+  const a=cap.getAudioTracks()[0];
+  if(!a||!ctx||!S||ME<0){cap.getTracks().forEach(t=>t.stop());if(ctx)ctx.close().catch(()=>{});if(!a)info('No sound came with it','Pick the <b>Chrome Tab</b> that is playing the music (not a window or the whole screen), and make sure <b>Also share tab audio</b> is ticked, then try again.');return}
+  try{if(ctx.state==='suspended')await ctx.resume()}catch{}
+  const src=ctx.createMediaStreamSource(new MediaStream([a])),lvl=ctx.createGain(),mon=ctx.createGain(),dest=ctx.createMediaStreamDestination();
+  lvl.gain.value=DJ_SEND;src.connect(lvl);lvl.connect(dest);lvl.connect(mon);mon.connect(ctx.destination);
+  const track=dest.stream.getAudioTracks()[0];try{track.contentHint='music'}catch{}
+  DJ={cap,ctx,lvl,mon,out:dest.stream,track,since:Date.now()};djMonitor();
+  a.addEventListener('ended',()=>stopDj());cap.getVideoTracks().forEach(v=>v.addEventListener('ended',()=>{if(DJ&&DJ.cap===cap&&a.readyState==='ended')stopDj()}));
+  for(const [,c] of PC)addMusic(c);
+  send({type:'dj',on:true});SND('pop');toast('🎵 Your music is playing for the table',2600);
+  if(!$('#sndpop').hidden)renderMusicPop()}
+// what you hear of your own music: it's your tab, muted there and played here at your music volume
+function djMonitor(){if(!DJ)return;const T=window.TeteSound;try{DJ.mon.gain.value=T?T.djLevel:0.5}catch{}}
+function addMusic(c){if(!DJ||!DJ.track||!c||!c.pc||c.pc.connectionState==='closed')return;
+  try{if(c.musicTx&&c.musicTx.sender){c.musicTx.direction='sendonly';c.musicTx.sender.replaceTrack(DJ.track).catch(()=>{});try{if(c.musicTx.sender.setStreams)c.musicTx.sender.setStreams(DJ.out)}catch{}}
+    else c.musicTx=c.pc.addTransceiver(DJ.track,{direction:'sendonly',streams:[DJ.out]});
+    const p=c.musicTx.sender.getParameters();if(!p.encodings||!p.encodings.length)p.encodings=[{}];p.encodings[0].maxBitrate=128000;c.musicTx.sender.setParameters(p).catch(()=>{})}catch(e){console.warn('music',e)}}
+function stopDj(quiet){const d=DJ;if(!d)return;DJ=null;
+  for(const [,c] of PC){const tx=c.musicTx;if(!tx)continue;try{tx.sender.replaceTrack(null).catch(()=>{});tx.direction='inactive'}catch{}}
+  d.cap.getTracks().forEach(t=>{try{t.stop()}catch{}});try{d.ctx.close()}catch{}
+  if(S&&ME>=0&&S.dj===ME)send({type:'dj',on:false});
+  if(!quiet)toast('Your music stopped',1800);if(!$('#sndpop').hidden)renderMusicPop();musicSync()}
+function setDjSend(v){DJ_SEND=Math.max(0,Math.min(1,v));try{localStorage.setItem('tete.djvol',String(DJ_SEND))}catch{}if(DJ)try{DJ.lvl.gain.setTargetAtTime(DJ_SEND,DJ.ctx.currentTime,0.08)}catch{}}
+// who's playing, from the table's state: their stream plays here (not on their own screen: they hear their tab), the
+// table's songs rest meanwhile; if someone else starts, yours stops; if the server lost track of yours, it's told again
+function djRefresh(){const dj=S&&ME>=0&&!LOCALT?S.dj:-1;
+  if(DJ&&dj!==ME&&Date.now()-DJ.since>3000){if(dj>=0){stopDj(true);const p=S.players[dj];toast(`🎵 ${p?p.name:'Someone'} is playing music now`,2500)}else if(S&&ME>=0){DJ.since=Date.now();send({type:'dj',on:true})}}
+  const c=dj>=0&&dj!==ME?PC.get(dj):null,T=window.TeteSound;if(T&&T.djPlay)T.djPlay(c&&c.djStream||null);
+  if(dj!==DJ_LAST){DJ_LAST=dj;musicSync();if(!$('#sndpop').hidden)renderMusicPop()}}
 let ACTX=null;const LEVELS=new Map();
 function watchLevel(pid,stream){
   if(LEVELS.has(pid))return;try{ACTX=ACTX||new (window.AudioContext||window.webkitAudioContext)();const src=ACTX.createMediaStreamSource(stream);const an=ACTX.createAnalyser();an.fftSize=512;src.connect(an);const buf=new Uint8Array(an.frequencyBinCount);LEVELS.set(pid,{an,buf});if(ACTX.state==='suspended')ACTX.resume().catch(()=>{});levelKick()}catch{}

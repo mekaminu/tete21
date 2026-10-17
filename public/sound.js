@@ -191,7 +191,7 @@
     });
   }
   function setMuted(m) { muted = !!m; try { localStorage.setItem('tete.mute', muted ? '1' : '0'); } catch {} if (master) master.gain.value = muted ? 0 : vol; }
-  function setVolume(v) { vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('tete.vol', String(vol)); } catch {} if (master && !muted) master.gain.value = vol; if (MU && ctx) try { MU.out.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.1); } catch {} }
+  function setVolume(v) { vol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('tete.vol', String(vol)); } catch {} if (typeof djApply === 'function') djApply(); if (master && !muted) master.gain.value = vol; if (MU && ctx) try { MU.out.gain.setTargetAtTime(musicGain(), ctx.currentTime, 0.1); } catch {} }
   // render a list of [name, seconds, arg] to an audio buffer (used to give the intro video its soundtrack)
   async function renderOffline(list, seconds, rate = 44100) {
     const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!OAC) return null;
@@ -323,8 +323,26 @@
   }
   // when someone talks on voice chat, the music steps back
   function duck(on) { if (!MU || duckOn === !!on) return; duckOn = !!on; try { const t = ctx.currentTime; MU.duck.gain.cancelScheduledValues(t); MU.duck.gain.setTargetAtTime(on ? 0.3 : 1, t, on ? 0.06 : 0.35); } catch {} }
-  function setMusic(on) { mOn = !!on; try { localStorage.setItem('tete.music', mOn ? 'on' : 'off'); } catch {} }
-  function setMusicVolume(v) { mVol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('tete.mvol', String(mVol)); } catch {} if (MU && !MEL.paused) try { MU.out.gain.setTargetAtTime(musicGain(), MU.c.currentTime, 0.1); } catch {} }
+  function setMusic(on) { mOn = !!on; try { localStorage.setItem('tete.music', mOn ? 'on' : 'off'); } catch {} djApply(); }
+  function setMusicVolume(v) { mVol = Math.max(0, Math.min(1, v)); try { localStorage.setItem('tete.mvol', String(mVol)); } catch {} djApply(); if (MU && !MEL.paused) try { MU.out.gain.setTargetAtTime(musicGain(), MU.c.currentTime, 0.1); } catch {} }
+  // ---------- music someone at the table plays from their computer (their YouTube Music tab, say) ----------
+  // It arrives as its own stream, never mixed with anyone's voice, and plays at your music volume (on or off with the
+  // music). Unlike the songs it doesn't step back when people talk: the person playing it asked for that.
+  let DJEL = null, DJS = null;
+  const DJ_LEVEL = 0.9;
+  function djLevel() { return Math.max(0, Math.min(1, DJ_LEVEL * mVol * vol)); }
+  function djApply() {
+    if (!DJEL) return;
+    try { DJEL.volume = djLevel(); } catch {}
+    DJEL.muted = !mOn || !DJS;
+    if (DJS && mOn && DJEL.paused) { const p = DJEL.play(); if (p && p.catch) p.catch(() => {}); }
+  }
+  function djPlay(stream) {
+    if (!stream) { DJS = null; if (DJEL) { try { DJEL.pause(); } catch {} DJEL.srcObject = null; } return; }
+    if (!DJEL) { DJEL = document.createElement('audio'); DJEL.id = 'dj-music'; DJEL.autoplay = true; DJEL.setAttribute('playsinline', ''); DJEL.hidden = true; document.body.appendChild(DJEL); }
+    DJS = stream; if (DJEL.srcObject !== stream) DJEL.srcObject = stream;
+    djApply();
+  }
   // the end of the launch intro: an Afrobeat break instead of a fanfare
   SOUNDS.afrobreak = function (t) {
     const d = master, sp = 60 / 112 / 4;
@@ -343,5 +361,5 @@
     const end = t + 16 * sp; BAND.kick(end, d, 0.62); BAND.clap(end, d, 0.24); BAND.bass(end, d, 36, 0.8, 0.34); [60, 64, 67, 72].forEach((m, i) => BAND.pluck(end + i * 0.02, d, m, 0.15, { len: 1.8 })); BAND.bell(end, d, 1, 0.14);
   };
   document.addEventListener('visibilitychange', () => { if (!MU || !MEL) return; if (document.hidden) { try { MEL.pause(); } catch {} } else musicTick(); });
-  window.TeteSound = { play, clip, loadClip, stop, ready, setMuted, setVolume, unlock, renderOffline, music, duck, setMusic, setMusicVolume, nextSong: () => nextSong(false), get song() { return NOW ? { title: NOW.title, artist: NOW.artist } : null; }, get songWaiting() { return !!MU && (!NOW || BLOCKED); }, set onSong(f) { onSong = typeof f === 'function' ? f : null; }, get musicOn() { return mOn; }, get musicVolume() { return mVol; }, get musicPlaying() { return !!MU; }, get muted() { return muted; }, get volume() { return vol; }, get state() { return ctx ? ctx.state : 'none'; } };
+  window.TeteSound = { play, clip, loadClip, stop, ready, setMuted, setVolume, unlock, renderOffline, music, duck, setMusic, setMusicVolume, djPlay, get djLevel() { return mOn ? djLevel() : 0; }, get djPlaying() { return !!DJS; }, nextSong: () => nextSong(false), get song() { return NOW ? { title: NOW.title, artist: NOW.artist } : null; }, get songWaiting() { return !!MU && (!NOW || BLOCKED); }, set onSong(f) { onSong = typeof f === 'function' ? f : null; }, get musicOn() { return mOn; }, get musicVolume() { return mVol; }, get musicPlaying() { return !!MU; }, get muted() { return muted; }, get volume() { return vol; }, get state() { return ctx ? ctx.state : 'none'; } };
 })();
