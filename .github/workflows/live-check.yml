@@ -26,6 +26,9 @@ jobs:
             echo "page: $c | sign-in page: $(grep -c 'Members only' /tmp/p) | game script: $(grep -c 'src=\"app.js\"' /tmp/p)"
             for f in app.js engine.js index.html music/index.json ice; do echo "$f: $(curl -s -o /tmp/f -w '%{http_code}' --max-time 60 $U/$f) $(grep -c 'src=\"app.js\"' /tmp/f)"; done
             echo "api/me: $(curl -s --max-time 60 $U/api/me | head -c 200)"
+            echo "app download for a stranger: $(curl -s -o /dev/null -w '%{http_code}' --max-time 60 $U/download/tete.apk)"
+            echo "assetlinks: $(curl -s -o /tmp/al -w '%{http_code}' --max-time 60 $U/.well-known/assetlinks.json) $(grep -o 'com.tete21.app' /tmp/al | head -1) $(grep -o 'DA:2B:7F' /tmp/al | head -1)"
+            echo "app.js has phone music: $(curl -s --max-time 60 -o /dev/null -w '%{http_code}' $U/app.js) (403 = members only, as it should be)"
             node ws-probe.mjs
           } > /tmp/result.txt 2>&1
           cat /tmp/result.txt
