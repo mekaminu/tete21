@@ -1,0 +1,46 @@
+name: Android app
+# Push to the android-build branch: GitHub's machines build Tete for Android (the android/ folder) and put the signed
+# app on the android-apk branch as tete.apk, with build.txt saying how it went (the end of the build log if it failed).
+on:
+  push:
+    branches: [android-build]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build the app
+        working-directory: android
+        env:
+          TETE_BUILD: ${{ github.run_number }}
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain assembleRelease 2>&1 | tee /tmp/build.log
+      - name: Save the app, or what went wrong
+        if: always()
+        run: |
+          mkdir out
+          APK=$(ls android/app/build/outputs/apk/release/*.apk 2>/dev/null | head -1)
+          if [ -n "$APK" ]; then
+            cp "$APK" out/tete.apk
+            echo "ok: build ${{ github.run_number }}, $(date -u +%FT%TZ), from $(git rev-parse --short HEAD), $(stat -c %s "$APK") bytes" > out/build.txt
+          else
+            echo "FAILED: build ${{ github.run_number }}, $(date -u +%FT%TZ), from $(git rev-parse --short HEAD)" > out/build.txt
+          fi
+          grep -E "^e: |error:|FAILURE|What went wrong|^> " /tmp/build.log | head -80 >> out/build.txt || true
+          echo "----- end of the log -----" >> out/build.txt
+          tail -c 30000 /tmp/build.log >> out/build.txt || true
+          cd out && git init -q && git checkout -q -b android-apk
+          git config user.name "android-build" && git config user.email "android-build@users.noreply.github.com"
+          git add . && git commit -q -m "Android build ${{ github.run_number }}"
+          git push -f -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" android-apk

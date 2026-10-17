@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tete 21</string>
+    <string name="music_channel">Music for the table</string>
+    <string name="music_on">Your music is playing for the table</string>
+    <string name="music_on_text">Tap to go back to Tete. Stop ends it for everyone.</string>
+    <string name="stop">Stop</string>
+    <string name="share">Share</string>
+</resources>
