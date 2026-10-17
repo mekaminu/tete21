@@ -10,7 +10,7 @@ const fmt=n=>(+n||0).toLocaleString('en-GB');
 
 let S=null, ME=-1, WS=null, CONNECTED=false, HOST=false;
 let lastCount=0, lastME=null, lastSig='';
-let cfg={fill:true,side:true,series:false,tie:'playoff',keep:false,pub:false,soloSeries:false};
+let cfg={fill:true,side:true,series:false,tie:'playoff',keep:false,pub:false,soloSeries:false,gold:false,soloGold:false};
 let AFTER_NAME=null;
 const AVS={mic:false,cam:false,spk:true};
 const LOG=[];
@@ -143,8 +143,8 @@ function onOpt(k){if(k==='f-seats')seatsHint();updateMoreSum()}
 function seatsHint(){const n=+$('#f-seats').value;$('#seats-hint').textContent=n>6?'Two decks · 72 cards':'One deck · 36 cards'}
 function updateMoreSum(){const t=+$('#f-timer').value;$('#more-sum').textContent=[t?t+'s timer':'relaxed timer',cfg.fill?'computer fills seats':'seats stay empty',cfg.side?'side bets on':'no side bets',cfg.series?'series on':'',cfg.tie==='split'?'ties split':'',cfg.keep?'stays open':''].filter(Boolean).join(' · ')}
 function pair(onId,offId,key,onVal=true,offVal=false){$('#'+onId).onclick=()=>{cfg[key]=onVal;syncSegs();updateMoreSum();SND('flick')};$('#'+offId).onclick=()=>{cfg[key]=offVal;syncSegs();updateMoreSum();SND('flick')}}
-pair('fill-on','fill-off','fill');pair('sb-on','sb-off','side');pair('sr-on','sr-off','series');pair('keep-on','keep-off','keep');pair('pub-on','pub-off','pub');pair('tie-split','tie-playoff','tie','split','playoff');pair('ssr-on','ssr-off','soloSeries');
-function syncSegs(){$('#pub-hint').textContent=cfg.pub?'Anyone can sit down straight from the Open tables list.':'Friends need the code or your OK to sit down.';for(const [a,b,v] of [['fill-on','fill-off',cfg.fill],['sb-on','sb-off',cfg.side],['sr-on','sr-off',cfg.series],['keep-on','keep-off',cfg.keep],['pub-on','pub-off',cfg.pub],['tie-split','tie-playoff',cfg.tie==='split'],['ssr-on','ssr-off',cfg.soloSeries]]){$('#'+a).classList.toggle('on',!!v);$('#'+b).classList.toggle('on',!v)}}
+pair('fill-on','fill-off','fill');pair('sb-on','sb-off','side');pair('sr-on','sr-off','series');pair('keep-on','keep-off','keep');pair('pub-on','pub-off','pub');pair('tie-split','tie-playoff','tie','split','playoff');pair('ssr-on','ssr-off','soloSeries');pair('gold-on','gold-off','gold');pair('sgold-on','sgold-off','soloGold');
+function syncSegs(){$('#pub-hint').textContent=cfg.pub?'Anyone can sit down straight from the Open tables list.':'Friends need the code or your OK to sit down.';for(const [a,b,v] of [['fill-on','fill-off',cfg.fill],['sb-on','sb-off',cfg.side],['sr-on','sr-off',cfg.series],['keep-on','keep-off',cfg.keep],['pub-on','pub-off',cfg.pub],['tie-split','tie-playoff',cfg.tie==='split'],['ssr-on','ssr-off',cfg.soloSeries],['gold-on','gold-off',cfg.gold],['sgold-on','sgold-off',cfg.soloGold]]){$('#'+a).classList.toggle('on',!!v);$('#'+b).classList.toggle('on',!v)}}
 // the host sheet remembers the last table you opened
 function saveHostCfg(){try{localStorage.setItem('tete.hostcfg',JSON.stringify({table:$('#f-table').value,seats:$('#f-seats').value,buyIn:$('#f-buyin').value,wager:$('#f-wager').value,timer:$('#f-timer').value,cfg}))}catch{}}
 function restoreHostCfg(){let h=null;try{h=JSON.parse(localStorage.getItem('tete.hostcfg')||'null')}catch{}
@@ -184,7 +184,7 @@ for(const k of Object.keys(SEATS)){const s=SEATS[k];if(!s||!s.token||(!s.keep&&D
 function saveSeats(){try{localStorage.setItem('tete.seats',JSON.stringify(SEATS))}catch{}}
 function setCurrent(c){CURRENT=c;try{c?localStorage.setItem('tete.current',c):localStorage.removeItem('tete.current')}catch{}}
 function closeSheets(){$$('.modal.on').forEach(m=>{if(m.id!=='m-invited')m.classList.remove('on')});AFTER_NAME=null}
-function backToLobby(){rtcLeaveAll();S=null;ME=-1;setTimeout(()=>{placeMarks();musicSync()},0);SIDE_MANUAL=null;SIDE_HOLD=-1;$('.room').classList.remove('with-side');$('.me').classList.remove('myturn');IDS=[];REQS=[];$('#reqs').innerHTML='';clearMotion();setTimeout(()=>{renderRooms();renderFriends()},0);$('#game').classList.remove('on');$('#lobby').classList.add('on');$('#btn-join').disabled=false;$('#btn-start').disabled=false;$('#join-note').textContent='Enter the code the host sent you. Just the last four letters works too.';
+function backToLobby(){goldLook(false);rtcLeaveAll();S=null;ME=-1;setTimeout(()=>{placeMarks();musicSync()},0);SIDE_MANUAL=null;SIDE_HOLD=-1;$('.room').classList.remove('with-side');$('.me').classList.remove('myturn');IDS=[];REQS=[];$('#reqs').innerHTML='';clearMotion();setTimeout(()=>{renderRooms();renderFriends()},0);$('#game').classList.remove('on');$('#lobby').classList.add('on');$('#btn-join').disabled=false;$('#btn-start').disabled=false;$('#join-note').textContent='Enter the code the host sent you. Just the last four letters works too.';
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches)$$('.tiles .tile').forEach((el,i)=>el.animate([{transform:'translateY(-40px) rotate(-8deg) scale(.9)',opacity:0},{transform:'translateY(0px) rotate(0deg) scale(1)',opacity:1}],{duration:520,delay:i*70,easing:'cubic-bezier(.2,1.25,.35,1)',fill:'backwards'}))}
 function onMessage(m){
   if(m.type==='joined'){hideReqbar();PENDING_JOIN=null;ME=m.id;if(m.token&&m.code!=='PRACTICE'){SEATS[m.code]=Object.assign({},SEATS[m.code],{token:m.token,rid:m.rid,keep:!!m.keep,t:Date.now()});saveSeats();setCurrent(m.code)}if(!S||$('#lobby').classList.contains('on')){S={code:m.code,players:[],sideBets:[],board:[],participants:[]};enterGame()}if(m.resumed)toast('Back at your seat');return}
@@ -236,13 +236,13 @@ function openFriends(){renderAcct();renderFriends();renderFriendReqs();$('#fr-ms
 $('#tile-host').onclick=openHost;$('#tile-join').onclick=openJoin;$('#tile-solo').onclick=openSolo;
 $('#rooms-all').onclick=openJoin;$('#friends-all').onclick=openFriends;
 $('#btn-start').onclick=()=>{if(!needName(openHost))return;if(!CONNECTED){toast(navigator.onLine?'Not connected to the server yet. One moment…':'You are offline. You can still practise against the computer.',3000);return}
-  const cfgT={seats:+$('#f-seats').value,buyIn:Math.round(+$('#f-buyin').value),wager:Math.round(+$('#f-wager').value),tableName:$('#f-table').value.trim()||(myName()+"'s table"),timer:+$('#f-timer').value,fill:cfg.fill,side:cfg.side,series:cfg.series,tie:cfg.tie,keep:cfg.keep,pub:cfg.pub};
+  const cfgT={seats:+$('#f-seats').value,buyIn:Math.round(+$('#f-buyin').value),wager:Math.round(+$('#f-wager').value),tableName:$('#f-table').value.trim()||(myName()+"'s table"),timer:+$('#f-timer').value,fill:cfg.fill,side:cfg.side,series:cfg.series,tie:cfg.tie,keep:cfg.keep,pub:cfg.pub,gold:!!(MO.gold&&cfg.gold)};
   if(!(cfgT.buyIn>=50)){toast('The buy-in has to be at least 50 chips');return}
   if(!(cfgT.wager>=5)||cfgT.wager>cfgT.buyIn){toast('The wager has to be at least 5 and no more than the buy-in');return}
   saveHostCfg();HOST=true;$('#btn-start').disabled=true;setTimeout(()=>{$('#btn-start').disabled=false},4000);
   send({type:'host',cfg:cfgT,name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam})};
 $('#btn-solo').onclick=()=>{if(!needName(openSolo))return;const n=Math.min(7,Math.max(1,+$('#f-solo-n').value||3));
-  const cfgT={seats:n+1,buyIn:1000,wager:50,tableName:'Practice table',timer:+$('#f-solo-t').value,fill:true,side:true,series:cfg.soloSeries,tie:'playoff'};
+  const cfgT={seats:n+1,buyIn:1000,wager:50,tableName:'Practice table',timer:+$('#f-solo-t').value,fill:true,side:true,series:cfg.soloSeries,tie:'playoff',gold:!!(MO.gold&&cfg.soloGold)};
   closeModal('#m-solo');startLocal(cfgT)};
 function joinCode(){const raw=($('#f-join').value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');const k=raw.length===8&&raw.startsWith('TETE')?raw.slice(4):raw;return /^[A-Z0-9]{4}$/.test(k)?'tete-'+k.toLowerCase():null}
 $('#btn-join').onclick=()=>{if(!needName(openJoin))return;
@@ -327,8 +327,8 @@ function roomHTML(r,i){
   const fr=friendsAt(r.rid);const full=!r.mine&&r.seats&&r.seated>=r.seats;
   const status=r.asleep?'Asleep. Return to wake it':`${r.host?esc(r.host)+"'s room · ":''}${r.seated} of ${r.seats} seated${r.here?` · ${r.here} here`:''} · ${fmt(r.wager)} a hand · ${r.started?'Hand '+r.hand:'Waiting to start'}`;
   const btn=r.mine?`<button class="btn btn-gold" data-ret="${esc(r.mine)}">Return</button>`:full?`<button class="btn btn-dark" disabled>Full</button>`:r.pub?`<button class="btn btn-gold" data-ask="${esc(r.rid)}">Join</button>`:`<button class="btn btn-ghost" data-ask="${esc(r.rid)}">Ask to join</button>`;
-  return`<div class="rrow ${r.mine?'mine':''} ${r.asleep?'asleep':''}" style="animation-delay:${i*.04}s"><div class="rico">${r.mine?ICON.home:r.pub?ICON.open:ICON.lock}${r.here?'<span class="live"></span>':''}</div><div style="min-width:0"><div class="rname"><span class="t">${esc(r.name)}</span>${r.mine?'<span class="tag you">Your seat</span>':''}${r.keep?'<span class="tag">Always open</span>':''}${r.pub?'<span class="tag pub">Public</span>':''}</div><div class="rmeta">${status}</div>${fr.length?`<div class="rfr">${esc(nameList(fr))} ${fr.length>1?'are':'is'} here</div>`:''}${r.pub&&r.members&&r.members.length&&!fr.length?`<div class="rmeta">${esc(r.members.join(', '))}</div>`:''}</div>${btn}</div>`}
-function retHTML(r){return`<div class="retcard"><div class="rico">${ICON.home}${r.here?'<span class="live"></span>':''}</div><div style="min-width:0"><div class="rname"><span class="t">${esc(r.name)}</span><span class="tag you">Your seat</span></div><div class="rmeta">${r.asleep?'Asleep. Return wakes it up with everyone\'s chips':`${r.here?r.here+' at the table · ':''}${r.started?'Hand '+r.hand:'Waiting to start'}`}</div></div><button class="btn btn-gold" data-ret="${esc(r.mine)}">Return</button></div>`}
+  return`<div class="rrow ${r.mine?'mine':''} ${r.asleep?'asleep':''} ${r.gold?'goldrow':''}" style="animation-delay:${i*.04}s"><div class="rico">${r.mine?ICON.home:r.pub?ICON.open:ICON.lock}${r.here?'<span class="live"></span>':''}</div><div style="min-width:0"><div class="rname"><span class="t">${esc(r.name)}</span>${r.gold?'<span class="tag goldtag">Gold</span>':''}${r.mine?'<span class="tag you">Your seat</span>':''}${r.keep?'<span class="tag">Always open</span>':''}${r.pub?'<span class="tag pub">Public</span>':''}</div><div class="rmeta">${status}</div>${fr.length?`<div class="rfr">${esc(nameList(fr))} ${fr.length>1?'are':'is'} here</div>`:''}${r.pub&&r.members&&r.members.length&&!fr.length?`<div class="rmeta">${esc(r.members.join(', '))}</div>`:''}</div>${btn}</div>`}
+function retHTML(r){return`<div class="retcard${r.gold?' goldrow':''}"><div class="rico">${ICON.home}${r.here?'<span class="live"></span>':''}</div><div style="min-width:0"><div class="rname"><span class="t">${esc(r.name)}</span><span class="tag you">Your seat</span></div><div class="rmeta">${r.asleep?'Asleep. Return wakes it up with everyone\'s chips':`${r.here?r.here+' at the table · ':''}${r.started?'Hand '+r.hand:'Waiting to start'}`}</div></div><button class="btn btn-gold" data-ret="${esc(r.mine)}">Return</button></div>`}
 function wireRooms(box){box.querySelectorAll('[data-ret]').forEach(b=>b.onclick=()=>returnTo(b.dataset.ret));box.querySelectorAll('[data-ask]').forEach(b=>b.onclick=()=>askRoom(b.dataset.ask))}
 function renderRooms(){
   const box=$('#rooms');if(!box)return;
@@ -473,7 +473,7 @@ function renderMbrBtn(){const b=$('#btn-members');if(!b)return;const was=+(b.dat
   b.hidden=!MO.owner;const bd=$('#mbr-badge');bd.hidden=!n;bd.textContent=n;b.dataset.n=n;
   b.setAttribute('aria-label',n?`Members: ${n} waiting to be let in`:'Members: who can play');
   if(n>was&&!matchMedia('(prefers-reduced-motion: reduce)').matches){b.classList.remove('ping');void b.offsetWidth;b.classList.add('ping')}}
-function renderHostTile(){const t=$('#tile-host');if(!t)return;const no=MO.host===0,sm=t.querySelector('small');t.classList.toggle('locked',no);t.setAttribute('aria-disabled',no?'true':'false');
+function renderHostTile(){for(const id of ['#gold-f','#sgold-f']){const f=$(id);if(f)f.hidden=!MO.gold}const t=$('#tile-host');if(!t)return;const no=MO.host===0,sm=t.querySelector('small');t.classList.toggle('locked',no);t.setAttribute('aria-disabled',no?'true':'false');
   if(sm)sm.textContent=no?`Only ${MO.ownerName||'Meka'} opens tables for now`:'Invite friends with a link or code'}
 function openMembers(){if(!MO.owner)return;send({type:'members'});renderMembers();openModal('#m-members');SND('flick')}
 const invUrl=k=>location.origin+'/?key='+encodeURIComponent(k);
@@ -633,7 +633,7 @@ function applyState(o,fx){
   S={dj:o.dj==null?-1:o.dj,djTitle:o.djt||'',tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,leadBy:o.lb!=null?o.lb:-1,loans:(o.ln||[]).map(a=>({id:a[0],from:a[1],to:a[2],amt:a[3],paid:a[4],fromName:a[5],toName:a[6],out:!!a[7]})),boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,tieSplit:!!o.ts,fill:!!o.fl,pub:!!o.pb,pending:o.pc||null,
     players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||'',streak:a[17]||0,bought:a[18]!=null?a[18]:null,wins:a[19]||0,best:a[20]||0,voice:a[21]||null})),
     sideBets:o.sbs.map(a=>({id:a[0],a:a[1],b:a[2],type:a[3],amt:a[4],mine:a[5],theirs:a[6],status:a[7],result:a[8],winner:a[9],desc:sbDesc(a[3],a[5],a[6])}))};
-  ME=o.me;HOST=o.host===ME;djRefresh();
+  ME=o.me;HOST=o.host===ME;S.gold=!!o.gd;goldLook(S.gold);djRefresh();
   $('#t-name').textContent=S.tableName;$('#t-wager').textContent=S.pending&&S.pending.wager!=null&&S.pending.wager!==S.wager?`${fmt(S.wager)} → ${fmt(S.pending.wager)} next hand`:fmt(S.wager);$('#t-decks').textContent=`${S.decks} deck${S.decks>1?'s':''} · ${36*S.decks} cards`;
   if(!S.started)showWait();else $('#wait').hidden=true;
   $('#btn-tset2').classList.toggle('can',canEditTable());tipSettings();
@@ -679,7 +679,7 @@ function runFx(e){
     case 'bubble':if(e.t==='21!')fx21(e.pid,'hit');if(e.t!=='21!'||RM())bubble(e.pid,e.t,e.ms);break;
     case 'chip':flyChip(e.from==='pot'?$('#pot'):seatEl(e.from),e.to==='pot'?$('#pot'):seatEl(e.to),e.cls,e.n2||1);if(e.to==='pot'){const pe=$('.pot');pe.classList.remove('grow');void pe.offsetWidth;pe.classList.add('grow')}break;
     case 'banner':banner(e.t);SND('stamp');break;
-    case 'win':{const el=$('#seat-'+e.pid);if(el){el.classList.add('winner','won');setTimeout(()=>el.classList.remove('winner'),2500)}const wp=S.players[e.pid],w21=!!(wp&&total(wp)===21);if(w21)fx21(e.pid,'win');else SND('win');if(e.pid===ME||w21){confetti();if(w21)setTimeout(confetti,450)}if(e.pid===ME)buzz([40,30,80]);break}
+    case 'win':{const el=$('#seat-'+e.pid);if(el){el.classList.add('winner','won');setTimeout(()=>el.classList.remove('winner'),2500)}const wp=S.players[e.pid],w21=!!(wp&&total(wp)===21);if(w21)fx21(e.pid,'win');else SND('win');if(isGold())coinBurst(e.pid,w21?22:14);if(e.pid===ME||w21){confetti();if(w21)setTimeout(confetti,450)}if(e.pid===ME)buzz([40,30,80]);break}
     case 'log':logLocal(e.t,e.cls||'');break;
     case 'toast':if(e.pid===undefined||e.pid===ME)toast(e.t,e.ms||2200);break;
     case 'nudge':if(e.pid===ME){nudge(e.t);SND('error');buzz(40)}break;
@@ -724,7 +724,7 @@ function renderSeats(fresh){
   const n=S.players.length, root=$('#seats');const meIdx=Math.max(0,ME);
   const tb=$('#table'),tall=!!(tb&&tb.clientHeight>tb.clientWidth*1.05);
   if(fresh||lastCount!==n||lastME!==ME||TALL!==tall){lastCount=n;lastME=ME;TALL=tall;const L=seatLayout(n,tall);sizeBoard();const D=$('.dealer');D.style.left=L.dealer.left+'%';D.style.top=L.dealer.top+'%';D.style.right='auto';D.style.transform=`translate(${L.dealer.tx}%,${L.dealer.ty}%)`;root.innerHTML=S.players.map((p,i)=>{const pos=L.seat((i-meIdx+n)%n);const a=p.isBot?{style:`background:${p.color}`,text:p.name[0].toUpperCase()}:(p.id===ME?avStyle(AV,p.name[0].toUpperCase()):avStyle(p.av,p.name[0].toUpperCase()));
-    return`<div class="seat" id="seat-${p.id}" data-side="${pos.side}" style="left:${pos.left}%;top:${pos.top}%;transform:translate(${pos.tx}%,${pos.ty}%);animation:seatin .6s ${i*.08}s both"><span class="flame"></span><div class="av" style="${a.style}" ${p.id===ME?'title="Change your avatar"':''}>${a.text}<div class="vid"><video autoplay playsinline ${p.id===ME?'muted':''}></video></div><span class="rec"></span><span class="mic"></span><span class="treat"></span><div class="ring" hidden></div><div class="tleft" hidden></div></div><div class="nm"></div><div class="chips"><span class="chip s c25"></span><span class="num"></span></div><div class="mini"></div><div class="tot"></div></div>`}).join('');
+    return`<div class="seat" id="seat-${p.id}" data-side="${pos.side}" style="left:${pos.left}%;top:${pos.top}%;transform:translate(${pos.tx}%,${pos.ty}%);animation:seatin .6s ${i*.08}s both"><span class="flame"></span><div class="av" style="${a.style}" ${p.id===ME?'title="Change your avatar"':''}>${a.text}<div class="vid"><video autoplay playsinline ${p.id===ME?'muted':''}></video></div><span class="rec"></span><span class="mic"></span><span class="treat"></span><span class="hcrown"></span><div class="ring" hidden></div><div class="tleft" hidden></div></div><div class="nm"></div><div class="chips"><span class="chip s c25"></span><span class="num"></span></div><div class="mini"></div><div class="tot"></div></div>`}).join('');
     if(ME>=0){const me=$('#seat-'+ME+' .av');if(me)me.onclick=openAv}
     S.players.forEach(p=>{if(p.id===ME)return;const el=$('#seat-'+p.id);if(!el)return;el.classList.add('human');el.querySelector('.av').onclick=()=>openPlayer(p.id)});
     rtcAttachAll();
@@ -736,7 +736,7 @@ function renderSeats(fresh){
     // a seat whose player left or was taken off the table shows as an empty chair
     el.classList.toggle('empty',!!p.gone);
     el.querySelector('.nm').textContent=p.gone?'Empty seat':p.name+(p.away?' · reconnecting':'');countTo(el.querySelector('.chips .num'),p.chips);
-    el.classList.toggle('friend',!p.isBot&&p.id!==ME&&!!IDS[p.id]&&!!FR()[IDS[p.id]]);el.classList.toggle('turn',S.turn===p.id);el.classList.toggle('sitout',p.sitout||p.gone||p.away||(S.started&&!S.participants.includes(p.id)));
+    el.classList.toggle('friend',!p.isBot&&p.id!==ME&&!!IDS[p.id]&&!!FR()[IDS[p.id]]);el.classList.toggle('turn',S.turn===p.id);el.classList.toggle('host',S.hostId===p.id&&!p.gone);el.classList.toggle('sitout',p.sitout||p.gone||p.away||(S.started&&!S.participants.includes(p.id)));
     const mic=p.id===ME?AVS.mic:p.mic,cam=p.id===ME?AVS.cam:p.cam;el.classList.toggle('video',!!cam&&!p.isBot);el.classList.toggle('mic-on',!!mic);el.classList.toggle('mic-off',!mic);
     let btn=el.querySelector('.btn-d');if(S.dealer===p.id&&S.started){if(!btn){btn=document.createElement('div');btn.className='btn-d';btn.textContent='D';el.querySelector('.av').appendChild(btn)}}else if(btn)btn.remove();
     const tr=el.querySelector('.treat'),te=p.treat&&TREATS[p.treat]?TREATS[p.treat].e:'';if(tr&&tr.textContent!==te)tr.textContent=te;
@@ -848,15 +848,33 @@ function bubble(pid,text,ms=1400,cls){const el=$('#seat-'+pid);if(!el)return;con
   setTimeout(()=>b.remove(),ms)}
 function fakeSpeak(pid,ms){const el=$('#seat-'+pid);if(!el||!AVS.spk)return;el.classList.add('speaking');setTimeout(()=>el.classList.remove('speaking'),ms)}
 function center(el){const r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}}
+// ---------- Gold tables: the premium look (Meka's for now; later, for people who've paid) ----------
+// Everyone at a Gold table sees it: the styles hang off html.goldt and #game.goldtab (index.html)
+const isGold=()=>document.documentElement.classList.contains('goldt');
+function goldLook(on){on=!!on;const was=isGold();document.documentElement.classList.toggle('goldt',on);const g=$('#game');if(g)g.classList.toggle('goldtab',on);
+  const b=$('#t-gold');if(b)b.hidden=!on;const f=$('.felt');if(f)f.dataset.tn=on&&S&&S.tableName?String(S.tableName).toUpperCase():'';
+  // arriving at a Gold table (or it turning Gold): a sweep of gold light across the felt
+  if(on&&!was&&!RM()){const t=$('#table');if(t){const w=document.createElement('div');w.className='goldwash';t.appendChild(w);setTimeout(()=>w.remove(),1800)}}}
+// coins rain down over the table (Adasi)
+function coinShower(n){const fx=$('#fx');if(!fx||RM())return;const H=($('#table')||document.body).getBoundingClientRect().height+60;
+  for(let i=0;i<n;i++){const c=document.createElement('i');c.className='gcoin';const z=14+Math.random()*14;c.style.width=c.style.height=z.toFixed(0)+'px';c.style.left=(Math.random()*96)+'%';c.style.top='-30px';fx.appendChild(c);
+    const dx=(Math.random()-.5)*70,spin=540+Math.random()*900;
+    c.animate([{transform:'translate(0,0) rotateY(0deg) rotate(0deg)',opacity:1},{offset:.88,opacity:1},{transform:`translate(${dx.toFixed(0)}px,${H.toFixed(0)}px) rotateY(${spin.toFixed(0)}deg) rotate(${((Math.random()-.5)*240).toFixed(0)}deg)`,opacity:0}],{duration:1500+Math.random()*1100,delay:Math.random()*700,easing:'cubic-bezier(.35,.05,.65,1)',fill:'backwards'}).onfinish=()=>c.remove();setTimeout(()=>c.remove(),3400)}}
+// coins burst up from a winner's seat and fall round it
+function coinBurst(pid,n){const el=$('#seat-'+pid+' .av');if(!el||RM())return;const r=el.getBoundingClientRect(),L=layer(),x=r.left+r.width/2,y=r.top+r.height/2;
+  for(let i=0;i<n;i++){const c=document.createElement('i');c.className='gcoin';c.style.position='fixed';const z=12+Math.random()*8;c.style.width=c.style.height=z.toFixed(0)+'px';c.style.left=(x-z/2)+'px';c.style.top=(y-z/2)+'px';L.appendChild(c);
+    const a=-Math.PI/2+(Math.random()-.5)*2.2,v=60+Math.random()*80,ux=Math.cos(a)*v,uy=Math.sin(a)*v,fx2=ux*1.5+(Math.random()-.5)*20,fy=40+Math.random()*50;
+    c.animate([{transform:'translate(0,0) scale(.4) rotateY(0deg)',opacity:0},{offset:.12,opacity:1},{offset:.45,transform:`translate(${ux.toFixed(0)}px,${uy.toFixed(0)}px) scale(1) rotateY(360deg)`},{transform:`translate(${fx2.toFixed(0)}px,${fy.toFixed(0)}px) scale(.9) rotateY(900deg)`,opacity:0}],{duration:1100+Math.random()*500,delay:Math.random()*160,easing:'cubic-bezier(.25,.6,.5,1)',fill:'backwards'}).onfinish=()=>c.remove();setTimeout(()=>c.remove(),2200)}}
 function drama(kind,e){
   const fx=$('#fx');$$('.drama').forEach(d=>d.remove());SND(kind,{bg:true});
   const cards=(e.cards||[]).map(dec);
   const d=document.createElement('div');d.className='drama '+kind;
-  d.innerHTML=`<div class="dim"></div><div class="inner">${kind==='adasi'?`<div class="word">ADASI!</div><div class="cards">${cards.map(c=>cardHTML(c)).join('')}</div><div class="sub">${esc(e.who)} ${e.split?'share':'takes'} the pot — ${fmt(e.pot||0)} chips</div>`:`<div class="word">SERIES!</div><div class="cards">${cards.map(c=>cardHTML(c)).join('')}</div><div class="sub">${e.pid<0?'Three of a kind on the board':esc(e.who)+' was dealt three of a kind'}</div><div class="stamp">REDEAL · POT STAYS</div>`}</div>`;
+  const gA=kind==='adasi'&&isGold();
+  d.innerHTML=`<div class="dim"></div><div class="inner">${kind==='adasi'?`<div class="word">ADASI!</div><div class="cards">${cards.map(c=>cardHTML(c,gA?'goldace':'')).join('')}</div><div class="sub">${esc(e.who)} ${e.split?'share':'takes'} the pot — ${fmt(e.pot||0)} chips</div>`:`<div class="word">SERIES!</div><div class="cards">${cards.map(c=>cardHTML(c)).join('')}</div><div class="sub">${e.pid<0?'Three of a kind on the board':esc(e.who)+' was dealt three of a kind'}</div><div class="stamp">REDEAL · POT STAYS</div>`}</div>`;
   fx.appendChild(d);
   const fl=document.createElement('div');fl.className='flash';document.body.appendChild(fl);setTimeout(()=>fl.remove(),600);
   const t=$('#table');t.classList.remove('shake');void t.offsetWidth;t.classList.add('shake');
-  if(kind==='adasi'){confetti();setTimeout(confetti,500);setTimeout(confetti,1000);for(const id of (e.pids||[e.pid])){const el=$('#seat-'+id);if(el){el.classList.add('winner');setTimeout(()=>el.classList.remove('winner'),3500)}}}
+  if(kind==='adasi'){if(gA){coinShower(36);setTimeout(()=>coinShower(24),900);SND('goldpot',{bg:true,delay:.3})}else{confetti();setTimeout(confetti,500);setTimeout(confetti,1000)}for(const id of (e.pids||[e.pid])){const el=$('#seat-'+id);if(el){el.classList.add('winner');setTimeout(()=>el.classList.remove('winner'),3500)}}}
   buzz(kind==='adasi'?[80,40,80,40,200]:[200,60,200]);
   setTimeout(()=>d.remove(),kind==='adasi'?3500:4000);
 }
@@ -1143,7 +1161,7 @@ function treatFx(from,to,item){const t=TREATS[item];if(!t)return;SND('pour',{bg:
 let TSV={};
 function canEditTable(){if(!S||ME<0)return false;if(HOST||LOCALT)return true;const h=S.players[S.hostId];return!h||h.isBot||h.gone||h.away}
 function openTableSettings(){if(!S)return;const pc=S.pending||{};
-  TSV={tie:(pc.tieSplit!=null?pc.tieSplit:S.tieSplit)?'split':'playoff',series:+(pc.series!=null?pc.series:S.series),side:+(pc.side!=null?pc.side:S.side),fill:+(pc.fill!=null?pc.fill:S.fill),pub:+S.pub,keep:+S.keep};
+  $('#ts-gold-f').hidden=!MO.gold;TSV={gold:+!!S.gold,tie:(pc.tieSplit!=null?pc.tieSplit:S.tieSplit)?'split':'playoff',series:+(pc.series!=null?pc.series:S.series),side:+(pc.side!=null?pc.side:S.side),fill:+(pc.fill!=null?pc.fill:S.fill),pub:+S.pub,keep:+S.keep};
   $('#ts-name').value=S.tableName||'';
   setOpt($('.opts[data-for="ts-wager"]'),pc.wager!=null?pc.wager:S.wager);setOpt($('.opts[data-for="ts-buyin"]'),S.buyIn);setOpt($('.opts[data-for="ts-timer"]'),S.timer);
   $$('#m-tset .seg[data-ts="pub"],#m-tset .seg[data-ts="keep"]').forEach(g=>{g.closest('.field').hidden=!!LOCALT});syncTS();
@@ -1162,7 +1180,7 @@ function renderTsPlayers(){const f=$('#ts-players-f');if(!f||!S)return;const oth
 function syncTS(){$$('#m-tset .seg[data-ts]').forEach(g=>{const k=g.dataset.ts;g.querySelectorAll('button').forEach(b=>b.classList.toggle('on',String(TSV[k])===b.dataset.v))})}
 $$('#m-tset .seg[data-ts] button').forEach(b=>b.onclick=()=>{const k=b.closest('.seg').dataset.ts;TSV[k]=k==='tie'?b.dataset.v:+b.dataset.v;syncTS();SND('flick')});
 $('#ts-save').onclick=()=>{const c={tableName:$('#ts-name').value.trim(),wager:+$('#ts-wager').value,buyIn:+$('#ts-buyin').value,timer:+$('#ts-timer').value,tie:TSV.tie,series:!!TSV.series,side:!!TSV.side,fill:!!TSV.fill,pub:!!TSV.pub,keep:!!TSV.keep};
-  if(LOCALT){delete c.pub;delete c.keep}if(c.wager>c.buyIn){toast('The wager can\'t be more than the buy-in');nudgeEl($('.opts[data-for="ts-wager"]'));return}
+  if(MO.gold)c.gold=!!TSV.gold;if(LOCALT){delete c.pub;delete c.keep}if(c.wager>c.buyIn){toast('The wager can\'t be more than the buy-in');nudgeEl($('.opts[data-for="ts-wager"]'));return}
   closeModal('#m-tset');act({type:'settings',cfg:c})};
 $('#btn-tset').onclick=openTableSettings;$('#btn-tset2').onclick=openTableSettings;$('#btn-wager').onclick=openTableSettings;
 // a one-time pointer for whoever can change the table: where the wager and the rules live
@@ -1305,10 +1323,10 @@ function shuffleFx(){
 }
 // chips arc through the air and clink when they land
 async function flyChip(fromEl,toEl,cls='c25',count=1){if(!fromEl||!toEl)return;
-  if(fromEl===$('#pot'))SND('pot');
+  if(fromEl===$('#pot'))SND(isGold()?'goldpot':'pot');
   for(let i=0;i<count;i++){const a=center(fromEl),b=center(toEl);const c=document.createElement('span');c.className='chip '+cls;c.style.left=(a.x-11)+'px';c.style.top=(a.y-11)+'px';layer().appendChild(c);
     const dx=b.x-a.x,dy=b.y-a.y,lift=Math.min(110,30+Math.hypot(dx,dy)*.28);
-    let gone=false;const end=()=>{if(gone)return;gone=true;c.remove();SND('chip')};
+    let gone=false;const end=()=>{if(gone)return;gone=true;c.remove();SND(isGold()?'coin':'chip')};
     if(document.hidden){end()}else{const an=c.animate([{transform:'translate(0px,0px) rotateX(0deg) scale(1)'},{offset:.5,transform:`translate(${(dx*.5).toFixed(1)}px,${(dy*.5-lift).toFixed(1)}px) rotateX(200deg) scale(1.2)`},{transform:`translate(${dx.toFixed(1)}px,${dy.toFixed(1)}px) rotateX(360deg) scale(.85)`}],{duration:620,easing:'cubic-bezier(.35,.6,.4,1)'});an.onfinish=end;setTimeout(end,1100)}
     await new Promise(r=>setTimeout(r,85))}}
 // numbers roll up and down instead of jumping

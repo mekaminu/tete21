@@ -58,6 +58,9 @@
       burst(t + 0.78, { dur: 0.18, freq: 3000, q: 0.6, gain: 0.24, sweepTo: 900 }); burst(t + 0.95, { dur: 0.05, freq: 1800, q: 1.5, gain: 0.28 });
     },
     chip(t) { clink(t); },
+    // a Gold table's coins: heavier and ringing longer than a chip (a metal disc's uneven overtones)
+    coin(t) { const b = 1250 + Math.random() * 300; [[1, 0.2, 0.42, 'triangle'], [2.76, 0.1, 0.34, 'sine'], [5.4, 0.05, 0.2, 'sine'], [1.006, 0.08, 0.5, 'sine']].forEach(([m, g, d, ty], i) => tone(t + i * 0.002, { f: b * m, type: ty, dur: d, gain: g, wet: 0.3 })); tone(t, { f: 230, dur: 0.05, gain: 0.07, slideTo: 140 }); },
+    goldpot(t) { for (let i = 0; i < 9; i++) SOUNDS.coin(t + i * 0.055 + Math.random() * 0.02); },
     chips(t) { const n = 4 + Math.floor(Math.random() * 3); for (let i = 0; i < n; i++) clink(t + i * (0.03 + Math.random() * 0.03), 0.18); },
     pot(t) { for (let i = 0; i < 10; i++) clink(t + i * 0.045 + Math.random() * 0.02, 0.16); burst(t, { dur: 0.35, freq: 2200, q: 0.5, gain: 0.12, sweepTo: 900 }); },
     turn(t) { tone(t, { f: N.E6, dur: 0.25, gain: 0.18, wet: 0.4 }); tone(t + 0.12, { f: N.A6, dur: 0.4, gain: 0.16, wet: 0.5 }); },

@@ -47,6 +47,7 @@ class Table {
     this.tieSplit = cfg.tie === 'split';
     this.persistent = !!cfg.keep;
     this.pub = !!cfg.pub;
+    this.gold = !!cfg.gold;   // a Gold table: the premium look for everyone at it (who may open one is the server's call)
     this.rid = (typeof cfg.rid === 'string' && /^[a-z0-9]{6,16}$/.test(cfg.rid)) ? cfg.rid : newToken().slice(0, 10);
     this.dealer = -1; this.handNo = 0; this.pot = 0; this.deck = []; this.board = [];
     this.leadSuit = null; this.leadBy = -1; this.loans = []; this.loanN = 0; this.phase = -1; this.turn = -1; this.deadline = 0;
@@ -172,7 +173,7 @@ class Table {
   // ----- persistence (between hands) -----
   toJSON(hashFn) {
     const S = this;
-    return { code: S.code, cfg: { buyIn: S.buyIn, wager: S.wager, tableName: S.tableName, timer: S.timer, seats: S.seats, fill: S.fill, side: S.side, series: S.series, tie: S.tieSplit ? 'split' : 'playoff', keep: true, pub: S.pub, rid: S.rid }, pending: S.pendingCfg || null, loans: S.loans, removed: [...S.removed].slice(-100), pot: S.pot, handNo: S.handNo, dealer: S.dealer, hostId: S.hostId, createdAt: S.createdAt,
+    return { code: S.code, cfg: { buyIn: S.buyIn, wager: S.wager, tableName: S.tableName, timer: S.timer, seats: S.seats, fill: S.fill, side: S.side, series: S.series, tie: S.tieSplit ? 'split' : 'playoff', keep: true, pub: S.pub, gold: S.gold, rid: S.rid }, pending: S.pendingCfg || null, loans: S.loans, removed: [...S.removed].slice(-100), pot: S.pot, handNo: S.handNo, dealer: S.dealer, hostId: S.hostId, createdAt: S.createdAt,
       players: S.players.filter(p => !p.isBot && !p.gone).map(p => ({ id: p.id, name: p.name, chips: p.chips, av: p.av, color: p.color, uid: p.uid || null, streak: p.streak || 0, bought: p.bought || 0, wins: p.wins || 0, best: p.best || 0, tokenHash: p.tokenHash || (p.token && hashFn ? hashFn(p.token) : null) })) };
   }
   static fromJSON(o, send) {
@@ -191,7 +192,7 @@ class Table {
   snapshot(forId) {
     const S = this;
     return {
-      now: Date.now(), dj: S.dj, djt: S.dj >= 0 ? S.djTitle : '', tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, lb: S.leadBy, ln: S.loans.map(l => [l.id, l.from, l.to, l.amt, l.paid, l.fromName, l.toName, l.out ? 1 : 0]), bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), bw: S.board.map(c => (c && c.taken && c.by != null ? c.by : -1)), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0, fl: S.fill ? 1 : 0, pb: S.pub ? 1 : 0, pc: S.pendingCfg || null,
+      now: Date.now(), gd: S.gold ? 1 : 0, dj: S.dj, djt: S.dj >= 0 ? S.djTitle : '', tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, lb: S.leadBy, ln: S.loans.map(l => [l.id, l.from, l.to, l.amt, l.paid, l.fromName, l.toName, l.out ? 1 : 0]), bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), bw: S.board.map(c => (c && c.taken && c.by != null ? c.by : -1)), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0, fl: S.fill ? 1 : 0, pb: S.pub ? 1 : 0, pc: S.pendingCfg || null,
       pl: S.players.map(p => { const show = p.id === forId || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0, p.away ? 1 : 0, p.color, p.treat || '', p.streak || 0, p.bought || 0, p.wins || 0, p.best || 0, p.voice || null]; }),
       sbs: S.sideBets.slice(-8).map(b => [b.id, b.a, b.b, b.type, b.amt, b.mine, b.theirs, b.status, b.result || '', b.winner ?? -1]),
     };
@@ -410,6 +411,7 @@ class Table {
     if (c.buyIn != null) { const v = Math.min(1e7, Math.max(50, Math.round(+c.buyIn) || 0)); if (v && v !== S.buyIn) { S.buyIn = v; said.push(`set the buy-in to ${fmt(v)}`); } }
     if (c.timer != null && [0, 15, 20, 30].includes(+c.timer) && +c.timer !== S.timer) { S.timer = +c.timer; said.push(S.timer ? `set the turn timer to ${S.timer}s` : 'made the timer relaxed'); }
     if (c.pub != null && !!c.pub !== S.pub) { S.pub = !!c.pub; said.push(S.pub ? 'made the table public' : 'made the table private'); }
+    if (c.gold != null && !!c.gold !== S.gold) { S.gold = !!c.gold; said.push(S.gold ? 'made this a Gold table' : 'took the gold off the table'); }
     if (c.keep != null && !!c.keep !== S.persistent) { S.persistent = !!c.keep; said.push(S.persistent ? 'kept the room open until closed' : 'set the room to close when empty'); }
     const cur = Object.assign({ wager: S.wager, series: S.series, tieSplit: S.tieSplit, side: S.side, fill: S.fill }, S.pendingCfg || {});
     if (c.wager != null) { const v = Math.min(S.buyIn, Math.max(5, Math.round(+c.wager) || 0)); if (v && v !== cur.wager) { later.wager = v; soon.push(`the wager is ${fmt(v)}`); } }

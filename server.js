@@ -137,7 +137,7 @@ async function pushFriends(uid) {
 function hostName(t) { const h = t.players[t.hostId]; return h && !h.isBot ? h.name : ''; }
 function summary(t) {
   const humans = t.players.filter(p => !p.isBot && !p.gone);
-  return { rid: t.rid, name: t.tableName, host: hostName(t), pub: t.pub ? 1 : 0, keep: t.persistent ? 1 : 0, seats: t.seats,
+  return { rid: t.rid, name: t.tableName, host: hostName(t), pub: t.pub ? 1 : 0, keep: t.persistent ? 1 : 0, gold: t.gold ? 1 : 0, seats: t.seats,
     seated: humans.length, here: humans.filter(p => p.conn).length, wager: t.wager, buyIn: t.buyIn, started: t.started ? 1 : 0, hand: t.handNo,
     members: t.pub ? humans.map(p => p.name).slice(0, 8) : [] };
 }
@@ -402,7 +402,7 @@ const ownerOf = ws => !!ws.uid && members.isOwner(accounts.cached(ws.uid));
 function ownerSocks() { const out = []; for (const [uid, o] of online) if (o.acct && members.isOwner(accounts.cached(uid))) for (const s of o.socks) out.push(s); return out; }
 let pmT = null;
 function pushMembers() { clearTimeout(pmT); pmT = setTimeout(async () => { const socks = ownerSocks(); if (!socks.length) return; const v = await membersView(); for (const s of socks) send(s, v); }, 120); }
-function roleOf(u) { return { type: 'members_role', host: members.canHost(u) ? 1 : 0, ownerName: members.OWNER_NAME, on: members.on() ? 1 : 0, owner: members.isOwner(u) ? 1 : 0, forced: members.forcedOff() ? 1 : 0, waiting: members.isOwner(u) ? members.waitingCount() : 0 }; }
+function roleOf(u) { return { type: 'members_role', gold: members.canGold(u) ? 1 : 0, host: members.canHost(u) ? 1 : 0, ownerName: members.OWNER_NAME, on: members.on() ? 1 : 0, owner: members.isOwner(u) ? 1 : 0, forced: members.forcedOff() ? 1 : 0, waiting: members.isOwner(u) ? members.waitingCount() : 0 }; }
 // someone taken off (or everyone who isn't a member, when the gate goes back up) goes back to the sign-in page
 function sendOut(s, msg) { send(s, { type: 'members_out', msg }); setTimeout(() => { try { s.close(4003, 'members only'); } catch {} }, 400); }
 members.onEvent((kind, a, b) => {
@@ -609,6 +609,7 @@ async function handle(ws, m) {
       if (!members.canHost(ws.uid ? accounts.cached(ws.uid) : null)) return send(ws, { type: 'error', msg: `Only ${members.OWNER_NAME} can open tables for now. Join a table with its code, or play a practice game.` });
       if (!cleanName(m.name)) return send(ws, { type: 'error', msg: 'Type your name first.' });
       const cfg = Object.assign({}, m.cfg || {}); delete cfg.rid;
+      if (cfg.gold && !members.canGold(accounts.cached(ws.uid))) delete cfg.gold; // a Gold table is the owner's to open, for now
       const t = new Table(newCode(), cfg, broadcast);
       const err = sitError(ws, t); if (err) return send(ws, { type: 'error', msg: err, need: 'chips' });
       if (T) leave(ws);
@@ -722,7 +723,7 @@ async function handle(ws, m) {
       const o = await loadVoice(vk); o.clips[i] = b; o.v++; saveVoice(vk, o); voiceChanged(vk, o); send(ws, { type: 'voice', info: voiceInfo(vk, o) }); break;
     }
     case 'shout_del': { const vk = vkOf(ws.me); if (!vk) return; const i = Math.floor(+m.i); const o = await loadVoice(vk); if (o.clips[i]) { delete o.clips[i]; o.v++; saveVoice(vk, o); voiceChanged(vk, o); } send(ws, { type: 'voice', info: voiceInfo(vk, o) || [vk, 0, o.v] }); break; }
-    case 'act': if (T) { T.action(ws.pid, m.a); if (m.a && m.a.type === 'settings') { listDirty = true; persistAll(); } } break;
+    case 'act': if (T) { if (m.a && m.a.type === 'settings' && m.a.cfg && typeof m.a.cfg === 'object' && 'gold' in m.a.cfg && !members.canGold(accounts.cached(ws.uid))) delete m.a.cfg.gold; T.action(ws.pid, m.a); if (m.a && m.a.type === 'settings') { listDirty = true; persistAll(); } } break;
     case 'rtc': { // voice/video introductions: {to, data}
       if (!T) return; const to = T.players[+m.to]; if (!to || !to.conn) return;
       send(to.conn, { type: 'rtc', from: ws.pid, sid: ws.sid, data: m.data }); break;

@@ -95,7 +95,9 @@ function setOpen(open) { open = !!open; if (state.open === open) return false; s
 // who can open tables: the owner only, or every member too
 const hostsAll = () => FORCED_OFF || state.hosts === 'all';
 const canHost = u => hostsAll() || (!!u && isOwner(u));
+// Gold tables (the premium look): the owner's for now; later, people who've paid for it
+const canGold = u => FORCED_OFF || (!!u && isOwner(u));
 function setHosts(all) { const h = all ? 'all' : 'owner'; if (!ready || state.hosts === h) return false; state.hosts = h; save(); emit('hosts', all); return true; }
 
 const people = () => state.people;
-module.exports = { init, onEvent, on, forcedOff, isOwner, status, allowed, ask, set, newInvite, cancelInvite, liveInvite, redeem, invites, setOpen, hostsAll, canHost, setHosts, people, waitingCount, OWNER_NAME, OWNERS };
+module.exports = { init, onEvent, on, forcedOff, isOwner, status, allowed, ask, set, newInvite, cancelInvite, liveInvite, redeem, invites, setOpen, hostsAll, canHost, setHosts, canGold, people, waitingCount, OWNER_NAME, OWNERS };
