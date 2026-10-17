@@ -1,0 +1,36 @@
+name: Check the live site
+# Push anything to the live-check branch: this looks at https://tete21.onrender.com from GitHub's machines and saves
+# what it saw to the live-check-results branch (result.txt), so a deploy can be checked without a browser.
+on:
+  push:
+    branches: [live-check]
+permissions:
+  contents: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Look at the live site
+        run: |
+          set +e
+          U=https://tete21.onrender.com
+          WANT="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | cut -c1-7)"
+          {
+            echo "checked: $(date -u +%FT%TZ) (main is ${WANT})"
+            for i in $(seq 1 12); do c=$(curl -s -o /tmp/h -w '%{http_code}' --max-time 60 $U/health); echo "health try $i: $c $(head -c 80 /tmp/h)"; [ "$c" = 200 ] && break; sleep 15; done
+            c=$(curl -s -o /tmp/p -w '%{http_code}' --max-time 60 $U/)
+            echo "page: $c $(grep -o '<title>[^<]*</title>' /tmp/p | head -1) | closed-notice: $(grep -c 'closed for now' /tmp/p) | sign-in page: $(grep -c 'Members only' /tmp/p) | game script: $(grep -c 'src=\"app.js\"' /tmp/p)"
+            echo "app.js for a stranger: $(curl -s -o /dev/null -w '%{http_code}' --max-time 60 $U/app.js)"
+            echo "engine.js for a stranger: $(curl -s -o /dev/null -w '%{http_code}' --max-time 60 $U/engine.js)"
+            echo "icon.svg: $(curl -s -o /dev/null -w '%{http_code}' --max-time 60 $U/icon.svg)"
+            echo "api/me: $(curl -s --max-time 60 $U/api/me | head -c 200)"
+          } > /tmp/result.txt 2>&1
+          cat /tmp/result.txt
+      - name: Save what it saw
+        run: |
+          mkdir out && cd out && git init -q && git checkout -q -b live-check-results
+          cp /tmp/result.txt result.txt
+          git config user.name "live-check" && git config user.email "live-check@users.noreply.github.com"
+          git add result.txt && git commit -q -m "live check $(date -u +%FT%TZ)"
+          git push -f -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" live-check-results
