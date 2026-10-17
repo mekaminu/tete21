@@ -21,6 +21,8 @@ object MusicHub {
 
     @Volatile var listener: Listener? = null
     @Volatile var running = false
+    /** Ends the share (main thread): set by [MusicService] while it plays. */
+    var stopper: ((String) -> Unit)? = null
 }
 
 /**

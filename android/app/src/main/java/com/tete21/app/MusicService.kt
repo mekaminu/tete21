@@ -122,6 +122,7 @@ class MusicService : Service() {
         try { rec.startRecording() } catch (e: Exception) { fail("Your music couldn't be picked up (${e.message})."); return }
         thread = Thread({ pump(rec) }, "tete-music").apply { priority = Thread.MAX_PRIORITY; start() }
         MusicHub.running = true
+        MusicHub.stopper = { why -> finish(why) }
         MusicHub.listener?.onStarted()
     }
 
@@ -150,6 +151,7 @@ class MusicService : Service() {
         val was = MusicHub.running
         going = false
         MusicHub.running = false
+        MusicHub.stopper = null
         try { record?.stop() } catch (_: Exception) {}
         try { thread?.join(250) } catch (_: Exception) {}
         try { record?.release() } catch (_: Exception) {}

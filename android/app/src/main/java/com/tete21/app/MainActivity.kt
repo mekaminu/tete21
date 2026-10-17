@@ -253,9 +253,7 @@ class MainActivity : ComponentActivity(), MusicHub.Listener {
 
     private fun stopMusic(why: String) {
         quietPage(false)
-        if (MusicHub.running) {
-            try { startService(Intent(this, MusicService::class.java).setAction(MusicService.ACTION_STOP).putExtra(MusicService.EXTRA_WHY, why)) } catch (_: Exception) {}
-        }
+        MusicHub.stopper?.invoke(why)
     }
 
     private fun musicEvent(type: String, why: String, out: Boolean = false) {
