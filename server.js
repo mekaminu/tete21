@@ -465,7 +465,9 @@ wss.on('connection', (ws, req) => {
   // members only: the socket opens only for someone the owner has let in (the same check as the page)
   const gate = !members.on() ? Promise.resolve(true) : viewer(req).then(v => members.allowed(v.u)).catch(() => false);
   // signing in finishes before anything that depends on who you are; game moves never wait on the database
-  let ident = gate.then(ok => { ws.ok = ok; if (!ok) { try { ws.close(4003, 'members only'); } catch {} return; } sendRooms(ws); });
+  // refused: say so in a message first (Render's proxy doesn't always pass a close frame on), close, and if the other
+  // end hasn't gone in a few seconds, cut the connection so refused sockets never pile up
+  let ident = gate.then(ok => { ws.ok = ok; if (!ok) { send(ws, { type: 'members_out', msg: 'Members only' }); setTimeout(() => { try { ws.close(4003, 'members only'); } catch {} }, 150); setTimeout(() => { try { ws.terminate(); } catch {} }, 3000); return; } sendRooms(ws); });
   const fail = e => console.error('message error:', (e && e.stack) || e);
   ws.on('message', raw => {
     let m; try { m = JSON.parse(raw); } catch { return; }

@@ -154,7 +154,7 @@ function connect(){
   const proto=location.protocol==='https:'?'wss':'ws';
   WS=new WebSocket(`${proto}://${location.host}`);
   WS.onopen=()=>{CONNECTED=true;identify();setStatus('ok','Connected.');renderRooms();$('#conn').style.display='';$('#conn').textContent='live';if(!LOCALT&&CURRENT&&SEATS[CURRENT]){const s=SEATS[CURRENT];WS.send(JSON.stringify({type:'resume',code:CURRENT,token:s.token,seal:s.seal}))}};
-  WS.onclose=function(ev){if(WS!==this&&WS&&WS.readyState<=1)return;if(ev&&ev.code===4003){CONNECTED=false;toGate();return}CONNECTED=false;PRES_READY=false;hideReqbar();if(navigator.onLine===false)setStatus('off','Offline. Practice against the computer still works; hosting and joining need a connection.');else setStatus('warn','Connection lost. Reconnecting… (the free server can take up to a minute to wake)');$('#conn').textContent='reconnecting…';setTimeout(connect,1500)};
+  WS.onclose=function(ev){if(WS!==this&&WS&&WS.readyState<=1)return;if(ev&&ev.code===4003){CONNECTED=false;toGate();return}gateCheck();CONNECTED=false;PRES_READY=false;hideReqbar();if(navigator.onLine===false)setStatus('off','Offline. Practice against the computer still works; hosting and joining need a connection.');else setStatus('warn','Connection lost. Reconnecting… (the free server can take up to a minute to wake)');$('#conn').textContent='reconnecting…';setTimeout(connect,1500)};
   WS.onerror=()=>{};
   WS.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch{return}onMessage(m)};
 }
@@ -448,6 +448,8 @@ function setAccount(m){const first=!ACCT;ACCT=m;syncAcctFriends();
 // card that drops in when someone asks. Anyone else lands here only once they've been let in; if they're taken off,
 // or sign out, they go back to the sign-in page.
 let MO={on:0,owner:0,forced:0,waiting:0},MBR=null,MBR_FRESH=null,MBR_INVN=1,MBR_ASK=null,MBR_ASKT=null;
+// a lost connection might mean you're no longer let in (signed out elsewhere, taken off): ask the server, at most every 20 s
+let GATECHK=0;function gateCheck(){if(Date.now()-GATECHK<20000)return;GATECHK=Date.now();fetch('/api/me',{cache:'no-store',credentials:'same-origin'}).then(r=>r.json()).then(v=>{if(v&&v.on&&v.status!=='yes'&&v.status!=='owner')toGate('Members only',true)}).catch(()=>{})}
 function toGate(msg,force){let last=0;try{last=+sessionStorage.getItem('tete.gate')||0}catch{}
   if(!force&&Date.now()-last<8000){setStatus('warn','Members only: ask Meka to let you in, then reload.');return}
   try{sessionStorage.setItem('tete.gate',String(Date.now()))}catch{}
