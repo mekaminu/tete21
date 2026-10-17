@@ -1,0 +1,14 @@
+checked: 2026-10-17T18:45:16Z
+health: ok
+page: 200 | sign-in page: 1 | game script: 0
+app.js: 403 0
+engine.js: 403 0
+index.html: 200 0
+music/index.json: 403 0
+ice: 403 0
+api/me: {"on":1,"owner":"Meka","status":"none"}
+app download for a stranger: 403
+assetlinks: 200 com.tete21.app DA:2B:7F
+app.js has phone music: 403 (403 = members only, as it should be)
+no cookie: open@600ms msg:{"type":"members_out","msg":"Members onl@601ms state:1@15017ms
+made-up cookie: open@563ms msg:{"type":"members_out","msg":"Members onl@596ms state:1@15016ms
