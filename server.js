@@ -667,7 +667,7 @@ async function handle(ws, m) {
       for (const c of conns) { c.table = null; c.pid = -1; send(c, { type: 'gone', code: T.code.toUpperCase(), msg: 'The host closed the room.', final, owed, tn: T.tableName }); sendRooms(c); if (c.me) presenceChanged(c.me); }
       break;
     }
-    case 'dj': if (T) T.setDj(ws.pid, !!m.on); break; // music from someone's computer for the table
+    case 'dj': if (T) T.setDj(ws.pid, !!m.on, m.title); break; // someone's own music for the table (a tab, or song files)
     case 'make_host': { // the host hands the table to someone else at it (who then runs it; the old host can leave)
       if (!T || ws.pid !== T.hostId) return;
       if (T.makeHost(Math.floor(+m.pid))) { listDirty = true; if (T.persistent) persistAll(); }

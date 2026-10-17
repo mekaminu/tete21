@@ -54,7 +54,8 @@ class Table {
     this.trickWinner = null; this.boardSize = 0; this.boardTop = 0; this.tiebreak = false; this.next = null; this.msgHost = '';
     this.fxq = []; this.fxn = 0; this.sbid = 0; this.pend = null; this.closed = false; this.hostId = 0;
     this.removed = new Set(); // people the host took off the table: they can only come back if the host lets them in
-    this.dj = -1;             // who is playing music from their computer for the table (-1: nobody; the songs play)
+    this.dj = -1;             // who is playing their own music for the table (-1: nobody; the songs play)
+    this.djTitle = '';        // what they're playing, when it has a name (a song file's name)
     this.createdAt = Date.now(); this.lastActivity = Date.now();
   }
   log(t, cls = '') { this.fx({ k: 'log', t, cls }); }
@@ -86,7 +87,7 @@ class Table {
   // connection dropped: hold the seat for a while
   disconnect(id) {
     const p = this.players[id]; if (!p || p.gone || p.isBot) return;
-    if (this.dj === id) this.dj = -1;
+    if (this.dj === id) { this.dj = -1; this.djTitle = ''; }
     p.conn = null; p.away = true; this.log(`${esc(p.name)} lost connection — seat held`);
     clearTimeout(p.awayT); if (!this.persistent) p.awayT = setTimeout(() => { if (p.away && !p.conn) this.removeHuman(id); }, 120000);
     const P = this.pend; if (P && P.pid === id && !P.timed) setTimeout(() => { if (this.pend === P && !p.conn) P.done(null); }, 30000);
@@ -108,7 +109,7 @@ class Table {
   }
   removeHuman(id, note) {
     const p = this.players[id]; if (!p || p.gone) return;
-    if (this.dj === id) this.dj = -1;
+    if (this.dj === id) { this.dj = -1; this.djTitle = ''; }
     clearTimeout(p.awayT); p.gone = true; p.away = false; p.conn = null; this.log(note || `${esc(p.name)} left the table`);
     if (this.handStart && this.handStart.has(p)) { const start = this.handStart.get(p); this.handStart.delete(p); if (this.onLeave) try { this.onLeave(p, p.chips - start); } catch (e) { console.error('leave hook', e); } }
     if (this.pend && this.pend.pid === p.id) this.pend.done(null);
@@ -120,10 +121,13 @@ class Table {
   // the host takes someone off the table (a person or a computer player): the seat goes, mid-hand they're out of
   // the hand like anyone who leaves, and a person can only come back if the host lets them in
   // someone plays music from their computer for the table (one at a time: the latest takes over), or stops
-  setDj(id, on) {
+  setDj(id, on, title) {
     const p = this.players[id]; if (!p || p.isBot || p.gone) return false;
-    if (on) { if (this.dj === id) return false; this.dj = id; this.log(`🎵 ${esc(p.name)} is playing music for the table`, 'hi'); }
-    else { if (this.dj !== id) return false; this.dj = -1; this.log(`${esc(p.name)} stopped their music`); }
+    const t = typeof title === 'string' ? title.replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 80) : '';
+    if (on) {
+      if (this.dj === id) { if (t === this.djTitle) return false; this.djTitle = t; this.sync(); return true; }
+      this.dj = id; this.djTitle = t; this.log(`🎵 ${esc(p.name)} is playing music for the table`, 'hi');
+    } else { if (this.dj !== id) return false; this.dj = -1; this.djTitle = ''; this.log(`${esc(p.name)} stopped their music`); }
     this.sync(); return true;
   }
   // the host hands the table to someone still at it (then they can leave and the game carries on)
@@ -187,7 +191,7 @@ class Table {
   snapshot(forId) {
     const S = this;
     return {
-      now: Date.now(), dj: S.dj, tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, lb: S.leadBy, ln: S.loans.map(l => [l.id, l.from, l.to, l.amt, l.paid, l.fromName, l.toName, l.out ? 1 : 0]), bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), bw: S.board.map(c => (c && c.taken && c.by != null ? c.by : -1)), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0, fl: S.fill ? 1 : 0, pb: S.pub ? 1 : 0, pc: S.pendingCfg || null,
+      now: Date.now(), dj: S.dj, djt: S.dj >= 0 ? S.djTitle : '', tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, lb: S.leadBy, ln: S.loans.map(l => [l.id, l.from, l.to, l.amt, l.paid, l.fromName, l.toName, l.out ? 1 : 0]), bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), bw: S.board.map(c => (c && c.taken && c.by != null ? c.by : -1)), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0, fl: S.fill ? 1 : 0, pb: S.pub ? 1 : 0, pc: S.pendingCfg || null,
       pl: S.players.map(p => { const show = p.id === forId || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0, p.away ? 1 : 0, p.color, p.treat || '', p.streak || 0, p.bought || 0, p.wins || 0, p.best || 0, p.voice || null]; }),
       sbs: S.sideBets.slice(-8).map(b => [b.id, b.a, b.b, b.type, b.amt, b.mine, b.theirs, b.status, b.result || '', b.winner ?? -1]),
     };
