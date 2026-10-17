@@ -794,8 +794,25 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 .seat .dropwrap{margin-right:6px}
 .seat .dropwrap .card{width:calc(var(--card-w) * 1.2)}
 .seat .dropwrap small{display:none}
+/* other players' cards stay real cards, with big corner numbers: the top-left corner (the part still showing when cards
+   overlap) is about 1.7x bigger, the middle suit stays (a little smaller, nudged clear of the number) and the bottom
+   corner stays small, so an upside-down 9 never reads as a 6 */
+.seat .card .c{font-size:calc(var(--card-w) * .44);font-weight:800;letter-spacing:-.07em;line-height:.9;left:6%;top:4%}
+.seat .card .c small{font-size:.6em;letter-spacing:0;margin-top:.06em}
+.seat .card .big{font-size:calc(var(--card-w) * .42);padding:24% 0 0 22%}
+.seat .dropwrap .card .c{font-size:calc(var(--card-w) * 1.2 * .44)}
+.seat .dropwrap .card .big{font-size:calc(var(--card-w) * 1.2 * .42)}
 .seat[data-side="l"] .mini{left:calc(100% + 6px);top:4px}
 .seat[data-side="r"] .mini{right:calc(100% + 6px);top:4px;flex-direction:row-reverse}
+/* right-hand seats lay their cards out right to left (the first by the avatar), so each card tucks under the one before it
+   on that side and every card keeps its top-left number on show */
+.seat[data-side="r"] .mini .card:not(.back)+.card:not(.back){margin-left:0;margin-right:calc(var(--card-w) * -.3)}
+.seat[data-side="r"] .mini>.card:nth-child(1){z-index:12}.seat[data-side="r"] .mini>.card:nth-child(2){z-index:11}
+.seat[data-side="r"] .mini>.card:nth-child(3){z-index:10}.seat[data-side="r"] .mini>.card:nth-child(4){z-index:9}
+.seat[data-side="r"] .mini>.card:nth-child(5){z-index:8}.seat[data-side="r"] .mini>.card:nth-child(6){z-index:7}
+.seat[data-side="r"] .mini>.card:nth-child(7){z-index:6}.seat[data-side="r"] .mini>.card:nth-child(8){z-index:5}
+.seat[data-side="r"] .mini>.card:nth-child(9){z-index:4}.seat[data-side="r"] .mini>.card:nth-child(10){z-index:3}
+.seat[data-side="r"] .mini>.card:nth-child(11){z-index:2}.seat[data-side="r"] .mini>.card:nth-child(12){z-index:1}
 .seat[data-side="r"] .dropwrap{margin-right:0;margin-left:6px}
 .seat[data-side="t"] .mini{top:calc(100% + 4px);left:50%;transform:translateX(-50%)}
 .seat[data-side="b"] .mini{bottom:calc(100% + 4px);left:50%;transform:translateX(-50%)}
@@ -803,6 +820,8 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 .seat .tot.count{left:auto;right:calc(50% + var(--avsz) / 2 - 12px);top:calc(var(--avsz) - 16px);font-size:10px;padding:0 5px 0 4px;background:var(--cream);color:var(--ink);border-color:var(--ink);font-weight:700}
 .seat .tot.count::after{content:''}
 .seat .tot.count::before{content:'\1F0A0';font-size:10px;margin-right:2px}
+/* on left-hand seats the cards hang off the avatar's right, so the total sits on its left shoulder, clear of the first card's number */
+.seat[data-side="l"] .tot:not(.count){left:auto;right:calc(50% + var(--avsz) / 2 - 12px)}
 @media (max-width:700px){
   .seat{gap:2px;max-width:none;--avsz:40px}
   .seat .av{font-size:14px}
@@ -810,7 +829,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
   .seat .nm{font-size:11px;padding:1px 7px;max-width:96px}
   .seat .chips{font-size:11px;gap:3px}
   .seat .chips .chip.s{width:11px;height:11px}
-  .seat .mini{--card-w:24px}
+  .seat .mini{--card-w:30px}
   .board{gap:4px}
   .board .lbl{display:none}
   .pot{margin-top:10px}
