@@ -116,6 +116,17 @@ class Table {
   }
   // the host takes someone off the table (a person or a computer player): the seat goes, mid-hand they're out of
   // the hand like anyone who leaves, and a person can only come back if the host lets them in
+  // the host hands the table to someone still at it (then they can leave and the game carries on)
+  makeHost(id) {
+    const p = this.players[id], was = this.players[this.hostId];
+    if (!p || p.isBot || p.gone || p.away || id === this.hostId) return false;
+    this.hostId = id;
+    const by = was && !was.isBot && !was.gone ? was.name : 'The host';
+    this.log(`${esc(by)} made ${esc(p.name)} the host`, 'hi');
+    this.fx({ k: 'toast', pid: id, t: `${by} made you the host. You run the table now: settings, starting hands and letting people in.`, ms: 5000 });
+    if (this.onSave) this.onSave();
+    this.sync(); return true;
+  }
   takeOff(id) {
     const p = this.players[id], h = this.players[this.hostId]; if (!p || p.gone || id === this.hostId) return false;
     if (!p.isBot) this.removed.add(p.uid || 'n:' + p.name.toLowerCase());

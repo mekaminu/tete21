@@ -665,6 +665,11 @@ async function handle(ws, m) {
       for (const c of conns) { c.table = null; c.pid = -1; send(c, { type: 'gone', code: T.code.toUpperCase(), msg: 'The host closed the room.', final, owed, tn: T.tableName }); sendRooms(c); if (c.me) presenceChanged(c.me); }
       break;
     }
+    case 'make_host': { // the host hands the table to someone else at it (who then runs it; the old host can leave)
+      if (!T || ws.pid !== T.hostId) return;
+      if (T.makeHost(Math.floor(+m.pid))) { listDirty = true; if (T.persistent) persistAll(); }
+      break;
+    }
     case 'remove': { // the host takes someone off the table; a person can only come back if the host lets them in
       if (!T || ws.pid !== T.hostId) return;
       const pid = Math.floor(+m.pid), p = T.players[pid]; if (!p || p.gone || pid === T.hostId) return;

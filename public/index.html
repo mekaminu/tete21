@@ -680,7 +680,7 @@ html[data-felt="midnight"] .felt .ring{border-color:rgba(217,178,95,.32)}
 /* the host's list of players in Table settings, each with Remove */
 .tsplayers{display:grid;gap:6px}
 .tsp{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 6px 6px 12px;border:1px solid #3a2a31;border-radius:12px;min-width:0}
-.tsp-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.tsp-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .tsp-n small{color:var(--fg-dim);font-weight:400;margin-left:6px}
 .tsp .btn{padding:6px 12px;font-size:13px;flex:none}
 /* the Music panel above the 🎵 button: what's playing, skip, on/off, how loud */
@@ -1170,7 +1170,7 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <div class="modal sheet" id="m-tset"><div class="box"><div class="grab"></div>
 <h2>Table settings</h2>
 <p class="note" id="ts-note">The wager and the rules change from the next hand; the rest at once. Everyone at the table is told.</p>
-<div class="field tsplayers-f" id="ts-players-f" hidden><label>Players at the table</label><div class="tsplayers" id="ts-players"></div><p class="note" style="margin:6px 0 0">Remove takes someone off the table, after a second tap to be sure. They can only come back if you let them in.</p></div>
+<div class="field tsplayers-f" id="ts-players-f" hidden><label>Players at the table</label><div class="tsplayers" id="ts-players"></div><p class="note" style="margin:6px 0 0">Make host hands the table to them (then you can leave and it carries on). Remove takes someone off; they can only come back if you let them in. Both ask for a second tap.</p></div>
 <div class="field"><label for="ts-name">Table name</label><input id="ts-name" maxlength="24" placeholder="e.g. Friday Parlour"></div>
 <div class="field"><label>Wager per hand</label><div class="opts" data-for="ts-wager"><button data-v="25">25</button><button data-v="50">50</button><button data-v="100">100</button><button data-v="250">250</button><button data-v="500">500</button><button data-v="other">Other</button></div><input class="other-in" type="number" min="5" step="5" inputmode="numeric" placeholder="Chips, at least 5" data-for="ts-wager" hidden><input type="hidden" id="ts-wager" value="50"></div>
 <div class="field"><label>Buy-in for new seats and rebuys</label><div class="opts" data-for="ts-buyin"><button data-v="500">500</button><button data-v="1000">1,000</button><button data-v="2500">2,500</button><button data-v="5000">5,000</button><button data-v="other">Other</button></div><input class="other-in" type="number" min="50" step="50" inputmode="numeric" placeholder="Chips, at least 50" data-for="ts-buyin" hidden><input type="hidden" id="ts-buyin" value="1000"></div>

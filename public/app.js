@@ -239,7 +239,8 @@ function leaveTable(forGood){const code=S&&S.code;if(LOCALT)stopLocal();else sen
 // a standing room asks how you want to go: step away, leave for good, or (host) close it for everyone
 $('#btn-leave').onclick=()=>{if(LOCALT||!S||!S.keep){leaveTable(false);return}
   const me=S.players[ME],chips=me?me.chips:0;
-  $('#lv-good-sub').textContent=ACCT?`Give up your seat. Your ${fmt(chips)} chips go back to your balance.`:`Give up your seat for someone else. Your ${fmt(chips)} table chips go with it.`;
+  const next=HOST?S.players.find(x=>!x.isBot&&!x.gone&&!x.away&&x.id!==ME):null;
+  $('#lv-good-sub').textContent=(ACCT?`Give up your seat. Your ${fmt(chips)} chips go back to your balance.`:`Give up your seat for someone else. Your ${fmt(chips)} table chips go with it.`)+(next?` ${next.name} becomes the host (tap a player and Make host to pick someone else).`:'');
   $('#lv-close').hidden=!HOST;const c=$('#lv-close');c.classList.remove('armed');c.querySelector('b').textContent='Close the room for everyone';
   openModal('#m-leave');SND('flick')};
 $('#lv-away').onclick=()=>{closeModal('#m-leave');leaveTable(false)};
@@ -403,12 +404,17 @@ function openPlayer(pid){const p=S&&S.players[pid];if(!p||pid===ME||p.gone)retur
   $('#pl-name').textContent=p.name;$('#pl-body').textContent=`${fmt(p.chips)} chips${p.isBot?' · computer player':''}${p.away?' · away':''}`;
   const isF=id&&FR()[id];const canSpray=S.started&&ME>=0&&!p.gone;const broke=canSpray&&p.chips<S.wager,mine0=S.players[ME]?S.players[ME].chips:0;
   if(broke)$('#pl-body').textContent=`${p.name} is out of chips and sitting out. Give them a buy-in and they're back in from the next hand.`;
-  $('#pl-actions').innerHTML=(broke&&mine0>=S.buyIn?`<button class="btn btn-gold" id="pl-give">Give a buy-in (${fmt(S.buyIn)})</button>`:'')+(canSpray&&pid!==ME?`<button class="btn ${broke?'btn-gold':'btn-ghost'}" id="pl-lend">Lend 🤝</button>`:'')+(canSpray?'<button class="btn '+(broke?'btn-ghost':'btn-gold')+'" id="pl-spray">Spray money 💸</button><button class="btn btn-ghost" id="pl-treat">Send a treat 🍹</button>':'')+(p.isBot?'':(!id?'':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-ghost" id="pl-add">Add as a friend</button>'))+(HOST&&!LOCALT&&!p.gone&&pid!==S.hostId?'<button class="btn btn-ghost kickbtn" id="pl-kick">Remove from the table</button>':'')+'<button class="btn btn-ghost" data-close>Close</button>';
+  $('#pl-actions').innerHTML=(broke&&mine0>=S.buyIn?`<button class="btn btn-gold" id="pl-give">Give a buy-in (${fmt(S.buyIn)})</button>`:'')+(canSpray&&pid!==ME?`<button class="btn ${broke?'btn-gold':'btn-ghost'}" id="pl-lend">Lend 🤝</button>`:'')+(canSpray?'<button class="btn '+(broke?'btn-ghost':'btn-gold')+'" id="pl-spray">Spray money 💸</button><button class="btn btn-ghost" id="pl-treat">Send a treat 🍹</button>':'')+(p.isBot?'':(!id?'':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-ghost" id="pl-add">Add as a friend</button>'))+(HOST&&!LOCALT&&!p.isBot&&!p.gone&&!p.away&&pid!==S.hostId?'<button class="btn btn-ghost" id="pl-host">Make host</button>':'')+(HOST&&!LOCALT&&!p.gone&&pid!==S.hostId?'<button class="btn btn-ghost kickbtn" id="pl-kick">Remove from the table</button>':'')+'<button class="btn btn-ghost" data-close>Close</button>';
   // the host can take someone off the table, after a second tap to be sure
   const kk=$('#pl-kick');if(kk)kk.onclick=()=>{SND('flick');
     $('#pl-body').textContent=`Take ${p.name} off the table? Their seat goes${S.started&&S.phase>0&&S.phase<6?' and they\'re out of this hand':''}.${p.isBot?'':' They can only come back if you let them in.'}`;
     $('#pl-actions').innerHTML=`<button class="btn kickyes" id="pl-kick-yes">Yes, remove ${esc(p.name)}</button><button class="btn btn-ghost" data-close>Keep them</button>`;
     $('#pl-kick-yes').onclick=()=>{closeModal('#m-player');send({type:'remove',pid});toast(`${p.name} is off the table`,2500)}};
+  // the host hands the table over (then they can leave and the game carries on)
+  const hb=$('#pl-host');if(hb)hb.onclick=()=>{SND('flick');
+    $('#pl-body').textContent=`Make ${p.name} the host? They'll run the table: settings, starting hands and letting people in. You can stay, or leave and the game carries on.`;
+    $('#pl-actions').innerHTML=`<button class="btn btn-gold" id="pl-host-yes">Yes, make ${esc(p.name)} host</button><button class="btn btn-ghost" data-close>Not now</button>`;
+    $('#pl-host-yes').onclick=()=>{closeModal('#m-player');send({type:'make_host',pid});toast(`${p.name} is the host now`,2500);SND('pop')}};
   const add=$('#pl-add');if(add)add.onclick=()=>{closeModal('#m-player');addFriend(id,p.name,p.av)};
   const sp=$('#pl-spray');if(sp)sp.onclick=()=>{const w=S.wager||50,mine=S.players[ME]?S.players[ME].chips:0;$('#pl-body').innerHTML=`Spray ${esc(p.name)} from your ${fmt(mine)} chips:<div class="opts sprayopts">${[w,w*2,w*5,w*10].map(v=>`<button type="button" data-amt="${v}" ${v>mine?'disabled':''}>${fmt(v)}</button>`).join('')}</div>`;
     $$('#pl-body [data-amt]').forEach(b=>b.onclick=()=>{closeModal('#m-player');act({type:'spray',to:pid,amt:+b.dataset.amt})});SND('flick')};
@@ -1112,9 +1118,12 @@ function openTableSettings(){if(!S)return;const pc=S.pending||{};
   renderTsPlayers();openModal('#m-tset');SND('flick')}
 // the host can take anyone off the table from Table settings too (tap Remove, then tap again to be sure)
 function renderTsPlayers(){const f=$('#ts-players-f');if(!f||!S)return;const others=S.players.filter(p=>!p.gone&&p.id!==ME&&p.id!==S.hostId);f.hidden=!(HOST&&!LOCALT&&others.length);if(f.hidden)return;
-  $('#ts-players').innerHTML=others.map(p=>`<div class="tsp"><span class="tsp-n">${esc(p.name)}${p.isBot?'<small>computer</small>':p.away?'<small>away</small>':''}</span><button type="button" class="btn btn-ghost kickbtn" data-kick="${p.id}">Remove</button></div>`).join('');
+  $('#ts-players').innerHTML=others.map(p=>`<div class="tsp"><span class="tsp-n">${esc(p.name)}${p.isBot?'<small>computer</small>':p.away?'<small>away</small>':''}</span>${!p.isBot&&!p.away?`<button type="button" class="btn btn-ghost" data-host="${p.id}">Make host</button>`:''}<button type="button" class="btn btn-ghost kickbtn" data-kick="${p.id}">Remove</button></div>`).join('');
+  $$('#ts-players [data-host]').forEach(b=>b.onclick=()=>{const pid=+b.dataset.host,p=S&&S.players[pid];if(!p||p.gone)return;
+    if(!b.classList.contains('armed')){$$('#ts-players .armed').forEach(x=>{x.classList.remove('armed');x.textContent=x.dataset.kick?'Remove':'Make host'});b.classList.add('armed');b.textContent=`Yes, make ${p.name} host`;SND('flick');return}
+    send({type:'make_host',pid});closeModal('#m-tset');toast(`${p.name} is the host now`,2500);SND('pop')});
   $$('#ts-players [data-kick]').forEach(b=>b.onclick=()=>{const pid=+b.dataset.kick,p=S&&S.players[pid];if(!p||p.gone)return;
-    if(!b.classList.contains('armed')){$$('#ts-players .armed').forEach(x=>{x.classList.remove('armed');x.textContent='Remove'});b.classList.add('armed');b.textContent=`Yes, remove ${p.name}`;SND('flick');return}
+    if(!b.classList.contains('armed')){$$('#ts-players .armed').forEach(x=>{x.classList.remove('armed');x.textContent=x.dataset.kick?'Remove':'Make host'});b.classList.add('armed');b.textContent=`Yes, remove ${p.name}`;SND('flick');return}
     send({type:'remove',pid});b.closest('.tsp').remove();toast(`${p.name} is off the table`,2500);if(!$('#ts-players .tsp'))f.hidden=true})}
 function syncTS(){$$('#m-tset .seg[data-ts]').forEach(g=>{const k=g.dataset.ts;g.querySelectorAll('button').forEach(b=>b.classList.toggle('on',String(TSV[k])===b.dataset.v))})}
 $$('#m-tset .seg[data-ts] button').forEach(b=>b.onclick=()=>{const k=b.closest('.seg').dataset.ts;TSV[k]=k==='tie'?b.dataset.v:+b.dataset.v;syncTS();SND('flick')});
