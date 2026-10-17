@@ -9,6 +9,14 @@ const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 const { Table, cleanName, cleanAv } = require('./public/engine');
 const store = require('./store');
+// Closed for now: a file called CLOSED next to this one shuts the game. Every page shows a short "closed for now"
+// notice, nobody can connect, and the standing rooms stay saved, untouched, until the file is removed and the game
+// opens again (/health still answers, so the host keeps the service running).
+const CLOSED = fs.existsSync(path.join(__dirname, 'CLOSED'));
+const CLOSED_PAGE = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tete 21</title>'
+  + '<style>html,body{height:100%;margin:0}body{display:grid;place-items:center;background:#120c0f;color:#f6efdc;font:17px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;text-align:center;padding:24px}'
+  + 'h1{font:700 36px/1.1 Georgia,serif;color:#e3c278;letter-spacing:.08em;margin:0 0 12px}p{margin:0;color:#b8a98e}</style></head>'
+  + '<body><main><h1>TETE 21</h1><p>The tables are closed for now.<br>Check back later.</p></main></body></html>';
 const accounts = require('./accounts');
 
 const PORT = process.env.PORT || 3000;
@@ -53,6 +61,7 @@ function saveRoom(t) {
 }
 let kvT = null;
 function persistAll() {
+  if (CLOSED) return;
   const rooms = {};
   for (const [c, t] of tables) if (t.persistent && !t.closed) rooms[c] = { ver: t.sealVer || 0, room: t.toJSON(seatHash) };
   const all = { rooms, closed: [...closedCodes].slice(-500) };
@@ -277,6 +286,7 @@ function iceServers() {
 const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
   if (url === '/health') { res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' }); return res.end(accounts.isReady() ? 'ok' : 'ok (accounts offline)'); }
+  if (CLOSED) { res.writeHead(503, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'retry-after': '3600' }); return res.end(CLOSED_PAGE); }
   if (url === '/ice') { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify(iceServers())); }
   const sv = /^\/shout\/([0-9a-f]{12})\/(\d{1,2})$/.exec(url);
   if (sv) { loadVoice(sv[1]).then(o => { const b = o.clips[+sv[2]]; if (!b) { res.writeHead(404); return res.end(); } res.writeHead(200, { 'content-type': 'audio/wav', 'content-length': b.length, 'cache-control': 'public, max-age=31536000, immutable' }); res.end(b); }).catch(() => { res.writeHead(500); res.end(); }); return; }
@@ -296,6 +306,7 @@ const server = http.createServer((req, res) => {
 // ---------- websocket ----------
 const wss = new WebSocketServer({ server, maxPayload: 64 * 1024 });
 wss.on('connection', (ws, req) => {
+  if (CLOSED) { try { ws.close(1013, 'closed for now'); } catch {} return; }
   ws.sid = rand(6); // this screen's session: voice/video links are rebuilt when a player comes back on a new one
   ws.table = null; ws.pid = -1; ws.lastFx = 0; ws.isAlive = true; ws.me = null; ws.uid = null; ws.dev = null; ws.request = null; ws.tz = 0;
   ws.ip = String((req.headers['x-forwarded-for'] || '').split(',')[0] || req.socket.remoteAddress || '').trim();
@@ -549,10 +560,10 @@ function restoreSaved(saved, from) {
   }
   if (n) console.log(`restored ${n} room(s) from ${from}:`, [...tables.keys()].join(', '));
 }
-restoreSaved(store.load(), 'disk');
+if (!CLOSED) restoreSaved(store.load(), 'disk');
 accounts.init().then(async () => {
-  if (!accounts.isReady()) return;
+  if (!accounts.isReady() || CLOSED) return;
   try { const saved = await accounts.kvGet('rooms'); if (saved) restoreSaved(saved, 'the database'); } catch (e) { console.error('rooms load:', e.message); }
 });
 
-server.listen(PORT, () => console.log('Tete 21 listening on', PORT));
+server.listen(PORT, () => console.log('Tete 21 listening on', PORT, CLOSED ? '(CLOSED for now: no games until the CLOSED file is removed)' : ''));

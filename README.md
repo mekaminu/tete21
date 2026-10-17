@@ -87,5 +87,6 @@ Accounts need a Postgres database: set `DATABASE_URL` (Neon's free tier works). 
 
 ## Notes
 
+- **Closing the game for a while:** commit a file called `CLOSED` at the top of the repo and push to `main`. After the deploy, every page shows "The tables are closed for now", nobody can connect, and standing rooms stay saved untouched. Delete the file and push again to open up.
 - Chips are play money. No deposits, no real money.
 - Ordinary tables live in memory: a redeploy ends them, and players' seats are held for two minutes if their connection drops.
