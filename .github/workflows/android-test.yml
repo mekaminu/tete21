@@ -1,0 +1,49 @@
+name: Android install test
+# Push to android-test: install the app from the android-apk branch on emulated phones (Android 10, 14, 16), open it,
+# and save what happened (install result, crash log, a screenshot) on android-test-results-<api>.
+on:
+  push:
+    branches: [android-test]
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [29, 34, 36]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: android-apk
+          path: apk
+      - name: Let the emulator use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Check the file
+        run: |
+          mkdir -p out
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          { echo "build-tools: $BT"; head -1 apk/build.txt; echo "== apksigner"; "$BT/apksigner" verify --verbose --print-certs apk/tete.apk; echo "exit $?"; echo "== badging"; "$BT/aapt2" dump badging apk/tete.apk | head -40; } > out/check.txt 2>&1 || true
+          cat out/check.txt
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          script: bash run.sh
+      - name: Save the results
+        if: always()
+        run: |
+          cp -r out res && cd res
+          git init -q && git checkout -q -b "android-test-results-${{ matrix.api }}"
+          git config user.name "android-test" && git config user.email "android-test@users.noreply.github.com"
+          git add . && git commit -q -m "Android ${{ matrix.api }} install test"
+          git push -f -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" "android-test-results-${{ matrix.api }}"
