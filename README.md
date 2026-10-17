@@ -113,4 +113,5 @@ Accounts need a Postgres database: set `DATABASE_URL` (Neon's free tier works). 
 
 - **Closing the game for a while:** commit a file called `CLOSED` at the top of the repo and push to `main`. After the deploy, every page shows "The tables are closed for now", nobody can connect, and standing rooms stay saved untouched. Delete the file and push again to open up.
 - Chips are play money. No deposits, no real money.
+- **Which version is live:** `/version` shows the first 7 characters of the commit Render is running (`dev` locally). Like `/health`, it's open to anyone, so a deploy can be checked from outside the members' gate. The live-check action waits for the commit named in `expect.txt` on the `live-check` branch.
 - Ordinary tables live in memory: a redeploy ends them, and players' seats are held for two minutes if their connection drops.

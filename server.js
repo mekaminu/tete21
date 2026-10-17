@@ -431,6 +431,8 @@ const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
   if (url === '/.well-known/assetlinks.json') { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'public, max-age=3600' }); return res.end(ASSET_LINKS); }
   if (url === '/health') { res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' }); return res.end(accounts.isReady() ? 'ok' : 'ok (accounts offline)'); }
+  // which commit is live (Render sets RENDER_GIT_COMMIT), so a deploy can be checked from outside the members' gate
+  if (url === '/version') { res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' }); return res.end(String(process.env.RENDER_GIT_COMMIT || 'dev').slice(0, 7)); }
   if (CLOSED) { res.writeHead(503, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'retry-after': '3600' }); return res.end(CLOSED_PAGE); }
   if (url.startsWith('/api/')) { api(req, res, url).catch(e => { console.error('api:', e.message); if (!res.headersSent) { res.writeHead(500, { 'content-type': 'application/json' }); res.end('{"error":"Something went wrong. Try again."}'); } }); return; }
   if (!members.on() || OPEN_FILES.has(url)) return serve(req, res, url);
