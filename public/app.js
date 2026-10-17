@@ -1567,7 +1567,8 @@ async function tableOutStart(bin){
   node.port.onmessage=e=>{const t=TOUT,p=MUSIC_PORT;if(!t||!p)return;t.sent++;try{if(bin)p.postMessage(e.data,[e.data]);else p.postMessage('b64:'+bufB64(e.data))}catch{}};
   for(const [pid,c] of PC)toutVoice(pid,c);
   try{const st=window.TeteSound&&TeteSound.tap&&TeteSound.tap();if(st){const src=ctx.createMediaStreamSource(st);src.connect(mix);TOUT.fx=src}}catch{}
-  try{if(ctx.state!=='running')await ctx.resume()}catch{}}
+  try{if(ctx.state!=='running')await ctx.resume()}catch{}
+  try{MUSIC_PORT.postMessage('tete:out-on')}catch{}}
 function outOff(){try{if(MUSIC_PORT)MUSIC_PORT.postMessage('tete:out-off')}catch{}}
 function toutVoice(pid,c){const t=TOUT;if(!t||!c||!c.stream||!c.stream.getAudioTracks().length)return;const had=t.voices.get(pid);if(had&&had.stream===c.stream)return;if(had)toutDrop(pid);
   try{const src=t.ctx.createMediaStreamSource(c.stream),g=t.ctx.createGain();g.gain.value=AVS.spk?1:0;src.connect(g);g.connect(t.mix);t.voices.set(pid,{src,g,stream:c.stream})}catch{}}

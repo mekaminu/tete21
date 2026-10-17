@@ -120,7 +120,6 @@ class MainActivity : ComponentActivity(), MusicHub.Listener {
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
             allowFileAccess = false
-            allowContentAccess = false
             setSupportMultipleWindows(false)
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             userAgentString = "$userAgentString TeteAndroid/${BuildConfig.VERSION_NAME}"
@@ -191,6 +190,8 @@ class MainActivity : ComponentActivity(), MusicHub.Listener {
             val s = m.data ?: return
             when {
                 s.startsWith("b64:") -> if (quiet) out.write(Base64.decode(s.substring(4), Base64.DEFAULT))
+                // the page mixes the table's sound for the app now: mute the page, so Android leaves your music alone
+                s == "tete:out-on" -> main.post { if (MusicHub.running && !quiet) { quietPage(true); main.postDelayed({ if (MusicHub.running) playOtherMusic() }, 500) } }
                 s == "tete:out-off" -> main.post { quietPage(false) } // the page couldn't mix the table's sound: it plays it itself
             }
         } catch (_: Exception) {}
@@ -225,12 +226,12 @@ class MainActivity : ComponentActivity(), MusicHub.Listener {
     }
 
     private fun musicStarted() {
-        // mute the page and play the table here instead, so Android never pauses your music for the page's voices
+        // if this phone's WebView can be muted, the page mixes the table's sound for the app to play ("tete:out-on"
+        // comes back), so Android never pauses your music for the page's voices; then "play" is pressed for your
+        // music app, in case it was paused before you started. Without that, just the press.
         val canMute = WebViewFeature.isFeatureSupported(WebViewFeature.MUTE_AUDIO)
-        if (canMute) quietPage(true)
         musicEvent("started", "", canMute)
-        // and if your music app was paused for the table's sound before you started, it plays again
-        main.postDelayed({ if (MusicHub.running) playOtherMusic() }, 700)
+        if (!canMute) main.postDelayed({ if (MusicHub.running) playOtherMusic() }, 700)
     }
 
     private fun quietPage(on: Boolean) {
