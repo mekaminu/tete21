@@ -1,0 +1,20 @@
+android: 10 (api 29)
+webview:   Current WebView package (name, version): (com.google.android.webview, 74.0.3729.185)
+== install
+Performing Streamed Install
+Success
+install exit 0
+package:com.tete21.app
+    versionCode=4 minSdk=29 targetSdk=35
+    versionName=1.0.4
+== launch
+Starting: Intent { cmp=com.tete21.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.tete21.app/.MainActivity
+TotalTime: 3006
+WaitTime: 3011
+Complete
+== after 30s
+pid: 
+    mResumedActivity: ActivityRecord{880bb6b u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t7}

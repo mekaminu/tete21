@@ -1,0 +1,72 @@
+10-17 20:00:50.692 I/aopq    ( 2058): Scheduling Phenotype for a PhenotypeSyncImmediately(6, org.chromium.net.cronet) one off with window [1, 2] in seconds [CONTEXT service_id=51 ]
+10-17 20:00:50.877 V/installd( 1768): DexInv: --- END '/data/app/com.tete21.app-TS-Klqct_1A-rmTrTaF14Q==/base.apk' (success) ---
+10-17 20:00:50.930 I/IntentFilterIntentOp( 2212): Verifying IntentFilter. verificationId:0 scheme:"https" hosts:"tete21.onrender.com" package:"com.tete21.app". [CONTEXT service_id=244 ]
+10-17 20:00:51.567 I/ActivityTaskManager( 1913): START u0 {flg=0x10000000 cmp=com.tete21.app/.MainActivity} from uid 2000
+10-17 20:00:51.768 W/com.tete21.app( 5656): Unexpected CPU variant for X86 using defaults: x86_64
+10-17 20:00:51.813 I/ActivityManager( 1913): Start proc 5656:com.tete21.app/u0a146 for activity {com.tete21.app/com.tete21.app.MainActivity}
+10-17 20:00:52.080 W/RenderThread( 5656): type=1400 audit(0.0:29): avc: denied { write } for name="property_service" dev="tmpfs" ino=7860 scontext=u:r:untrusted_app:s0:c146,c256,c512,c768 tcontext=u:object_r:property_socket:s0 tclass=sock_file permissive=0 app=com.tete21.app
+10-17 20:00:52.373 I/com.tete21.app( 5656): The ClassLoaderContext is a special shared library.
+10-17 20:00:52.375 I/com.tete21.app( 5656): The ClassLoaderContext is a special shared library.
+10-17 20:00:52.538 I/cr_LibraryLoader( 5656): Time to load native libraries: 13 ms (timestamps 5720-5733)
+10-17 20:00:52.574 I/ActivityManager( 1913): Start proc 5716:com.google.android.webview:webview_service/u0a130 for service {com.google.android.webview/org.chromium.android_webview.services.VariationsSeedServer}
+10-17 20:00:52.579 I/chromium( 5656): [INFO:library_loader_hooks.cc(50)] Chromium logging enabled: level = 0, default verbosity = 0
+10-17 20:00:52.580 I/cr_LibraryLoader( 5656): Expected native library version number "74.0.3729.185", actual native library version number "74.0.3729.185"
+10-17 20:00:53.196 W/cr_ChildProcLH( 5656): Create a new ChildConnectionAllocator with package name = com.google.android.webview, sandboxed = true
+10-17 20:00:53.273 I/cr_BrowserStartup( 5656): Initializing chromium process, singleProcess=false
+10-17 20:00:53.329 I/ActivityManager( 1913): Start proc 5775:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0/u0ai9000 for  {com.tete21.app/org.chromium.content.app.SandboxedProcessService0}
+10-17 20:00:53.398 E/chromium( 5656): [ERROR:filesystem_posix.cc(89)] stat /data/user/0/com.tete21.app/cache/WebView/Crashpad: No such file or directory (2)
+10-17 20:00:53.398 E/chromium( 5656): [ERROR:filesystem_posix.cc(62)] mkdir /data/user/0/com.tete21.app/cache/WebView/Crashpad: No such file or directory (2)
+10-17 20:00:53.413 I/cr_ChildProcessService( 5775): Creating new ChildProcessService pid=5775
+10-17 20:00:54.094 W/cr_media( 5656): Requires BLUETOOTH permission
+10-17 20:00:54.126 I/cr_LibraryLoader( 5775): Time to load native libraries: 0 ms (timestamps 7321-7321)
+10-17 20:00:54.249 I/chromium( 5775): [INFO:library_loader_hooks.cc(50)] Chromium logging enabled: level = 0, default verbosity = 0
+10-17 20:00:54.249 I/cr_LibraryLoader( 5775): Expected native library version number "74.0.3729.185", actual native library version number "74.0.3729.185"
+10-17 20:00:54.267 W/cr_MediaCodecUtil( 5656): HW encoder for video/avc is not available on this device.
+10-17 20:00:56.090 I/chatty  ( 5656): uid=10146(com.tete21.app) identical 2 lines
+10-17 20:00:58.035 W/GCM     ( 2058): Unexpected forwarded intent: Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.tete21.app flg=0x4000010 cmp=com.google.android.gms/.chimera.PersistentIntentOperationService (has extras) }
+10-17 20:00:58.035 W/GCM     ( 2058): Unexpected forwarded intent: Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.tete21.app flg=0x4000010 cmp=com.google.android.gms/.chimera.PersistentIntentOperationService (has extras) }
+10-17 20:00:58.406 I/ChromeSync( 2212): [Sync,SyncIntentOperation] Handling the intent: Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.tete21.app flg=0x4000010 cmp=com.google.android.gms/.chimera.GmsIntentOperationService (has extras) }.
+10-17 20:00:58.428 I/FontLog ( 2212): Package com.tete21.app has no metadata [CONTEXT service_id=132 ]
+10-17 20:00:59.233 I/ChromeSync( 2212): [Persistence,AffiliationManager] One of affiliation or grouping data for android://vuBvrserEEU9Y6wFumXtXlAo5_MFY7sUDTrvkBKpiIcH6qreU27eyb-9zf5DQYvS-m2hN7mChjMD-jsJ22iF4w==@com.tete21.app/ was not found. Marking affiliation data as stale...
+10-17 20:01:00.142 D/ProfileInstaller( 5656): Installing profile for com.tete21.app
+10-17 20:01:02.553 I/cr_VariationsSeedFetch( 5716): Fetched first run seed in 3325 ms
+10-17 20:01:05.095 I/ActivityTaskManager( 1913): Displayed com.tete21.app/.MainActivity: +3s6ms
+10-17 20:01:09.495 W/BroadcastQueue( 1913): Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.tete21.app flg=0x4000010 (has extras) } to com.google.android.packageinstaller/com.android.packageinstaller.PackageInstalledReceiver
+10-17 20:01:09.497 W/BroadcastQueue( 1913): Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.tete21.app flg=0x4000010 (has extras) } to com.android.musicfx/.Compatibility$Receiver
+10-17 20:01:09.497 W/BroadcastQueue( 1913): Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.tete21.app flg=0x4000010 (has extras) } to com.google.android.gms/.games.chimera.GamesSystemBroadcastReceiverProxy
+10-17 20:01:09.497 W/BroadcastQueue( 1913): Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.tete21.app flg=0x4000010 (has extras) } to com.google.android.gms/.gass.chimera.PackageChangeBroadcastReceiver
+10-17 20:01:09.497 W/BroadcastQueue( 1913): Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.tete21.app flg=0x4000010 (has extras) } to com.google.android.gms/.chimera.GmsIntentOperationService$PersistentTrustedReceiver
+10-17 20:01:09.497 W/BroadcastQueue( 1913): Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.tete21.app flg=0x4000010 (has extras) } to com.google.android.googlequicksearchbox/com.google.android.apps.gsa.googlequicksearchbox.GelStubAppWatcher
+10-17 20:01:09.497 W/BroadcastQueue( 1913): Background execution not allowed: receiving Intent { act=android.intent.action.PACKAGE_ADDED dat=package:com.tete21.app flg=0x4000010 (has extras) } to com.google.android.ims/.receivers.RcsAutoStartReceiver
+10-17 20:01:12.968 E/AndroidRuntime( 1913): *** FATAL EXCEPTION IN SYSTEM PROCESS: Thread-116
+10-17 20:01:12.968 E/AndroidRuntime( 1913): java.lang.OutOfMemoryError: Failed to allocate a 3891648 byte allocation with 2122912 free bytes and 2073KB until OOM, target footprint 16777216, growth limit 16777216
+10-17 20:01:12.968 E/AndroidRuntime( 1913): 	at java.util.Arrays.copyOf(Arrays.java:3161)
+10-17 20:01:12.968 E/AndroidRuntime( 1913): 	at java.io.ByteArrayOutputStream.toByteArray(ByteArrayOutputStream.java:191)
+10-17 20:01:12.968 E/AndroidRuntime( 1913): 	at libcore.io.Streams.readFullyNoClose(Streams.java:124)
+10-17 20:01:12.968 E/AndroidRuntime( 1913): 	at com.android.server.updates.ConfigUpdateInstallReceiver.getAltContent(ConfigUpdateInstallReceiver.java:137)
+10-17 20:01:12.968 E/AndroidRuntime( 1913): 	at com.android.server.updates.ConfigUpdateInstallReceiver.access$000(ConfigUpdateInstallReceiver.java:39)
+10-17 20:01:12.968 E/AndroidRuntime( 1913): 	at com.android.server.updates.ConfigUpdateInstallReceiver$1.run(ConfigUpdateInstallReceiver.java:65)
+10-17 20:01:12.998 D/AndroidRuntime( 5882): Shutting down VM
+10-17 20:01:12.998 E/AndroidRuntime( 5882): FATAL EXCEPTION: main
+10-17 20:01:12.998 E/AndroidRuntime( 5882): Process: com.google.android.apps.messaging:rcs, PID: 5882
+10-17 20:01:12.998 E/AndroidRuntime( 5882): DeadSystemException: The system died; earlier logs will point to the root cause
+10-17 20:01:13.091 E/AndroidRuntime( 2058): FATAL EXCEPTION: highpool[3]
+10-17 20:01:13.091 E/AndroidRuntime( 2058): Process: com.google.android.gms.persistent, PID: 2058
+10-17 20:01:13.091 E/AndroidRuntime( 2058): DeadSystemException: The system died; earlier logs will point to the root cause
+10-17 20:01:13.703 D/AndroidRuntime( 2395): Shutting down VM
+10-17 20:01:13.703 E/AndroidRuntime( 2395): FATAL EXCEPTION: main
+10-17 20:01:13.703 E/AndroidRuntime( 2395): Process: com.android.phone, PID: 2395
+10-17 20:01:13.703 E/AndroidRuntime( 2395): DeadSystemException: The system died; earlier logs will point to the root cause
+10-17 20:01:14.810 D/AndroidRuntime( 6434): >>>>>> START com.android.internal.os.ZygoteInit uid 0 <<<<<<
+10-17 20:01:14.825 I/AndroidRuntime( 6434): Using default boot image
+10-17 20:01:14.825 I/AndroidRuntime( 6434): Leaving lock profiling enabled
+10-17 20:01:15.050 D/AndroidRuntime( 6435): >>>>>> START com.android.internal.os.ZygoteInit uid 0 <<<<<<
+10-17 20:01:15.066 I/AndroidRuntime( 6435): Using default boot image
+10-17 20:01:15.066 I/AndroidRuntime( 6435): Leaving lock profiling enabled
+10-17 20:01:17.046 I/AndroidRuntime( 6644): VM exiting with result code 0, cleanup skipped.
+10-17 20:01:17.104 I/AndroidRuntime( 6662): VM exiting with result code 0, cleanup skipped.
+10-17 20:01:22.777 I/cr_CronetLibraryLoader( 7272): Cronet version: 76.0.3786.0, arch: i686
+10-17 20:01:22.833 I/cr_LibraryLoader( 7272): Time to load native libraries: 1 ms (timestamps 6028-6029)
+10-17 20:01:22.845 I/chromium( 7272): [INFO:library_loader_hooks.cc(50)] Chromium logging enabled: level = 0, default verbosity = 0
+10-17 20:01:22.845 I/cr_LibraryLoader( 7272): Expected native library version number "74.0.3729.185", actual native library version number "74.0.3729.185"
+10-17 20:01:22.940 I/ActivityManager( 6485): Start proc 7927:com.google.android.webview:webview_service/u0a130 for service {com.google.android.webview/org.chromium.android_webview.services.VariationsSeedServer}

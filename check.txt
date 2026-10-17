@@ -1,0 +1,63 @@
+build-tools: /usr/local/lib/android/sdk/build-tools/37.0.0
+ok: build 4, 2026-10-17T18:35:03Z, from 919d8a9, 4846167 bytes
+== apksigner
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v3.2 scheme (APK Signature Scheme v3.2): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+V2 Signer: certificate DN: CN=Tete 21, O=Meka
+V2 Signer: certificate SHA-256 digest: da2b7f929be6c40a631ffcf33b5f8c2a4d14cd82bc5af48309d60e1848cbb30d
+V2 Signer: certificate SHA-1 digest: 290b534051852a5fcf0a6a5a393fe7bfc6d4214b
+V2 Signer: certificate MD5 digest: 58539f17d8738c844d68f1f400b26ef4
+V2 Signer: key algorithm: RSA
+V2 Signer: key size (bits): 2048
+V2 Signer: public key SHA-256 digest: 7a00d38889e6e5ef71064c2fb6450f4f2932348b60ee5c524f81748dabc36c20
+V2 Signer: public key SHA-1 digest: 435d5ccdde0712c16f9b917535784cc1a560e189
+V2 Signer: public key MD5 digest: 3adf91313903e7417c18718f89df5b91
+exit 0
+== badging
+package: name='com.tete21.app' versionCode='4' versionName='1.0.4' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
+minSdkVersion:'29'
+targetSdkVersion:'35'
+uses-permission: name='android.permission.INTERNET'
+uses-permission: name='android.permission.ACCESS_NETWORK_STATE'
+uses-permission: name='android.permission.WAKE_LOCK'
+uses-permission: name='android.permission.RECORD_AUDIO'
+uses-permission: name='android.permission.CAMERA'
+uses-permission: name='android.permission.MODIFY_AUDIO_SETTINGS'
+uses-permission: name='android.permission.POST_NOTIFICATIONS'
+uses-permission: name='android.permission.FOREGROUND_SERVICE'
+uses-permission: name='android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION'
+uses-permission: name='android.permission.FOREGROUND_SERVICE_MICROPHONE'
+uses-permission: name='com.tete21.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'
+application-label:'Tete 21'
+application-label-af:'Tete 21'
+application-label-am:'Tete 21'
+application-label-ar:'Tete 21'
+application-label-as:'Tete 21'
+application-label-az:'Tete 21'
+application-label-be:'Tete 21'
+application-label-bg:'Tete 21'
+application-label-bn:'Tete 21'
+application-label-bs:'Tete 21'
+application-label-ca:'Tete 21'
+application-label-cs:'Tete 21'
+application-label-da:'Tete 21'
+application-label-de:'Tete 21'
+application-label-el:'Tete 21'
+application-label-en-AU:'Tete 21'
+application-label-en-CA:'Tete 21'
+application-label-en-GB:'Tete 21'
+application-label-en-IN:'Tete 21'
+application-label-en-XC:'Tete 21'
+application-label-es:'Tete 21'
+application-label-es-US:'Tete 21'
+application-label-et:'Tete 21'
+application-label-eu:'Tete 21'
+application-label-fa:'Tete 21'
+application-label-fi:'Tete 21'
