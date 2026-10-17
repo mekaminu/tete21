@@ -1,0 +1,155 @@
+10-17 20:00:27.512 I/SafetyLabelChangedBroadcastReceiver(  829): received broadcast packageName: com.tete21.app, current user: UserHandle{0}, packageChangeEvent: NEW_INSTALL, intent user: UserHandle{0}
+10-17 20:00:27.515 V/SplashScreenExceptionList(  520): SplashScreen checking exception for package com.tete21.app (target sdk:35) -> false
+10-17 20:00:27.527 I/ActivityTaskManager(  520): START u0 {flg=0x10000000 cmp=com.tete21.app/.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-17 20:00:27.544 D/CoreBackPreview(  520): Window{5ba1022 u0 Splash Screen com.tete21.app}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@f0b6d1e, mPriority=0, mIsAnimationCallback=false}
+10-17 20:00:27.738 I/ActivityManager(  520): Start proc 2634:com.tete21.app/u0a192 for next-top-activity {com.tete21.app/com.tete21.app.MainActivity}
+10-17 20:00:27.747 I/com.tete21.app( 2634): Using CollectorTypeCC GC.
+10-17 20:00:27.747 W/com.tete21.app( 2634): Unexpected CPU variant for x86: x86_64.
+10-17 20:00:27.747 W/com.tete21.app( 2634): Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, tremont, kabylake, default
+10-17 20:00:27.750 E/com.tete21.app( 2634): Not starting debugger since process cannot load the jdwp agent.
+10-17 20:00:27.863 D/nativeloader( 2634): Configuring clns-6 for other apk /data/app/~~yn6gNiDCYOwtM1brN0jyVQ==/com.tete21.app-HVVS2nD3ro20BK8mBaR8Ig==/base.apk. target_sdk_version=35, uses_libraries=, library_path=/data/app/~~yn6gNiDCYOwtM1brN0jyVQ==/com.tete21.app-HVVS2nD3ro20BK8mBaR8Ig==/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.tete21.app
+10-17 20:00:27.918 V/GraphicsEnvironment( 2634): ANGLE GameManagerService for com.tete21.app: false
+10-17 20:00:27.918 V/GraphicsEnvironment( 2634): com.tete21.app is not listed in per-application setting
+10-17 20:00:27.976 D/CarrierSvcBindHelper( 1027): onPackageAdded: com.tete21.app
+10-17 20:00:27.980 D/ImsResolver( 1027): maybeAddedImsService, packageName: com.tete21.app
+10-17 20:00:28.125 D/CarrierSvcBindHelper( 1027): onPackageModified: com.tete21.app
+10-17 20:00:28.128 D/ImsResolver( 1027): maybeAddedImsService, packageName: com.tete21.app
+10-17 20:00:28.178 W/com.tete21.app( 2634): Entry not found
+10-17 20:00:28.182 V/WindowManager(  520):     info={id=5 t=CLOSE f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{39e8361 Task{ec57d4b #8 type=standard A=10192:com.tete21.app}}} m=OPEN f=MOVE_TO_TOP leash=Surface(name=Task=8)/@0xac1cbc6 sb=Rect(0, 0 - 320, 640) eb=Rect(0, 0 - 320, 640) d=0},{WCT{RemoteToken{48bae86 Task{605ea6f #1 type=home}}} m=TO_BACK f=NONE leash=Surface(name=Task=1)/@0x1b6fd48 sb=Rect(0, 0 - 320, 640) eb=Rect(0, 0 - 320, 640) d=0}]}
+10-17 20:00:28.253 I/cr_WVCFactoryProvider( 2634): Loaded version=113.0.5672.136 minSdkVersion=29 isBundle=false multiprocess=true packageId=2
+10-17 20:00:28.380 I/cr_LibraryLoader( 2634): Successfully loaded native library
+10-17 20:00:28.386 I/cr_CachingUmaRecorder( 2634): Flushed 8 samples from 8 histograms.
+10-17 20:00:28.436 E/cr_VariationsSeedLoader( 2634): Failed loading variations seed. Variations disabled.
+10-17 20:00:28.774 I/cr_VariationsUtils( 2634): Failed reading seed file "/data/user/0/com.tete21.app/app_webview/variations_seed_new"
+10-17 20:00:28.774 I/cr_VariationsUtils( 2634): Failed reading seed file "/data/user/0/com.tete21.app/app_webview/variations_seed"
+10-17 20:00:29.112 I/Launcher.IconCache( 1086): Database bulk icon loading failed, using fallback bulk icon loading for: ComponentInfo{com.tete21.app/com.tete21.app.MainActivity}
+10-17 20:00:29.146 I/cr_VariationsUtils( 2634): Requesting new seed from IVariationsSeedServer
+10-17 20:00:29.187 I/ActivityManager(  520): Start proc 2844:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0ai9000 for  {com.tete21.app/org.chromium.content.app.SandboxedProcessService0:0}
+10-17 20:00:29.349 I/ActivityManager(  520): Start proc 2857:com.google.android.webview:webview_service/u0a134 for service {com.google.android.webview/org.chromium.android_webview.services.VariationsSeedServer}
+10-17 20:00:29.711 I/cr_WebViewApkApp( 2857): Launched version=113.0.5672.136 minSdkVersion=29 isBundle=false processName=com.google.android.webview:webview_service
+10-17 20:00:29.862 D/ConnectivityService(  520): requestNetwork for uid/pid:10192/2634 activeRequest: null callbackRequest: 70 [NetworkRequest [ REQUEST id=71, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10192 RequestorUid: 10192 RequestorPkg: com.tete21.app UnderlyingNetworks: Null] ]] callback flags: 0 order: 2147483647
+10-17 20:00:29.887 D/WifiNetworkFactory(  520): got request NetworkRequest [ REQUEST id=71, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10192 RequestorUid: 10192 RequestorPkg: com.tete21.app UnderlyingNetworks: Null] ]
+10-17 20:00:29.887 D/UntrustedWifiNetworkFactory(  520): got request NetworkRequest [ REQUEST id=71, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10192 RequestorUid: 10192 RequestorPkg: com.tete21.app UnderlyingNetworks: Null] ]
+10-17 20:00:29.887 D/OemPaidWifiNetworkFactory(  520): got request NetworkRequest [ REQUEST id=71, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10192 RequestorUid: 10192 RequestorPkg: com.tete21.app UnderlyingNetworks: Null] ]
+10-17 20:00:29.887 D/MultiInternetWifiNetworkFactory(  520): got request NetworkRequest [ REQUEST id=71, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10192 RequestorUid: 10192 RequestorPkg: com.tete21.app UnderlyingNetworks: Null] ]
+10-17 20:00:29.907 W/cr_media( 2634): BLUETOOTH_CONNECT permission is missing.
+10-17 20:00:29.914 I/cr_WebViewApkApp( 2844): Launched version=113.0.5672.136 minSdkVersion=29 isBundle=false processName=com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0
+10-17 20:00:29.914 W/cr_media( 2634): registerBluetoothIntentsIfNeeded: Requires BLUETOOTH permission
+10-17 20:00:29.945 I/cr_ChildProcessService( 2844): Creating new ChildProcessService pid=2844
+10-17 20:00:29.965 I/cr_WVCFactoryProvider( 1883): Loaded version=113.0.5672.136 minSdkVersion=29 isBundle=false multiprocess=true packageId=2
+10-17 20:00:30.127 D/CoreBackPreview(  520): Window{aa51134 u0 com.tete21.app/com.tete21.app.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@eeda29a, mPriority=0, mIsAnimationCallback=false}
+10-17 20:00:30.253 I/cr_LibraryLoader( 2844): Successfully loaded native library
+10-17 20:00:30.253 I/cr_CachingUmaRecorder( 2844): Flushed 2 samples from 2 histograms.
+10-17 20:00:30.462 I/ActivityTaskManager(  520): Displayed com.tete21.app/.MainActivity for user 0: +2s897ms
+10-17 20:00:30.551 I/cr_LibraryLoader( 1883): Successfully loaded native library
+10-17 20:00:30.587 I/cr_CachingUmaRecorder( 1883): Flushed 8 samples from 8 histograms.
+10-17 20:00:30.588 I/cr_VariationsUtils( 1883): Failed reading seed file "/data/user/0/com.google.android.googlequicksearchbox/app_webview/variations_seed_new"
+10-17 20:00:30.588 I/cr_VariationsUtils( 1883): Failed reading seed file "/data/user/0/com.google.android.googlequicksearchbox/app_webview/variations_seed"
+10-17 20:00:30.588 I/cr_VariationsUtils( 1883): Requesting new seed from IVariationsSeedServer
+10-17 20:00:30.611 D/CoreBackPreview(  520): Window{5ba1022 u0 Splash Screen com.tete21.app EXITING}: Setting back callback null
+10-17 20:00:30.627 W/InputManager-JNI(  520): Input channel object '5ba1022 Splash Screen com.tete21.app (client)' was disposed without first being removed with the input manager!
+10-17 20:00:30.647 I/ActivityManager(  520): Start proc 3076:com.android.chrome/u0a149 for service {com.android.chrome/org.chromium.chrome.browser.customtabs.CustomTabsConnectionService}
+10-17 20:00:30.671 I/ImeTracker(  520): com.tete21.app:d32bf06b: onRequestHide at ORIGIN_SERVER_HIDE_INPUT reason HIDE_UNSPECIFIED_WINDOW
+10-17 20:00:30.671 I/ImeTracker(  520): com.tete21.app:d32bf06b: onCancelled at PHASE_SERVER_SHOULD_HIDE
+10-17 20:00:30.683 I/GoogleInputMethodService( 1550): GoogleInputMethodService.onStartInput():1877 onStartInput(EditorInfo{inputType=0x0(NULL) imeOptions=0x0 privateImeOptions=null actionName=UNSPECIFIED actionLabel=null actionId=0 initialSelStart=-1 initialSelEnd=-1 initialCapsMode=0x0 hintText=null label=null packageName=com.tete21.app fieldId=0 fieldName=null extras=null}, false)
+10-17 20:00:30.895 I/cr_VariationsUtils( 2857): Scheduling seed download job
+10-17 20:00:31.239 I/cr_SplitCompatApp( 3076): Launched version=113.0.5672.136 minSdkVersion=29 isBundle=true processName=com.android.chrome isIsolated=false
+10-17 20:00:31.596 I/ActivityManager(  520): Start proc 3304:com.google.android.webview:webview_apk/u0a134 for service {com.google.android.webview/org.chromium.android_webview.nonembedded.AwComponentUpdateService}
+10-17 20:00:31.740 I/cr_LibraryLoader( 3076): Loading monochrome_64 from within /data/app/~~yyd-WdtQ9vb8MjWODiCdkQ==/com.android.chrome-yxBkmi4qkZMeR6Mf7bwBoQ==/Chrome.apk
+10-17 20:00:31.746 I/cr_Linker( 3076): loadLibraryImplLocked: monochrome_64, relroMode=1
+10-17 20:00:31.770 I/cr_LibraryLoader( 3076): Successfully loaded native library
+10-17 20:00:31.770 I/cr_CachingUmaRecorder( 3076): Flushed 13 samples from 13 histograms.
+10-17 20:00:31.841 I/cr_VariationsUtils( 2857): Seed download job already scheduled
+10-17 20:00:31.920 I/cr_VariationsUtils( 2857): Downloading new seed
+10-17 20:00:32.019 I/cr_CronetLibraryLoader( 1883): Cronet version: 113.0.5672.51, arch: x86_64
+10-17 20:00:32.104 I/cr_WebViewApkApp( 3304): Launched version=113.0.5672.136 minSdkVersion=29 isBundle=false processName=com.google.android.webview:webview_apk
+10-17 20:00:32.227 I/AiAiEcho( 1659): AppFetcherImplV2 updateApps package:[com.tete21.app], userId:[0], reason:[package is added.].
+10-17 20:00:32.517 I/cr_LibraryLoader( 3304): Successfully loaded native library
+10-17 20:00:32.764 W/cr_AWNetworkFetcherTask( 3304): IOException during downloadToFile.
+10-17 20:00:32.764 W/cr_AWNetworkFetcherTask( 3304): java.io.IOException: Cleartext HTTP traffic to edgedl.me.gvt1.com not permitted
+10-17 20:00:32.764 W/cr_AWNetworkFetcherTask( 3304): 	at com.android.okhttp.HttpHandler$CleartextURLFilter.checkURLPermitted(HttpHandler.java:127)
+10-17 20:00:32.764 W/cr_AWNetworkFetcherTask( 3304): 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:462)
+10-17 20:00:32.764 W/cr_AWNetworkFetcherTask( 3304): 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getResponse(HttpURLConnectionImpl.java:411)
+10-17 20:00:32.764 W/cr_AWNetworkFetcherTask( 3304): 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getResponseCode(HttpURLConnectionImpl.java:542)
+10-17 20:00:32.764 W/cr_AWNetworkFetcherTask( 3304): 	at org.chromium.android_webview.nonembedded.NetworkFetcherTask.download(chromium-TrichromeWebViewGoogle6432.apk-stable-567263637:48)
+10-17 20:00:32.939 I/cr_VariationsSeedFetch( 2857): Fetched first run seed in 1019 ms
+10-17 20:00:33.204 I/AiAiEcho( 1659): AppFetcherImpl onPackageChanged com.tete21.app.
+10-17 20:00:33.206 I/AiAiEcho( 1659): AppIndexer Package:[com.tete21.app] UserProfile:[0] Enabled:[true].
+10-17 20:00:33.206 I/AiAiEcho( 1659): AppFetcherImplV2 updateApps package:[com.tete21.app], userId:[0], reason:[package is updated.].
+10-17 20:00:34.213 I/cr_CronetLibraryLoader( 3122): Cronet version: 113.0.5672.51, arch: x86_64
+10-17 20:00:35.036 I/cr_CronetLibraryLoader( 1414): Cronet version: 113.0.5672.51, arch: x86_64
+10-17 20:00:35.672 D/ProfileInstaller( 2634): Installing profile for com.tete21.app
+10-17 20:00:39.393 I/cr_CronetLibraryLoader( 1883): Cronet version: 102.0.4973.2, arch: x86_64
+10-17 20:00:42.898 I/BlockstoreStorage( 1465): Clearing Blockstore Data for package com.tete21.app [CONTEXT service_id=258 ]
+10-17 20:00:42.965 I/FontLog ( 1414): Package com.tete21.app has no metadata [CONTEXT service_id=132 ]
+10-17 20:00:47.664 I/HeterodyneSyncScheduler( 1414): Scheduling Phenotype for a PhenotypeSyncImmediately(6, org.chromium.net.cronet) one off with window [1, 2] in seconds [CONTEXT service_id=51 ]
+10-17 20:00:52.661 I/cr_WebViewApkApp( 4773): Launched version=113.0.5672.136 minSdkVersion=29 isBundle=false processName=com.google.android.webview
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): Exception in upload method
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): com.google.android.apps.gsa.shared.r.d: Error code: 262182
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.shared.ab.bk.d(PG:5)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.libraries.gsa.c.a.ar.d(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.libraries.gsa.c.a.bo.b(PG:5)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.libraries.gsa.c.a.e.a(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.libraries.gsa.c.a.a.run(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.bf.execute(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.i(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.l(PG:12)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.cancel(PG:8)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.m(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.j.a(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.l(PG:3)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.cancel(PG:8)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.m(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.j.a(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.l(PG:3)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.cancel(PG:8)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.m(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.j.a(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.l(PG:3)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.cancel(PG:8)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.m(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.j.a(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.l(PG:3)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.cancel(PG:8)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.m(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.c.a(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.l(PG:3)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.cancel(PG:8)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.bu.cancel(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.cancel(PG:17)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.staticplugins.bk.b.h.run(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.bf.execute(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.i(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.l(PG:12)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.cancel(PG:8)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.m(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.j.a(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.l(PG:3)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.cancel(PG:8)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.shared.util.c.aj.a(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.l(PG:3)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.cancel(PG:8)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.m(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.c.a(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.l(PG:3)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.common.util.concurrent.d.cancel(PG:8)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.s3.o.c(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.s3.r.a(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.staticplugins.dc.a.c.e(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.staticplugins.dc.a.c.c(PG:3)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.staticplugins.dc.a.e.a(PG:5)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.s3.n.hh(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.cd.g.a.f.e(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.speech.k.a.g.d(PG:22)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.speech.k.a.g.ks(PG:6)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.s3.o.e(PG:14)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.s3.p.run(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:487)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.shared.util.c.a.e.run(PG:2)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.shared.util.c.a.bi.run(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.shared.util.c.a.bi.run(PG:1)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at java.lang.Thread.run(Thread.java:1012)
+10-17 20:00:59.544 E/cr_CronetUrlRequestContext( 1883): 	at com.google.android.apps.gsa.shared.util.c.a.l.run(PG:5)
