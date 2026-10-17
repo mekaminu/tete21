@@ -385,7 +385,8 @@ async function membersView() {
     if (missing.length) users = users.concat(await accounts.usersByIds(missing));
   } catch (e) { console.error('members list:', e.message); }
   const row = u => { const p = P[u.id] || {}; return { id: u.id, name: u.display, user: u.username, av: u.av || null, hands: (u.stats && u.stats.hands) || 0, since: u.created_at || 0, asked: p.asked || 0, at: p.at || 0, via: p.via || '', here: online.has(u.id) ? 1 : 0 }; };
-  const v = { type: 'members', on: members.on() ? 1 : 0, forced: members.forcedOff() ? 1 : 0, waiting: [], yes: [], no: [], others: [], invites: members.invites() };
+  const v = { type: 'members', on: members.on() ? 1 : 0, forced: members.forcedOff() ? 1 : 0, waiting: [], yes: [], no: [], others: [], invites: members.invites(),
+    hosts: members.hostsAll() ? 'all' : 'owner', tables: [...tables.values()].filter(t => !t.closed).map(t => ({ name: t.tableName, host: hostName(t), people: t.players.filter(p => !p.isBot && !p.gone).length, here: t.humansConnected(), keep: t.persistent ? 1 : 0 })) };
   for (const u of users) {
     if (members.isOwner(u)) continue;
     const s = (P[u.id] || {}).s;
@@ -401,7 +402,7 @@ const ownerOf = ws => !!ws.uid && members.isOwner(accounts.cached(ws.uid));
 function ownerSocks() { const out = []; for (const [uid, o] of online) if (o.acct && members.isOwner(accounts.cached(uid))) for (const s of o.socks) out.push(s); return out; }
 let pmT = null;
 function pushMembers() { clearTimeout(pmT); pmT = setTimeout(async () => { const socks = ownerSocks(); if (!socks.length) return; const v = await membersView(); for (const s of socks) send(s, v); }, 120); }
-function roleOf(u) { return { type: 'members_role', on: members.on() ? 1 : 0, owner: members.isOwner(u) ? 1 : 0, forced: members.forcedOff() ? 1 : 0, waiting: members.isOwner(u) ? members.waitingCount() : 0 }; }
+function roleOf(u) { return { type: 'members_role', host: members.canHost(u) ? 1 : 0, ownerName: members.OWNER_NAME, on: members.on() ? 1 : 0, owner: members.isOwner(u) ? 1 : 0, forced: members.forcedOff() ? 1 : 0, waiting: members.isOwner(u) ? members.waitingCount() : 0 }; }
 // someone taken off (or everyone who isn't a member, when the gate goes back up) goes back to the sign-in page
 function sendOut(s, msg) { send(s, { type: 'members_out', msg }); setTimeout(() => { try { s.close(4003, 'members only'); } catch {} }, 400); }
 members.onEvent((kind, a, b) => {
@@ -410,6 +411,7 @@ members.onEvent((kind, a, b) => {
     for (const s of ownerSocks()) send(s, { type: 'members_ask', who });
   }
   if (kind === 'set' && b === 'no') { const o = online.get(a); if (o) for (const s of [...o.socks]) sendOut(s, `${members.OWNER_NAME} took you off Tete.`); }
+  if (kind === 'hosts') for (const ws of wss.clients) send(ws, roleOf(ws.uid ? accounts.cached(ws.uid) : null));
   if (kind === 'open') {
     for (const ws of wss.clients) {
       const u = ws.uid ? accounts.cached(ws.uid) : null;
@@ -604,6 +606,7 @@ async function handle(ws, m) {
     // ----- rooms -----
     case 'rooms': sendRooms(ws); break;
     case 'host': {
+      if (!members.canHost(ws.uid ? accounts.cached(ws.uid) : null)) return send(ws, { type: 'error', msg: `Only ${members.OWNER_NAME} can open tables for now. Join a table with its code, or play a practice game.` });
       if (!cleanName(m.name)) return send(ws, { type: 'error', msg: 'Type your name first.' });
       const cfg = Object.assign({}, m.cfg || {}); delete cfg.rid;
       const t = new Table(newCode(), cfg, broadcast);
@@ -658,7 +661,7 @@ async function handle(ws, m) {
       let t = tables.get(code); if (t && t.closed) t = null;
       const o = openSeal(m.seal);
       if (o && o.room.code === code) t = restoreFromSeal(o) || t;
-      if (!t) return send(ws, { type: 'gone', code: code.toUpperCase(), msg: closedCodes.has(code) ? 'That room was closed by its host.' : 'That table has closed.' });
+      if (!t) return send(ws, { type: 'gone', code: code.toUpperCase(), msg: closedCodes.has(code) ? 'That room was closed.' : 'That table has closed.' });
       if (ws.table && ws.table !== t) leave(ws);
       const r = t.resume(String(m.token || ''), ws, seatHash);
       if (!r) { if (returnAcct(ws, t)) return; return send(ws, { type: 'gone', code: code.toUpperCase(), msg: 'Your seat at that table is no longer held.' }); }
@@ -702,6 +705,12 @@ async function handle(ws, m) {
     case 'invite_new': { if (!ownerOf(ws)) return; const key = members.newInvite(ws.uid, m.max); send(ws, { type: 'invite_link', key, max: Math.max(1, Math.min(10, Math.floor(+m.max) || 1)) }); break; }
     case 'invite_cancel': if (ownerOf(ws)) members.cancelInvite(String(m.key || '')); break;
     case 'members_open': { if (!ownerOf(ws) || members.forcedOff()) return; if (!members.setOpen(!!m.open)) pushMembers(); break; }
+    case 'hosts_set': { if (!ownerOf(ws)) return; if (!members.setHosts(!!m.all)) pushMembers(); break; }
+    case 'close_all': {
+      if (!ownerOf(ws)) return;
+      const n = closeAllTables(`${members.OWNER_NAME} closed all the tables.`);
+      send(ws, { type: 'toast', msg: n ? `Closed ${n} table${n === 1 ? '' : 's'}.` : 'No tables were open.' }); pushMembers(); break;
+    }
 
     // ----- at the table -----
     case 'hello': if (T) T.updateHuman(ws.pid, m); break;
@@ -735,6 +744,32 @@ setInterval(() => {
   for (const [k, v] of invites) if (v.exp < now) invites.delete(k);
 }, 30000);
 
+// Close every table (standing rooms too, for good): everyone at one goes back to the lobby with the final scores.
+// Chips are safe: each hand's result is already on everyone's account.
+function closeAllTables(msg) {
+  let n = 0;
+  for (const t of [...tables.values()]) {
+    if (t.closed) continue;
+    n++;
+    if (t.persistent) closedCodes.add(t.code);
+    const conns = t.players.map(p => p.conn).filter(Boolean);
+    let final = null, owed = null; try { final = t.started ? t.standings() : null; owed = t.openLoans(); } catch {}
+    unregister(t);
+    for (const c of conns) { c.table = null; c.pid = -1; send(c, { type: 'gone', code: t.code.toUpperCase(), msg, final, owed, tn: t.tableName }); sendRooms(c); if (c.me) presenceChanged(c.me); }
+  }
+  persistAll(); listDirty = true;
+  return n;
+}
+// Meka, 2026-10-17 19:36: close all the tables, now. Done once, on the first start after this change (the database
+// remembers it), so tables opened after that are left alone.
+const CLOSE_ALL_ONCE = '2026-10-17';
+async function closeAllOnce() {
+  try { if ((await accounts.kvGet('tables_closed_once')) === CLOSE_ALL_ONCE) return; } catch (e) { return console.error('close-all check:', e.message); }
+  const n = closeAllTables('All tables have been closed.');
+  try { await accounts.kvSet('tables_closed_once', CLOSE_ALL_ONCE); } catch (e) { console.error('close-all mark:', e.message); }
+  console.log(`closed all tables once, as asked (${n})`);
+}
+
 // restore standing rooms: from this machine's disk first, then from the database (which outlives restarts)
 function restoreSaved(saved, from) {
   (saved.closed || []).forEach(c => closedCodes.add(c));
@@ -755,6 +790,7 @@ accounts.init().then(async () => {
   startMembers();
   if (!accounts.isReady() || CLOSED) return;
   try { const saved = await accounts.kvGet('rooms'); if (saved) restoreSaved(saved, 'the database'); } catch (e) { console.error('rooms load:', e.message); }
+  await closeAllOnce();
 });
 
 server.listen(PORT, () => console.log('Tete 21 listening on', PORT, CLOSED ? '(CLOSED for now: no games until the CLOSED file is removed)' : ''));

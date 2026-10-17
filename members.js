@@ -4,11 +4,13 @@
 // not from the Members sheet in the app, and an invite link from the owner lets a friend straight in.
 //
 // Kept in the key-value store under 'members':
-//   { v: 1, open: false,
+//   { v: 1, open: false, hosts: 'owner' | 'all',
 //     people:  { <account id>: { s: 'yes' | 'wait' | 'no', asked, at, by, via } },
 //     invites: { <key>: { at, exp, max, used: [account ids], by } } }
 // The owner is named by username (OWNERS, default "meka"): always in, never on any list, can't be taken off.
 // MEMBERS_ONLY=0 switches the whole thing off (for running locally); the owner's own switch (open) does it live.
+// Opening tables (Meka, 2026-10-17): only the owner can, until the owner lets every member (hosts: 'all'); anyone let
+// in can still join a table the owner opens, and the owner can hand a table over (Make host).
 const crypto = require('crypto');
 
 const FORCED_OFF = /^(0|off|no|false)$/i.test(String(process.env.MEMBERS_ONLY || '').trim());
@@ -24,7 +26,7 @@ let ready = false;
 let saveT = null;
 const handlers = [];
 
-function fresh() { return { v: 1, open: false, people: {}, invites: {} }; }
+function fresh() { return { v: 1, open: false, hosts: 'owner', people: {}, invites: {} }; }
 function emit(...a) { for (const h of handlers) { try { h(...a); } catch (e) { console.error('members event:', e.message); } } }
 const onEvent = h => handlers.push(h);
 
@@ -90,6 +92,10 @@ function invites() {
 
 // the owner's switch: open to everyone (anyone with the link can play) or members only
 function setOpen(open) { open = !!open; if (state.open === open) return false; state.open = open; save(); emit('open', !open); return true; }
+// who can open tables: the owner only, or every member too
+const hostsAll = () => FORCED_OFF || state.hosts === 'all';
+const canHost = u => hostsAll() || (!!u && isOwner(u));
+function setHosts(all) { const h = all ? 'all' : 'owner'; if (!ready || state.hosts === h) return false; state.hosts = h; save(); emit('hosts', all); return true; }
 
 const people = () => state.people;
-module.exports = { init, onEvent, on, forcedOff, isOwner, status, allowed, ask, set, newInvite, cancelInvite, liveInvite, redeem, invites, setOpen, people, waitingCount, OWNER_NAME, OWNERS };
+module.exports = { init, onEvent, on, forcedOff, isOwner, status, allowed, ask, set, newInvite, cancelInvite, liveInvite, redeem, invites, setOpen, hostsAll, canHost, setHosts, people, waitingCount, OWNER_NAME, OWNERS };

@@ -1214,6 +1214,11 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 <button class="btn btn-gold btn-wide" id="btn-solo" type="button">Deal me in</button>
 <p class="note">Install the app and it opens without a connection. <button class="linkbtn" id="btn-install2" type="button" hidden>Install now</button></p></div></div>
 
+<style>
+.tile.locked{opacity:.55;filter:saturate(.4)}.tile.locked .chev{visibility:hidden}
+#m-members .tbl-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:center;padding:8px 2px;border-bottom:1px solid #2a1f25;animation:rowin .4s both}
+#m-members .tbl-row .tk{width:28px;text-align:center;font-size:18px}
+</style>
 <div class="modal sheet" id="m-members"><div class="box"><div class="grab"></div>
 <div class="phead"><h2>Members</h2><span class="pill" id="mbr-count"></span></div>
 <p class="note" id="mbr-note" style="margin-top:0">Only people you let in can open Tete. Anyone else gets a sign-in page and asks you first.</p>

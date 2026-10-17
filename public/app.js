@@ -194,7 +194,7 @@ function onMessage(m){
   if(m.type==='voice'){MYVOICE=m.info&&m.info[1]?m.info:null;renderShoutList();return}
   if(m.type==='session'){SESSION=m.token;try{localStorage.setItem('tete.session',m.token)}catch{}if(m.quiet)return;closeModal('#m-auth');$('#au-pass').value='';if(m.welcome)setTimeout(()=>celebrate(m.welcome,'Welcome bonus','chips to start you off'),450);else toast('Signed in. Welcome back');return}
   if(m.type==='account'){setAccount(m);return}
-  if(m.type==='members_role'){MO=m;renderMbrBtn();return}
+  if(m.type==='members_role'){MO=m;renderMbrBtn();renderHostTile();return}
   if(m.type==='members'){MBR=m;MO.waiting=m.waiting.length;renderMbrBtn();if($('#m-members').classList.contains('on'))renderMembers();return}
   if(m.type==='members_ask'){mbrAsk(m.who);return}
   if(m.type==='invite_link'){MBR_FRESH=m.key;toast('Link ready: tap Share to send it',2600);SND('pop');if($('#m-members').classList.contains('on'))renderMembers();return}
@@ -229,7 +229,7 @@ function enterGame(){
   $('#wait').hidden=false;$('#wait-code').textContent=S.code||'…';avUI();
 }
 // ---------- the three choices ----------
-function openHost(){if(!needName(openHost))return;restoreHostCfg();openModal('#m-host');SND('flick')}
+function openHost(){if(MO.host===0){toast(`Only ${MO.ownerName||'Meka'} can open tables for now. Join a table with its code, or play a practice game.`,3500);SND('error');return}if(!needName(openHost))return;restoreHostCfg();openModal('#m-host');SND('flick')}
 function openJoin(){if(!needName(openJoin))return;renderRooms();openModal('#m-join');SND('flick');setTimeout(()=>{const f=$('#f-join');if(f&&!f.value&&matchMedia('(hover:hover)').matches)f.focus()},380)}
 function openSolo(){if(!needName(openSolo))return;openModal('#m-solo');SND('flick')}
 function openFriends(){renderAcct();renderFriends();renderFriendReqs();$('#fr-msg').textContent='';openModal('#m-friends');SND('flick')}
@@ -473,6 +473,8 @@ function renderMbrBtn(){const b=$('#btn-members');if(!b)return;const was=+(b.dat
   b.hidden=!MO.owner;const bd=$('#mbr-badge');bd.hidden=!n;bd.textContent=n;b.dataset.n=n;
   b.setAttribute('aria-label',n?`Members: ${n} waiting to be let in`:'Members: who can play');
   if(n>was&&!matchMedia('(prefers-reduced-motion: reduce)').matches){b.classList.remove('ping');void b.offsetWidth;b.classList.add('ping')}}
+function renderHostTile(){const t=$('#tile-host');if(!t)return;const no=MO.host===0,sm=t.querySelector('small');t.classList.toggle('locked',no);t.setAttribute('aria-disabled',no?'true':'false');
+  if(sm)sm.textContent=no?`Only ${MO.ownerName||'Meka'} opens tables for now`:'Invite friends with a link or code'}
 function openMembers(){if(!MO.owner)return;send({type:'members'});renderMembers();openModal('#m-members');SND('flick')}
 const invUrl=k=>location.origin+'/?key='+encodeURIComponent(k);
 function shareInvite(k){shareOrCopy({title:'Tete 21',text:`${myName()||'Meka'} invited you to Tete 21. Open the link, make an account, and you're straight in.`,url:invUrl(k)},'Invite link copied. Send it to your friend.')}
@@ -488,6 +490,11 @@ function renderMembers(){
   const row=(p,i,meta,acts)=>`<div class="frow" data-id="${esc(p.id)}" style="animation-delay:${i*.035}s">${avHTML(p.av,p.name||p.user)}${p.here?'<span class="dot on"></span>':''}</div><div style="min-width:0"><div class="fname">${esc(p.name||p.user)}</div><div class="fstat">@${esc(p.user)}${meta?' · '+meta:''}</div></div><div class="acts">${acts}</div></div>`;
   let h='';
   if(m.waiting.length)h+=`<div class="msec waiting"><h3 class="subh">Waiting for you · ${m.waiting.length}</h3>${m.waiting.map((p,i)=>row(p,i,`asked ${ago(p.asked)} · ${hands(p)}`,'<button class="btn btn-gold" data-yes type="button">Let in</button><button class="btn btn-ghost" data-no type="button">Not now</button>')).join('')}</div>`;
+  const tl=m.tables||[],all=m.hosts==='all';
+  h+=`<div class="msec"><h3 class="subh">Tables · ${tl.length?tl.length+' open':'none open'}</h3>`
+    +`<div class="setrow mswitch"><span>Who can open tables<small>${all?'Any member can open a table':'Only you, for now. Members join the tables you open.'}</small></span><div class="seg sm"><button type="button" id="mbr-host-me" class="${all?'':'on'}">Only me</button><button type="button" id="mbr-host-all" class="${all?'on':''}">Any member</button></div></div>`
+    +tl.map((t,i)=>`<div class="tbl-row" style="animation-delay:${i*.035}s"><span class="tk" aria-hidden="true">${t.keep?'🏠':'♠'}</span><div style="min-width:0"><div class="fname">${esc(t.name)}</div><div class="fstat">${t.host?'host '+esc(t.host)+' · ':''}${t.people} ${t.people===1?'person':'people'}${t.here<t.people?' · '+t.here+' here now':''}${t.keep?' · standing room':''}</div></div></div>`).join('')
+    +(tl.length?'<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn btn-ghost" id="mbr-closeall" type="button">Close all tables</button></div>':'')+`</div>`;
   const invs=m.invites.filter(x=>x.live).concat(m.invites.filter(x=>!x.live).slice(0,3));
   h+=`<div class="msec"><h3 class="subh">Invite a friend</h3><p class="note" style="margin-top:0">A link that lets them straight in, no waiting. It works for 3 days.</p><div class="invmake"><div class="seg sm" id="mbr-invn"><button type="button" data-n="1" class="${MBR_INVN===1?'on':''}">1 person</button><button type="button" data-n="5" class="${MBR_INVN===5?'on':''}">Up to 5</button></div><button class="btn btn-gold" id="mbr-invnew" type="button">Make a link</button></div>${invs.map(invRow).join('')}</div>`;
   h+=`<div class="msec"><h3 class="subh">Members · ${m.yes.length}</h3>${m.yes.length?m.yes.map((p,i)=>row(p,i,p.via==='invite link'?'came with your invite':`let in ${ago(p.at)}`,'<button class="btn btn-ghost" data-rm type="button">Remove</button>')).join(''):'<p class="mempty">Nobody yet. People you let in show here.</p>'}</div>`;
@@ -504,6 +511,10 @@ function renderMembers(){
   body.querySelectorAll('.inv').forEach(r=>{const k=r.dataset.key,sh=r.querySelector('[data-share]'),c=r.querySelector('[data-cancel]');
     if(sh)sh.onclick=()=>shareInvite(k);
     if(c)c.onclick=()=>{if(!c.dataset.arm){c.dataset.arm='1';c.textContent='Tap again';setTimeout(()=>{if(c.isConnected){delete c.dataset.arm;c.textContent='Cancel'}},3000);return}r.classList.add('dead');send({type:'invite_cancel',key:k})}});
+  const hm=$('#mbr-host-me'),ha=$('#mbr-host-all'),ca=$('#mbr-closeall');
+  if(hm)hm.onclick=()=>{if(m.hosts==='all'){send({type:'hosts_set',all:false});toast('Only you can open tables now')}};
+  if(ha)ha.onclick=()=>{if(m.hosts==='all')return;if(!ha.dataset.arm){ha.dataset.arm='1';ha.textContent='Sure?';toast('Any member will be able to open a table. Tap again to allow it.',3500);setTimeout(()=>{if(ha.isConnected){delete ha.dataset.arm;ha.textContent='Any member'}},4000);return}send({type:'hosts_set',all:true})};
+  if(ca)ca.onclick=()=>{if(!ca.dataset.arm){ca.dataset.arm='1';ca.textContent='Tap again to close them all';toast('Everyone at a table goes back to the lobby. Standing rooms close for good.',3500);setTimeout(()=>{if(ca.isConnected){delete ca.dataset.arm;ca.textContent='Close all tables'}},4000);return}ca.disabled=true;send({type:'close_all'})};
   const on=$('#mbr-on'),off=$('#mbr-off');
   if(on)on.onclick=()=>{if(!m.on)send({type:'members_open',open:false})};
   if(off)off.onclick=()=>{if(!m.on)return;if(!off.dataset.arm){off.dataset.arm='1';off.textContent='Sure?';toast('Off means anyone with the link can play. Tap again to open Tete to everyone.',3500);setTimeout(()=>{if(off.isConnected){delete off.dataset.arm;off.textContent='Off'}},4000);return}send({type:'members_open',open:true})};
