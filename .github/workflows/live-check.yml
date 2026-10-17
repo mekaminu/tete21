@@ -9,11 +9,18 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 16
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
+      - name: Wait for the deploy
+        run: |
+          # expect.txt names the commit that should be live (its first 7 characters): wait up to 12 minutes for /version to say so
+          W=$(head -c 7 expect.txt 2>/dev/null)
+          [ -z "$W" ] && exit 0
+          for i in $(seq 1 72); do v=$(curl -s --max-time 20 https://tete21.onrender.com/version); echo "$(date -u +%T) live: $v"; [ "$v" = "$W" ] && exit 0; sleep 10; done
+          echo "still not live after 12 minutes"
       - name: Look at the live site
         run: |
           set +e
@@ -22,6 +29,7 @@ jobs:
           {
             echo "checked: $(date -u +%FT%TZ)"
             echo "health: $(curl -s --max-time 60 $U/health)"
+            echo "live version: $(curl -s --max-time 60 $U/version) (expected $(head -c 7 expect.txt 2>/dev/null))"
             c=$(curl -s -o /tmp/p -w '%{http_code}' --max-time 60 $U/)
             echo "page: $c | sign-in page: $(grep -c 'Members only' /tmp/p) | game script: $(grep -c 'src=\"app.js\"' /tmp/p)"
             for f in app.js engine.js index.html music/index.json ice; do echo "$f: $(curl -s -o /tmp/f -w '%{http_code}' --max-time 60 $U/$f) $(grep -c 'src=\"app.js\"' /tmp/f)"; done
