@@ -777,8 +777,8 @@ function actions(html){$('#actions').innerHTML=html}
 function renderMe(){
   const me=ME>=0?S.players[ME]:null;
   if(!me){$('#myhand').innerHTML='';$('#mytotal').textContent='–';$('#mychips').textContent='–';$('#mychips')._n=undefined;return}
-  const myTurn=S.turn===ME;
-  $('#myhand').innerHTML=me.hand.map(c=>cardHTML(c,(FLY.has(c.id)?'incoming':'')+(S.phase===3&&myTurn?' pickable':''))).join('');
+  const myTurn=S.turn===ME&&!(S.phase===3&&me.dropped); // once you've dropped, the table's short pause isn't your turn
+  $('#myhand').innerHTML=me.hand.map(c=>cardHTML(c,(FLY.has(c.id)?'incoming':'')+(S.phase===3&&myTurn&&S.adasiTurn!==ME?' pickable':''))).join('');
   const tt=total(me);$('#mytotal').textContent=!me.hand.length?'–':(S.phase<=3&&me.hand.length===3?'drop one':tt);$('#mytotal').style.color=tt>21?'var(--bad)':tt===21?'var(--good)':'';
   countTo($('#mychips'),me.chips);
   if(!S.started)return;
@@ -788,15 +788,21 @@ function renderMe(){
   else if(S.phase===1){msg('The dealer shuffles and deals three cards each…');actions('')}
   else if(S.phase===2){msg(`Dealer flushes ${S.boardSize} cards onto the board before anyone drops.`);actions('')}
   else if(S.phase===3){
+    // two Aces: the caller declares Adasi straight away; anyone else waits for the call, which breaks it when the
+    // called suit makes them drop an Ace (the table decides; this only explains it to the one holding them)
+    const L=S.leadSuit,aces=me.hand.filter(c=>c.r==='A').length,lead=L?me.hand.filter(c=>c.s===L):[],ADS=window.TeteEngine&&window.TeteEngine.Table.adasiStands;
+    const two=aces>=2&&!me.dropped&&!out,broke=two&&!!L&&!!ADS&&!ADS(me.hand,L),why=lead.length>1?`all your ${L} are Aces`:`your only ${L} is an Ace`;
     if(out){msg('You sit this hand out.');actions('')}
     else if(myTurn&&S.adasiTurn===ME){msg('<b>Two Aces!</b> You hold Adasi. Declare it and the pot is yours.');actions('<button class="btn btn-adasi" id="btn-adasi">DECLARE ADASI</button>');$('#btn-adasi').onclick=()=>{actions('');act({type:'adasi'})}}
     else if(myTurn){const must=S.leadSuit&&me.hand.some(c=>c.s===S.leadSuit),ci=callInfo(),tv=ci?ci.tv:-1,beats=c=>!!(c&&S.leadSuit&&c.s===S.leadSuit&&val(c)>tv),anyBeat=me.hand.some(beats);
-      msg(S.leadSuit?(must?`${S.leadSuit} is called: you must drop a ${S.leadSuit}.${anyBeat?' 👑 marks a card that would take the lead.':''} Tap a card.`:`${S.leadSuit} is called. You have none, so drop any card.`):'You make the call: everyone has to follow the suit you drop. Tap a card.');actions('');
+      msg(broke?`<b>No Adasi this hand.</b> ${L} is called and ${why}, so you have to drop ${lead.length>1?'one':'it'}. Tap ${lead.length>1?'one':'it'}.`:S.leadSuit?(must?`${S.leadSuit} is called: you must drop a ${S.leadSuit}.${anyBeat?' 👑 marks a card that would take the lead.':''} Tap a card.`:`${S.leadSuit} is called. You have none, so drop any card.`):'You make the call: everyone has to follow the suit you drop. Tap a card.');actions('');
       $$('#myhand .card').forEach(el=>{const c=me.hand.find(x=>x.id===el.dataset.id);
         if(beats(c)){const w=document.createElement('span');w.className='wl';w.textContent='👑';el.appendChild(w)}
         if(must&&c.s!==S.leadSuit){el.classList.add('dim');el.classList.remove('pickable');el.onclick=()=>{nudge(`You hold a ${S.leadSuit}, so you have to follow suit.`);SND('error')};return}
         el.onclick=()=>{const keep=me.hand.filter(x=>x!==c);const kt=keep.reduce((a,x)=>a+val(x),0);if(kt>21){nudge(`Keeping ${keep.map(cname).join(' + ')} makes ${kt}. That's over 21 before you even pick, so you'd be bust. Drop a different card.`);SND('error');return}el.classList.add('sel');$$('#myhand .wl').forEach(x=>x.remove());$$('#myhand .card').forEach(x=>{x.classList.remove('pickable');x.onclick=null});act({type:'drop',card:c.id})}})}
-    else{msg(me.dropped?`You dropped ${cname(me.dropped)}. Waiting for ${nm}…`:`${nm} is choosing a card to drop…`);actions('')}
+    else if(S.turn<0){msg('');actions('')} // an Adasi is being shown
+    else if(two&&ADS){msg(!L?`<b>Two Aces!</b> Wait for the call: if it misses your Aces, you declare Adasi on your turn. ${nm} is making the call…`:broke?`${L} is called and ${why}, so it has to go when the drop reaches you. No Adasi this hand.`:`<b>Two Aces!</b> ${L} is called and misses your Aces. You declare Adasi when the drop reaches you.`);actions('')}
+    else{msg(me.dropped?`You dropped ${cname(me.dropped)}.${S.turn!==ME?` Waiting for ${nm}…`:''}`:`${nm} is choosing a card to drop…`);actions('')}
   }
   else if(S.phase===4){const w=S.trickWinner>=0?S.players[S.trickWinner]:null;msg(w?`<b>${esc(w.name)}</b> wins the trick and picks first.`:'');actions('')}
   else if(S.phase===5){

@@ -240,6 +240,17 @@ class Table {
   }
   total(p) { return p.hand.reduce((a, c) => a + val(c), 0); }
   hasAdasi(p) { return p.hand.filter(c => c.r === 'A').length >= 2; }
+  // Adasi is two Aces, and only the first to drop (the caller) can declare it before the call. Everyone else waits
+  // for the call (Meka, 2026-10-17): when following the called suit makes them drop one of their Aces (their only
+  // cards of that suit are Aces), the Adasi is broken and that Ace is dropped like any card. When the call misses
+  // their Aces (no card of that suit, or another card of it they can drop instead), they declare on their turn.
+  static adasiStands(hand, lead) {
+    const aces = h => h.filter(c => c.r === 'A').length;
+    if (aces(hand) < 2) return false;
+    if (!lead || !hand.some(c => c.s === lead)) return true;
+    return hand.some(c => c.s === lead && aces(hand.filter(x => x !== c)) >= 2);
+  }
+  adasiStands(p) { return Table.adasiStands(p.hand, p.dropped ? null : this.leadSuit); }
   static seriesIn(cards) { const m = {}; for (const c of cards) { (m[c.r] = m[c.r] || []).push(c); if (m[c.r].length === 3) return m[c.r]; } return null; }
   nextOf(id, ids) { const all = this.players.length; for (let k = 1; k <= all; k++) { const n = (id + k) % all; if (ids.includes(n)) return n; } return ids[0]; }
   orderFrom(start, ids) { const out = [start]; let cur = start; while (out.length < ids.length) { cur = this.nextOf(cur, ids); if (out.includes(cur)) break; out.push(cur); } return out; }
@@ -292,7 +303,7 @@ class Table {
     S.setPhase(3); S.leadSuit = null; S.leadBy = -1;
     for (const id of S.orderFrom(S.nextOf(S.dealer, participants), participants)) {
       const p = S.players[id]; let card; S.turn = id;
-      if (S.hasAdasi(p)) { S.adasiTurn = id; S.deadline = S.timer ? Date.now() + S.timer * 1000 : 0; S.sync();
+      if (S.adasiStands(p)) { S.adasiTurn = id; S.deadline = S.timer ? Date.now() + S.timer * 1000 : 0; S.sync();
         if (p.isBot) { await sleep(1800 + Math.random() * 800); } else { await S.waitFor(id, ['adasi'], S.timer ? S.timer * 1000 : 0); }
         S.adasiTurn = -1; S.deadline = 0; return S.adasiWin(p, participants); }
       if (p.isBot) { S.deadline = S.timer ? Date.now() + S.timer * 1000 : 0; S.sync(); await sleep(650 + Math.random() * 500); card = S.botDrop(p); }
@@ -356,7 +367,8 @@ class Table {
   }
   async adasiWin(p, participants) {
     const S = this; S.turn = -1;
-    const winners = participants.map(id => S.players[id]).filter(x => S.hasAdasi(x));
+    // everyone holding an Adasi the call didn't break shares (before any call, that's everyone with two Aces)
+    const winners = participants.map(id => S.players[id]).filter(x => S.adasiStands(x));
     if (!winners.includes(p)) winners.unshift(p);
     winners.forEach(w => (w.revealed = true)); S.sync();
     const cards = winners.flatMap(w => w.hand.filter(c => c.r === 'A').slice(0, 2));
