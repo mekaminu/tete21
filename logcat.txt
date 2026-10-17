@@ -1,0 +1,152 @@
+10-17 20:00:42.459 V/SplashScreenExceptionList(  638): SplashScreen checking exception for package com.tete21.app (target sdk:35) -> false
+10-17 20:00:42.468 I/ActivityTaskManager(  638): START u0 {flg=0x10000000 xflg=0x5 cmp=com.tete21.app/.MainActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-17 20:00:42.473 V/WindowManagerShell( 1013): Transition requested (#7): android.os.BinderProxy@40c7bbb TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=7 effectiveUid=10216 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.tete21.app/.MainActivity } baseActivity=ComponentInfo{com.tete21.app/com.tete21.app.MainActivity} topActivity=ComponentInfo{com.tete21.app/com.tete21.app.MainActivity} origActivity=null realActivity=ComponentInfo{com.tete21.app/com.tete21.app.MainActivity} numActivities=1 lastActiveTime=54132 supportsMultiWindow=true resizeMode=1 isResizeable=true minWidth=-1 minHeight=-1 defaultMinSize=220 token=WCT{android.window.IWindowContainerToken$Stub$Proxy@4a5d8d8} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=Rect(0, 0 - 0, 0) topActivityInfo=ActivityInfo{1bf5431 com.tete21.app.MainActivity} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=false isVisible=false isVisibleRequested=false isTopActivityNoDisplay=false isSleeping=false locusId=null displayAreaFeatureId=1 isTopActivityTransparent=false isActivityStackTransparent=false lastNonFullscreenBounds=Rect(74, 160 - 246, 480) capturedLink=null capturedLinkTimestamp=0 requestedVisibleTypes=-9 topActivityRequestOpenInBrowserEducationTimestamp=0 appCompatTaskInfo=AppCompatTaskInfo { topActivityInSizeCompat=false eligibleForLetterboxEducation= false isLetterboxEducationEnabled= true isLetterboxDoubleTapEnabled= false eligibleForUserAspectRatioButton= false topActivityBoundsLetterboxed= false isFromLetterboxDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 topActivityAppBounds=Rect(0, 0 - 320, 640) isUserFullscreenOverrideEnabled=false isSystemFullscreenOverrideEnabled=false hasMinAspectRatioOverride=false topActivityLetterboxBounds=null cameraCompatTaskInfo=CameraCompatTaskInfo { freeformCameraCompatMode=inactive}} topActivityMainWindowFrame=null}, pipChange = null, remoteTransition = null, displayChange = null, flags = 0, debugId = 7 }
+10-17 20:00:42.482 I/AppsFilter(  638): interaction: PackageSetting{8f897c com.android.microdroid.empty_payload/10199} -> PackageSetting{35ea88c com.tete21.app/10216} BLOCKED
+10-17 20:00:42.583 D/CoreBackPreview(  638): Window{3b61242 u0 Splash Screen com.tete21.app}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@abbd91c, mPriority=0, mIsAnimationCallback=false, mOverrideBehavior=0}
+10-17 20:00:42.584 I/ActivityManager(  638): Start proc 2241:com.tete21.app/u0a216 for next-top-activity {com.tete21.app/com.tete21.app.MainActivity}
+10-17 20:00:43.031 I/com.tete21.app( 2241): Using CollectorTypeCMC GC.
+10-17 20:00:43.034 W/com.tete21.app( 2241): Unexpected CPU variant for x86: x86_64.
+10-17 20:00:43.034 W/com.tete21.app( 2241): Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, goldmont-without-sha-xsaves, tremont, kabylake, alderlake, default
+10-17 20:00:43.036 E/com.tete21.app( 2241): Not starting debugger since process cannot load the jdwp agent.
+10-17 20:00:43.056 I/SatelliteAppTracker( 1208): onPackageAdded : com.tete21.app
+10-17 20:00:43.144 D/nativeloader( 2241): Configuring clns-9 for other apk /data/app/~~A2_h3NY7GRTBiaz8VNwpvA==/com.tete21.app-YnTXK0vOZa6mu9lGC75pSw==/base.apk. target_sdk_version=35, uses_libraries=, library_path=/data/app/~~A2_h3NY7GRTBiaz8VNwpvA==/com.tete21.app-YnTXK0vOZa6mu9lGC75pSw==/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.tete21.app
+10-17 20:00:43.146 I/com.tete21.app( 2241): AssetManager2(0x77b454869838) locale list changing from [] to [en-US]
+10-17 20:00:43.163 V/GraphicsEnvironment( 2241): com.tete21.app is not listed in per-application setting
+10-17 20:00:43.163 V/GraphicsEnvironment( 2241): com.tete21.app is not listed in ANGLE allowlist or settings, returning default
+10-17 20:00:43.191 I/com.tete21.app( 2241): AssetManager2(0x77b454860eb8) locale list changing from [] to [en-US]
+10-17 20:00:43.225 E/AppHibernationService(  638): Package com.tete21.app is not installed for user 0
+10-17 20:00:43.225 E/AppHibernationService(  638): Package com.tete21.app is not installed for any user
+10-17 20:00:43.226 E/AppHibernationService(  638): Package com.tete21.app is not installed for user 0
+10-17 20:00:43.226 E/AppHibernationService(  638): Package com.tete21.app is not installed for any user
+10-17 20:00:43.322 I/com.tete21.app( 2241): AssetManager2(0x77b45486a198) locale list changing from [] to [en-US]
+10-17 20:00:43.322 I/com.tete21.app( 2241): AssetManager2(0x77b454865378) locale list changing from [] to [en-US]
+10-17 20:00:43.323 I/com.tete21.app( 2241): AssetManager2(0x77b45486c0d8) locale list changing from [] to [en-US]
+10-17 20:00:43.323 I/com.tete21.app( 2241): AssetManager2(0x77b454867c18) locale list changing from [] to [en-US]
+10-17 20:00:43.344 W/com.tete21.app( 2241): Failed to find entry 'classes.dex': Entry not found
+10-17 20:00:43.403 I/cr_WVCFactoryProvider( 2241): version=133.0.6943.137 (694313738) minSdkVersion=29 isBundle=false multiprocess=true packageId=2
+10-17 20:00:43.424 I/IntentFilterIntentOp( 1573): Verifying IntentFilter. verificationId:4 scheme:"https" hosts:"tete21.onrender.com" package:"com.tete21.app". [CONTEXT service_id=244 ]
+10-17 20:00:43.431 D/nativeloader( 2241): Load /system/lib64/libwebviewchromium_plat_support.so using class loader ns clns-11 (caller=/data/app/~~Q7bvsyOL_TtXeMA7qSYc2A==/com.google.android.webview-oO1_Dial9AY5zzuqll1x0w==/WebViewGoogle.apk): ok
+10-17 20:00:43.493 I/chromium( 2241): [1017/200043.489151:INFO:variations_seed_loader.cc(67)] Failed to open file for reading.: No such file or directory (2)
+10-17 20:00:43.494 I/cr_VariationsUtils( 2241): Failed reading seed file "/data/user/0/com.tete21.app/app_webview/variations_seed_new"
+10-17 20:00:43.496 I/chromium( 2241): [1017/200043.496397:INFO:variations_seed_loader.cc(67)] Failed to open file for reading.: No such file or directory (2)
+10-17 20:00:43.496 I/cr_VariationsUtils( 2241): Failed reading seed file "/data/user/0/com.tete21.app/app_webview/variations_seed"
+10-17 20:00:43.496 I/cr_VariationsUtils( 2241): Requesting new seed from IVariationsSeedServer
+10-17 20:00:43.500 I/cr_LibraryLoader( 2241): Successfully loaded native library
+10-17 20:00:43.504 I/cr_CachingUmaRecorder( 2241): Flushed 6 samples from 6 histograms, 0 samples were dropped.
+10-17 20:00:43.515 I/cr_CombinedPProvider( 2241): #registerProvider() provider:WV.C8@578ee2e isPolicyCacheEnabled:false policyProvidersSize:0
+10-17 20:00:43.525 I/cr_PolicyProvider( 2241): #setManagerAndSource() 0
+10-17 20:00:43.542 D/LauncherAppsService(  638): onPackageAdded: triggering onPackageAdded for user=UserHandle{0}, packageName=com.tete21.app
+10-17 20:00:43.542 D/LauncherAppsService(  638): onPackageAdded: triggering onPackageAdded for user=UserHandle{0}, packageName=com.tete21.app
+10-17 20:00:43.542 D/LauncherAppsService(  638): onPackageAdded: triggering onPackageAdded for user=UserHandle{0}, packageName=com.tete21.app
+10-17 20:00:43.542 D/LauncherAppsService(  638): onPackageAdded: Skipping - package filtered for user=UserHandle{0}, packageName=com.tete21.app
+10-17 20:00:43.603 I/cr_CombinedPProvider( 2241): #linkNativeInternal() 1
+10-17 20:00:43.603 I/cr_AppResProvider( 2241): #getApplicationRestrictionsFromUserManager() Bundle[EMPTY_PARCEL]
+10-17 20:00:43.604 I/cr_PolicyProvider( 2241): #notifySettingsAvailable() 0
+10-17 20:00:43.604 I/cr_CombinedPProvider( 2241): #onSettingsAvailable() 0
+10-17 20:00:43.604 I/cr_CombinedPProvider( 2241): #flushPolicies()
+10-17 20:00:43.658 I/com.tete21.app( 2241): AssetManager2(0x77b45486ba98) locale list changing from [] to [en-US]
+10-17 20:00:43.659 I/com.tete21.app( 2241): AssetManager2(0x77b4548659b8) locale list changing from [] to [en-US]
+10-17 20:00:43.744 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:00:43.744 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:00:43.794 D/SessionCommitReceiver( 1265): Removing unneeded PromiseIcon for package: com.tete21.app, install reason: 0, alreadyAddedPromiseIcon: false
+10-17 20:00:43.902 I/ActivityManager(  638): Start proc 2413:com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0/u0ai9000 for  {com.tete21.app/org.chromium.content.app.SandboxedProcessService0:0}
+10-17 20:00:44.066 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:00:44.066 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:00:44.097 D/LauncherAppsCallbackImpl( 1265): onPackageAdded triggered for packageName=com.tete21.app, user=UserHandle{0}
+10-17 20:00:44.098 D/PackageUpdatedTask( 1265): Package updated: mOp=ADD packages=[com.tete21.app], user=UserHandle{0}
+10-17 20:00:44.130 I/cr_WebViewApkApp( 2413): version=133.0.6943.137 (694313738) minSdkVersion=29 isBundle=false processName=com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0
+10-17 20:00:44.178 I/cr_ChildProcessService( 2413): Creating new ChildProcessService pid=2413
+10-17 20:00:44.242 V/WindowManager(  638): Sent Transition (#7) createdAt=10-17 20:00:42.423 via request=TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=7 effectiveUid=10216 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.tete21.app/.MainActivity } baseActivity=ComponentInfo{com.tete21.app/com.tete21.app.MainActivity} topActivity=ComponentInfo{com.tete21.app/com.tete21.app.MainActivity} origActivity=null realActivity=ComponentInfo{com.tete21.app/com.tete21.app.MainActivity} numActivities=1 lastActiveTime=54132 supportsMultiWindow=true resizeMode=1 isResizeable=true minWidth=-1 minHeight=-1 defaultMinSize=220 token=WCT{RemoteToken{2827ac Task{6d6bf56 #7 type=standard A=10216:com.tete21.app}}} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=Rect(0, 0 - 0, 0) topActivityInfo=ActivityInfo{8377c75 com.tete21.app.MainActivity} launchCookies=[] positionInParent=Point(0, 0) parentTaskId=-1 isFocused=false isVisible=false isVisibleRequested=false isTopActivityNoDisplay=false isSleeping=false locusId=null displayAreaFeatureId=1 isTopActivityTransparent=false isActivityStackTransparent=false lastNonFullscreenBounds=Rect(74, 160 - 246, 480) capturedLink=null capturedLinkTimestamp=0 requestedVisibleTypes=-9 topActivityRequestOpenInBrowserEducationTimestamp=0 appCompatTaskInfo=AppCompatTaskInfo { topActivityInSizeCompat=false eligibleForLetterboxEducation= false isLetterboxEducationEnabled= true isLetterboxDoubleTapEnabled= false eligibleForUserAspectRatioButton= false topActivityBoundsLetterboxed= false isFromLetterboxDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 topActivityAppBounds=Rect(0, 0 - 320, 640) isUserFullscreenOverrideEnabled=false isSystemFullscreenOverrideEnabled=false hasMinAspectRatioOverride=false topActivityLetterboxBounds=null cameraCompatTaskInfo=CameraCompatTaskInfo { freeformCameraCompatMode=inactive}} topActivityMainWindowFrame=null}, pipChange = null, remoteTransition = null, displayChange = null, flags = 0, debugId = 7 }
+10-17 20:00:44.243 V/WindowManager(  638):         {WCT{RemoteToken{2827ac Task{6d6bf56 #7 type=standard A=10216:com.tete21.app}}} m=OPEN f=NONE leash=Surface(name=Task=7)/@0x73afafa sb=Rect(0, 0 - 320, 640) eb=Rect(0, 0 - 320, 640) epz=Point(320, 640) d=0 taskParent=-1},
+10-17 20:00:44.368 I/ActivityManager(  638): Start proc 2439:com.google.android.webview:webview_service/u0a165 for service {com.google.android.webview/org.chromium.android_webview.services.VariationsSeedServer}
+10-17 20:00:44.452 I/SdkSandboxManager(  638): No SDKs used. Skipping SDK data reconcilation for CallingInfo{mUid=10216, mPackageName='com.tete21.app, mAppProcessToken='null'}
+10-17 20:00:44.497 E/chromium( 2241): [ERROR:simple_version_upgrade.cc(151)] Failed to write a new fake index.
+10-17 20:00:44.500 I/AppWidgetServiceImpl(  638): Updating package stopped masked state for uid 10216 package com.tete21.app isStopped false
+10-17 20:00:44.509 E/chromium( 2241): [ERROR:simple_version_upgrade.cc(151)] Failed to write a new fake index.
+10-17 20:00:44.596 D/ConnectivityService(  638): requestNetwork for uid/pid:10216/2241 activeRequest: null callbackRequest: 64 [NetworkRequest [ REQUEST id=65, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10216 RequestorUid: 10216 RequestorPkg: com.tete21.app UnderlyingNetworks: Null] ]] callback flags: 0 order: 2147483647 isUidTracked: false declaredMethods: AVAIL|LOST|NC|LP
+10-17 20:00:44.736 D/NativePermissionController(  523): updatePackagesForUid, UidPackageState{uid: 10216, packageNames: [com.tete21.app]}
+10-17 20:00:44.742 I/cr_WebViewApkApp( 2439): version=133.0.6943.137 (694313738) minSdkVersion=29 isBundle=false processName=com.google.android.webview:webview_service
+10-17 20:00:44.758 D/WifiNetworkFactory(  638): got request NetworkRequest [ REQUEST id=65, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10216 RequestorUid: 10216 RequestorPkg: com.tete21.app UnderlyingNetworks: Null] ]
+10-17 20:00:44.758 V/WifiNetworkFactory(  638): Accepted network request NetworkRequest [ REQUEST id=65, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10216 RequestorUid: 10216 RequestorPkg: com.tete21.app UnderlyingNetworks: Null] ]
+10-17 20:00:44.759 D/UntrustedWifiNetworkFactory(  638): got request NetworkRequest [ REQUEST id=65, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10216 RequestorUid: 10216 RequestorPkg: com.tete21.app UnderlyingNetworks: Null] ]
+10-17 20:00:44.761 D/OemPaidWifiNetworkFactory(  638): got request NetworkRequest [ REQUEST id=65, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10216 RequestorUid: 10216 RequestorPkg: com.tete21.app UnderlyingNetworks: Null] ]
+10-17 20:00:44.761 D/MultiInternetWifiNetworkFactory(  638): got request NetworkRequest [ REQUEST id=65, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10216 RequestorUid: 10216 RequestorPkg: com.tete21.app UnderlyingNetworks: Null] ]
+10-17 20:00:44.785 W/cr_media( 2241): BLUETOOTH_CONNECT permission is missing.
+10-17 20:00:44.810 W/cr_media( 2241): getBluetoothAdapter() requires BLUETOOTH permission
+10-17 20:00:44.810 W/cr_media( 2241): registerBluetoothIntentsIfNeeded: Requires BLUETOOTH permission
+10-17 20:00:44.850 I/cr_LibraryLoader( 2413): Successfully loaded native library
+10-17 20:00:44.890 I/com.tete21.app( 2241): AssetManager2(0x77b454865698) locale list changing from [] to [en-US]
+10-17 20:00:44.891 I/com.tete21.app( 2241): AssetManager2(0x77b4548672b8) locale list changing from [] to [en-US]
+10-17 20:00:44.949 W/chromium( 2241): [WARNING:viz_main_impl.cc(85)] VizNullHypothesis is disabled (not a warning)
+10-17 20:00:44.968 I/cr_CachingUmaRecorder( 2413): Flushed 2 samples from 2 histograms, 0 samples were dropped.
+10-17 20:00:44.974 I/com.tete21.app( 2241): AssetManager2(0x77b454868898) locale list changing from [] to [en-US]
+10-17 20:00:44.974 I/com.tete21.app( 2241): AssetManager2(0x77b45486c3f8) locale list changing from [] to [en-US]
+10-17 20:00:45.028 W/chromium( 2413): [WARNING:runtime_features.cc(560)] Fenced frames cannot be enabled in this configuration. Use --enable-features=FencedFrames instead.
+10-17 20:00:45.028 W/chromium( 2413): [WARNING:runtime_features.cc(585)] Topics cannot be enabled in this configuration. Use --enable-features=BrowsingTopics in addition.
+10-17 20:00:45.028 W/chromium( 2413): [WARNING:runtime_features.cc(606)] SharedStorage cannot be enabled in this configuration. Use --enable-features=SharedStorageAPI in addition.
+10-17 20:00:45.079 D/CoreBackPreview(  638): Window{a47ab5c u0 com.tete21.app/com.tete21.app.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@4f447af, mPriority=0, mIsAnimationCallback=false, mOverrideBehavior=0}
+10-17 20:00:45.293 I/WindowManager(  638): finishDrawing of relaunch: Window{a47ab5c u0 com.tete21.app/com.tete21.app.MainActivity} 990ms
+10-17 20:00:45.423 I/cr_VariationsUtils( 2439): Scheduling seed download job
+10-17 20:00:45.521 I/ImeTracker(  638): com.tete21.app:98da4b89: onRequestHide at ORIGIN_SERVER reason HIDE_UNSPECIFIED_WINDOW fromUser false
+10-17 20:00:45.571 I/ImeTracker( 2241): com.tete21.app:98da4b89: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+10-17 20:00:45.601 I/GoogleInputMethodService( 1503): GoogleInputMethodService.onStartInput():1293 onStartInput(EditorInfo{EditorInfo{packageName=com.tete21.app, inputType=0, inputTypeString=NULL, enableLearning=false, autoCorrection=false, autoComplete=false, imeOptions=0, privateImeOptions=null, actionName=UNSPECIFIED, actionLabel=null, initialSelStart=-1, initialSelEnd=-1, initialCapsMode=0, label=null, fieldId=0, fieldName=null, extras=null, hintText=null, hintLocales=[]}}, false)
+10-17 20:00:45.603 W/PackageConfigPersister(  638): App-specific configuration not found for packageName: com.tete21.app and userId: 0
+10-17 20:00:45.749 W/JobServiceContext(  638): Sending onNetworkChanged for a job that isn't started. JobStatus{2c7e2b9 #u0a165/83 com.google.android.webview/org.chromium.android_webview.services.AwVariationsSeedFetcher u=0 s=10165 NET CHARGING READY}
+10-17 20:00:46.205 I/ActivityTaskManager(  638): Displayed com.tete21.app/.MainActivity for user 0: +2s900ms
+10-17 20:00:46.249 I/ActivityManager(  638): Start proc 2560:com.google.android.webview:webview_apk/u0a165 for service {com.google.android.webview/org.chromium.android_webview.nonembedded.AwComponentUpdateService}
+10-17 20:00:46.634 I/cr_VariationsUtils( 2439): Downloading new seed [fastMode=FALSE]
+10-17 20:00:46.733 I/cr_WebViewApkApp( 2560): version=133.0.6943.137 (694313738) minSdkVersion=29 isBundle=false processName=com.google.android.webview:webview_apk
+10-17 20:00:46.841 D/ShortcutService(  638): adding package: com.tete21.app userId=0
+10-17 20:00:47.145 I/cr_VariationsSeedFetch( 2439): Fetched first run seed in 510 ms
+10-17 20:00:47.244 I/AppsFilter(  638): interaction: PackageSetting{1678081 com.android.microdroid.empty_payload/10199} -> PackageSetting{6ff3526 com.tete21.app/10216} BLOCKED
+10-17 20:00:47.410 I/cr_LibraryLoader( 2560): Successfully loaded native library
+10-17 20:00:48.763 I/AiAiEcho( 1597): AppIndexer Package:[com.tete21.app] UserProfile:[0] Enabled:[true].
+10-17 20:00:48.763 I/AiAiEcho( 1597): AppFetcherImplV2 updateApps package:[com.tete21.app], userId:[0], reason:[package is updated.].
+10-17 20:00:48.931 D/CarrierSvcBindHelper( 1208): onPackageAdded: com.tete21.app
+10-17 20:00:48.982 D/ImsResolver( 1208): maybeAddedImsService, packageName: com.tete21.app
+10-17 20:00:48.982 V/ImsResolver( 1208): searchForImsServices: package=com.tete21.app, users=[UserHandle{0}]
+10-17 20:00:48.982 V/ImsResolver( 1208): searchForImsServices: package=com.tete21.app, users=[UserHandle{0}]
+10-17 20:00:48.985 W/VvmPkgInstalledRcvr( 1208): carrierVvmPkgAdded: carrier vvm packages doesn't contain com.tete21.app
+10-17 20:00:49.090 I/SatelliteAppTracker( 1208): onPackageModified : com.tete21.app
+10-17 20:00:49.106 I/SafetyLabelChangedBroadcastReceiver( 1015): received broadcast packageName: com.tete21.app, current user: UserHandle{0}, packageChangeEvent: NEW_INSTALL, intent user: UserHandle{0}
+10-17 20:00:49.550 W/putmethod.latin( 1503): Verification of void org.chromium.net.impl.CronetUrlRequest.c() took 101.158ms (4458.33 bytecodes/s) (0B arena alloc)
+10-17 20:00:49.775 D/CarrierSvcBindHelper( 1208): onPackageModified: com.tete21.app
+10-17 20:00:49.929 D/ImsResolver( 1208): maybeAddedImsService, packageName: com.tete21.app
+10-17 20:00:49.930 V/ImsResolver( 1208): searchForImsServices: package=com.tete21.app, users=[UserHandle{0}]
+10-17 20:00:49.930 V/ImsResolver( 1208): searchForImsServices: package=com.tete21.app, users=[UserHandle{0}]
+10-17 20:00:49.978 D/SatelliteController( 1208): packageStateChanged: package:com.tete21.app DefaultSmsPackageName:com.google.android.apps.messaging
+10-17 20:00:50.092 D/ShortcutService(  638): changing package: com.tete21.app userId=0
+10-17 20:00:50.099 W/cr_AWNetworkFetcherTask( 2560): IOException during downloadToFile.
+10-17 20:00:50.099 W/cr_AWNetworkFetcherTask( 2560): java.io.IOException: Cleartext HTTP traffic to edgedl.me.gvt1.com not permitted
+10-17 20:00:50.099 W/cr_AWNetworkFetcherTask( 2560): 	at com.android.okhttp.HttpHandler$CleartextURLFilter.checkURLPermitted(HttpHandler.java:127)
+10-17 20:00:50.099 W/cr_AWNetworkFetcherTask( 2560): 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.execute(HttpURLConnectionImpl.java:462)
+10-17 20:00:50.099 W/cr_AWNetworkFetcherTask( 2560): 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getResponse(HttpURLConnectionImpl.java:411)
+10-17 20:00:50.099 W/cr_AWNetworkFetcherTask( 2560): 	at com.android.okhttp.internal.huc.HttpURLConnectionImpl.getResponseCode(HttpURLConnectionImpl.java:542)
+10-17 20:00:50.099 W/cr_AWNetworkFetcherTask( 2560): 	at org.chromium.android_webview.nonembedded.NetworkFetcherTask.download(chromium-TrichromeWebViewGoogle6432.aab-stable-694313738:58)
+10-17 20:00:50.646 E/chromium( 2560): [1017/200050.646009:ERROR:aw_component_update_service.cc(285)] No directory found for component llkgjffcdpffmhiakmfcdcblohccpfmo
+10-17 20:00:53.211 D/PackageUpdatedTask( 1265): Package updated: mOp=UPDATE packages=[com.tete21.app], user=UserHandle{0}
+10-17 20:00:53.347 D/AlphabeticIndexCompat( 1265): computeSectionName: cs: Tete 21 sectionName: T
+10-17 20:00:53.353 D/ProfileInstaller( 2241): Installing profile for com.tete21.app
+10-17 20:00:53.398 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:00:53.398 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:00:57.196 I/cr_SplitCompatApp( 2960): version=133.0.6943.137 (694313738) minSdkVersion=29 isBundle=false processName=com.android.chrome isIsolatedProcess=false
+10-17 20:01:00.753 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:01:00.754 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:01:01.515 I/FontLog ( 1338): Package com.tete21.app has no metadata [CONTEXT service_id=132 ]
+10-17 20:01:01.567 I/Blockstore( 1573): [DataStoreImpl] Clearing Blockstore Data for package com.tete21.app [CONTEXT service_id=258 ]
+10-17 20:01:03.749 W/chromium( 1802): [1017/200103.735826:WARNING:components/cronet/url_request_context_config.cc:769] Unrecognized Cronet experimental option "enable_telemetry" with params "false
+10-17 20:01:03.749 W/chromium( 1802): 
+10-17 20:01:05.137 W/chromium( 1802): [1017/200105.137353:WARNING:url_request_context_config.cc(715)] Unrecognized Cronet experimental option "enable_telemetry" with params "false
+10-17 20:01:05.137 W/chromium( 1802): 
+10-17 20:01:06.654 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:01:06.654 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:01:09.736 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:01:09.739 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:01:10.181 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:01:10.181 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:01:12.028 W/com.tete21.app( 2241): Cleared Reference was only reachable from finalizer (only reported once)
+10-17 20:01:12.054 I/com.tete21.app( 2241): Background concurrent mark compact GC freed 3928KB AllocSpace bytes, 10(452KB) LOS objects, 49% free, 2688KB/5376KB, paused 166us,537us total 119.665ms
+10-17 20:01:16.175 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:01:16.176 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:01:16.322 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21
+10-17 20:01:16.322 D/AlphabeticalAppsList( 1265): addAppsWithSections: adding sectionName: T with appInfoTitle: Tete 21

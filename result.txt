@@ -1,0 +1,20 @@
+android: 16 (api 36)
+webview:   Current WebView package (name, version): (com.google.android.webview, 133.0.6943.137)
+== install
+Performing Streamed Install
+Success
+install exit 0
+package:com.tete21.app
+    versionCode=4 minSdk=29 targetSdk=35
+    versionName=1.0.4
+== launch
+Starting: Intent { cmp=com.tete21.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.tete21.app/.MainActivity
+TotalTime: 2900
+WaitTime: 2923
+Complete
+== after 30s
+pid: 2241
+    topResumedActivity=ActivityRecord{261390069 u0 com.tete21.app/.MainActivity t7}
