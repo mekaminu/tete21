@@ -361,5 +361,15 @@
     const end = t + 16 * sp; BAND.kick(end, d, 0.62); BAND.clap(end, d, 0.24); BAND.bass(end, d, 36, 0.8, 0.34); [60, 64, 67, 72].forEach((m, i) => BAND.pluck(end + i * 0.02, d, m, 0.15, { len: 1.8 })); BAND.bell(end, d, 1, 0.14);
   };
   document.addEventListener('visibilitychange', () => { if (!MU || !MEL) return; if (document.hidden) { try { MEL.pause(); } catch {} } else musicTick(); });
-  window.TeteSound = { play, clip, loadClip, stop, ready, setMuted, setVolume, unlock, renderOffline, music, duck, setMusic, setMusicVolume, djPlay, get djLevel() { return mOn ? djLevel() : 0; }, get djPlaying() { return !!DJS; }, nextSong: () => nextSong(false), get song() { return NOW ? { title: NOW.title, artist: NOW.artist } : null; }, get songWaiting() { return !!MU && (!NOW || BLOCKED); }, set onSong(f) { onSong = typeof f === 'function' ? f : null; }, get musicOn() { return mOn; }, get musicVolume() { return mVol; }, get musicPlaying() { return !!MU; }, get muted() { return muted; }, get volume() { return vol; }, get state() { return ctx ? ctx.state : 'none'; } };
+  // In the Android app, while your phone's music plays for the table, the app mutes this page and plays the table's sound
+  // itself (Android would pause YouTube Music for a page's voices): the game's sounds go to it as a stream (app.js)
+  let TAP = null;
+  function tap() {
+    const c = ensure(); if (!c || !c.createMediaStreamDestination) return null;
+    if (!TAP) { TAP = c.createMediaStreamDestination(); master.connect(TAP); if (MG && MG.c === c) MG.out.connect(TAP); }
+    if (c.state === 'suspended') c.resume().catch(() => {});
+    return TAP.stream;
+  }
+  function untap() { const t = TAP; if (!t) return; TAP = null; try { master.disconnect(t); } catch {} try { if (MG) MG.out.disconnect(t); } catch {} }
+  window.TeteSound = { tap, untap, play, clip, loadClip, stop, ready, setMuted, setVolume, unlock, renderOffline, music, duck, setMusic, setMusicVolume, djPlay, get djLevel() { return mOn ? djLevel() : 0; }, get djPlaying() { return !!DJS; }, nextSong: () => nextSong(false), get song() { return NOW ? { title: NOW.title, artist: NOW.artist } : null; }, get songWaiting() { return !!MU && (!NOW || BLOCKED); }, set onSong(f) { onSong = typeof f === 'function' ? f : null; }, get musicOn() { return mOn; }, get musicVolume() { return mVol; }, get musicPlaying() { return !!MU; }, get muted() { return muted; }, get volume() { return vol; }, get state() { return ctx ? ctx.state : 'none'; } };
 })();

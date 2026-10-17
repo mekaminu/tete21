@@ -420,9 +420,14 @@ members.onEvent((kind, a, b) => {
   pushMembers();
 });
 
+// Tete for Android (android/): its signing key's fingerprint, so Android opens invite links straight in the app
+const ASSET_LINKS = JSON.stringify([{ relation: ['delegate_permission/common.handle_all_urls'], target: { namespace: 'android_app', package_name: 'com.tete21.app',
+  sha256_cert_fingerprints: ['DA:2B:7F:92:9B:E6:C4:0A:63:1F:FC:F3:3B:5F:8C:2A:4D:14:CD:82:BC:5A:F4:83:09:D6:0E:18:48:CB:B3:0D'] } }]);
+
 // ---------- http ----------
 const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
+  if (url === '/.well-known/assetlinks.json') { res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'public, max-age=3600' }); return res.end(ASSET_LINKS); }
   if (url === '/health') { res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' }); return res.end(accounts.isReady() ? 'ok' : 'ok (accounts offline)'); }
   if (CLOSED) { res.writeHead(503, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'retry-after': '3600' }); return res.end(CLOSED_PAGE); }
   if (url.startsWith('/api/')) { api(req, res, url).catch(e => { console.error('api:', e.message); if (!res.headersSent) { res.writeHead(500, { 'content-type': 'application/json' }); res.end('{"error":"Something went wrong. Try again."}'); } }); return; }
@@ -445,10 +450,12 @@ function serve(req, res, url) {
   if (!fp.startsWith(PUBLIC)) { res.writeHead(403); return res.end(); }
   fs.readFile(fp, (err, data) => {
     if (err) { res.writeHead(404, { 'content-type': 'text/plain' }); return res.end('Not found'); }
-    const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.mp3': 'audio/mpeg', '.wav': 'audio/wav' };
+    const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.apk': 'application/vnd.android.package-archive' };
     // the house voice's clips and the songs are asked for with a version (?v=), so they can be kept for good
     const forever = (url.startsWith('/shouts/') || url.startsWith('/music/')) && url.endsWith('.mp3') && /[?&]v=/.test(req.url);
-    res.writeHead(200, { 'content-type': types[path.extname(fp)] || 'application/octet-stream', 'content-length': data.length, 'cache-control': forever ? 'public, max-age=31536000, immutable' : 'no-cache', vary: 'Cookie' });
+    const head = { 'content-type': types[path.extname(fp)] || 'application/octet-stream', 'content-length': data.length, 'cache-control': forever ? 'public, max-age=31536000, immutable' : 'no-cache', vary: 'Cookie' };
+    if (fp.endsWith('.apk')) head['content-disposition'] = 'attachment; filename="Tete-21.apk"';
+    res.writeHead(200, head);
     res.end(data);
   });
 }

@@ -31,6 +31,9 @@ object MusicHub {
  */
 class TableSound {
     private var track: AudioTrack? = null
+    private var playing = false
+    private var queued = 0
+    private val head = MusicHub.RATE * 4 / 10 // start once 100 ms is in hand, so an uneven arrival doesn't crackle
 
     @Synchronized fun start() {
         if (track != null) return
@@ -54,14 +57,18 @@ class TableSound {
                 .build()
         } catch (e: Exception) { null } ?: return
         if (t.state != AudioTrack.STATE_INITIALIZED) { t.release(); return }
-        t.play()
         track = t
+        playing = false
+        queued = 0
     }
 
     /** Never waits: if the player is already full, the extra is dropped, which keeps the delay short. */
     @Synchronized fun write(b: ByteArray) {
         val t = track ?: return
-        try { t.write(b, 0, b.size, AudioTrack.WRITE_NON_BLOCKING) } catch (_: Exception) {}
+        try {
+            val n = t.write(b, 0, b.size, AudioTrack.WRITE_NON_BLOCKING)
+            if (!playing && n > 0) { queued += n; if (queued >= head) { t.play(); playing = true } }
+        } catch (_: Exception) {}
     }
 
     @Synchronized fun stop() {

@@ -100,7 +100,7 @@ function renderDjBox(on){const box=$('#sp-dj');if(!box)return;const dj=S&&ME>=0&
     $('#sp-djvol').oninput=e=>setDjSend(+e.target.value/100);$('#sp-djstop').onclick=()=>stopDj();const nx=$('#sp-djnext');if(nx)nx.onclick=()=>djNext()}
   else if(dj>=0||LOCALT||!S)box.innerHTML='';
   else{const locked="Songs saved inside YouTube Music, Spotify or Apple Music can\'t be picked: those apps keep them locked.";
-    box.innerHTML=(ANDROID_APP?'<button type="button" class="btn btn-gold btn-wide" id="sp-djphone">🎧 Play music from my phone</button><p class="note" style="margin:6px 0 10px">Start YouTube Music (or any music app) first, then tap this. Android asks once: choose <b>Entire screen</b> (Tete only takes the sound). Use earphones, or your mic picks the music up too.</p>':'')
+    box.innerHTML=(ANDROID_APP?'<button type="button" class="btn btn-gold btn-wide" id="sp-djphone">🎧 Play music from my phone</button><p class="note" style="margin:6px 0 10px">Start YouTube Music (or any music app) first, then tap this. Android asks first: tap <b>Start</b> (Tete only takes the sound, never your screen). Use earphones, or your mic picks the music up too.</p>':'')
       +(!ANDROID_APP&&/Android/i.test(navigator.userAgent)?'<p class="note" style="margin:0 0 10px">To share YouTube Music from this phone, <a href="/download/tete.apk" class="linkbtn" download>get the Tete app for Android</a>.</p>':'')
       +(DJ_OK?'<button type="button" class="btn btn-ghost btn-wide" id="sp-djgo">🎧 Play music from a tab</button><p class="note" style="margin:6px 0 10px">Play YouTube Music (or any music) in another Chrome tab, tap this, pick that tab and tick <b>Also share tab audio</b>.</p>':'')
       +`<button type="button" class="btn btn-ghost btn-wide" id="sp-djfiles">🎵 Play ${PHONE?'songs from my phone':'song files'}</button><p class="note" style="margin:6px 0 0">${PHONE?'Pick music files (MP3, M4A…) from Files or your downloads.':'Pick music files (MP3, M4A…) from this computer.'} Everyone hears your music, it doesn't dip when people talk, and your mic stays as it is. ${locked}</p>`;
@@ -1423,12 +1423,12 @@ async function handleSignal(from,data,sid){
 }
 // someone (re)joined: whatever we had with them belongs to their old session, so start clean
 function rtcOnPeerJoined(pid,sid){if(pid===ME)return;if(sid){if(PSID.get(pid)===sid&&(PC.has(pid)||PCP.has(pid)))return;PSID.set(pid,sid)}TRIES.delete(pid);dropPC(pid);if(ME<pid)makePC(pid,true)}
-function dropPC(pid){const c=PC.get(pid);if(c){clearTimeout(c.wob);clearTimeout(c.dog);c.pc.close();PC.delete(pid)}const a=$('#voice-'+pid);if(a){a.srcObject=null;a.remove()}LEVELS.delete(pid);if(c&&c.djStream)djRefresh()}
+function dropPC(pid){toutDrop(pid);const c=PC.get(pid);if(c){clearTimeout(c.wob);clearTimeout(c.dog);c.pc.close();PC.delete(pid)}const a=$('#voice-'+pid);if(a){a.srcObject=null;a.remove()}LEVELS.delete(pid);if(c&&c.djStream)djRefresh()}
 function rtcOnPeerLeft(pid){dropPC(pid);SIGQ.delete(pid);PSID.delete(pid);tuneSenders()}
 function rtcLeaveAll(){stopDj(true);if(window.TeteSound&&TeteSound.djPlay)TeteSound.djPlay(null);DJ_LAST=-2;for(const [pid,c] of PC){clearTimeout(c.wob);c.pc.close()}PC.clear();SIGQ.clear();PSID.clear();$$('#voices audio').forEach(a=>{a.srcObject=null;a.remove()});LEVELS.clear();if(LOCAL){LOCAL.getTracks().forEach(t=>t.stop());LOCAL=null}}
 function rtcSyncPeers(){if(!S||ME<0)return;for(const p of S.players){if(p.isBot||p.gone||p.id===ME)continue;if(!PC.has(p.id)&&ME<p.id)makePC(p.id,true)}for(const [pid] of PC){const p=S.players[pid];if(!p||p.gone||p.isBot)rtcOnPeerLeft(pid)}}
 function voiceBox(){let b=$('#voices');if(!b){b=document.createElement('div');b.id='voices';b.hidden=true;document.body.appendChild(b)}return b}
-function attachRemote(pid,c){const v=$(`#seat-${pid} .vid video`);if(v&&v.srcObject!==c.stream){v.srcObject=c.stream;v.muted=true;v.play().catch(()=>{})}
+function attachRemote(pid,c){if(TOUT)toutVoice(pid,c);const v=$(`#seat-${pid} .vid video`);if(v&&v.srcObject!==c.stream){v.srcObject=c.stream;v.muted=true;v.play().catch(()=>{})}
   if(c.stream.getAudioTracks().length){let a=$('#voice-'+pid);if(!a){a=document.createElement('audio');a.id='voice-'+pid;a.autoplay=true;a.setAttribute('playsinline','');voiceBox().appendChild(a)}if(a.srcObject!==c.stream)a.srcObject=c.stream;a.muted=!AVS.spk;if(a.paused)a.play().catch(()=>{});watchLevel(pid,c.stream)}}
 function rtcAttachAll(){attachLocal();for(const [pid,c] of PC)attachRemote(pid,c)}
 // ---------- music from your computer: a Chrome tab's sound (YouTube Music, say) played for the whole table ----------
@@ -1465,7 +1465,7 @@ function addMusic(c){if(!DJ||!DJ.track||!c||!c.pc||c.pc.connectionState==='close
 function stopDj(quiet){const d=DJ;if(!d)return;DJ=null;
   for(const [,c] of PC){const tx=c.musicTx;if(!tx)continue;try{tx.sender.replaceTrack(null).catch(()=>{});tx.direction='inactive'}catch{}}
   if(d.cap)d.cap.getTracks().forEach(t=>{try{t.stop()}catch{}});
-  if(d.kind==='phone'){try{d.node.port.onmessage=null;d.node.disconnect()}catch{}try{window.TeteAndroid.stopMusic()}catch{}}
+  if(d.kind==='phone'){tableOutStop();try{d.node.port.onmessage=null;d.node.disconnect()}catch{}try{window.TeteAndroid.stopMusic()}catch{}}
   if(d.el){d.el.onended=null;d.el.onerror=null;try{d.el.pause()}catch{}d.el.removeAttribute('src');try{d.el.load()}catch{}(d.list||[]).forEach(s=>{try{URL.revokeObjectURL(s.url)}catch{}})}
   try{d.ctx.close()}catch{}
   if(S&&ME>=0&&S.dj===ME)send({type:'dj',on:false});
@@ -1539,10 +1539,41 @@ async function startPhoneMusic(){
   try{TeteAndroid.startMusic()}catch(e){stopDj(true);toast("Your music couldn't start",2500)}}
 // what the app says: started (Android said yes and the sound is coming), stopped, denied or an error
 window.__teteMusicEvent=ev=>{if(!ev||!ev.type)return;const mine=DJ&&DJ.kind==='phone';
-  if(ev.type==='started'){if(!mine){try{TeteAndroid.stopMusic()}catch{}return}DJ.waiting=false;DJ.since=Date.now();for(const [,c] of PC)addMusic(c);send({type:'dj',on:true,title:''});SND('pop');toast("🎵 Your phone's music is playing for the table",2600);if(!$('#sndpop').hidden)renderMusicPop()}
+  if(ev.type==='started'){if(!mine){try{TeteAndroid.stopMusic()}catch{}return}DJ.waiting=false;if(ev.out)tableOutStart(!!ev.bin);DJ.since=Date.now();for(const [,c] of PC)addMusic(c);send({type:'dj',on:true,title:''});SND('pop');toast("🎵 Your phone's music is playing for the table",2600);if(!$('#sndpop').hidden)renderMusicPop()}
   else if(ev.type==='stopped'){if(mine)stopDj(ev.why==='user')}
   else if(ev.type==='denied'){if(mine)stopDj(true);toast("Not shared: Android needs your OK to pick up the music",3200)}
   else if(ev.type==='error'){if(mine)stopDj(true);info("Music from your phone didn't start",esc(ev.msg||'Android said no.'))}};
+// While your phone's music is shared, the Android app mutes this page: Android pauses YouTube Music whenever a page
+// starts playing voices. So the table's sound (everyone's voices and the game's sounds) is mixed here instead and sent
+// to the app, which plays it without disturbing your music: 48 kHz stereo 16-bit, 20 ms at a time.
+let TOUT=null,TOUT_URL=null;
+function toutWorkletUrl(){if(TOUT_URL)return TOUT_URL;const src=`class TeteOut extends AudioWorkletProcessor{
+  constructor(){super();this.n=960;this.b=new Int16Array(this.n*2);this.i=0}
+  process(inputs){const inp=inputs[0]||[],l=inp[0],r=inp[1]||inp[0],N=l?l.length:128;
+    for(let k=0;k<N;k++){const a=l?l[k]:0,c=r?r[k]:0;this.b[this.i++]=(a<-1?-1:a>1?1:a)*32767|0;this.b[this.i++]=(c<-1?-1:c>1?1:c)*32767|0;
+      if(this.i>=this.b.length){this.port.postMessage(this.b.buffer,[this.b.buffer]);this.b=new Int16Array(this.n*2);this.i=0}}
+    return true}}
+registerProcessor('tete-out',TeteOut);`;TOUT_URL=URL.createObjectURL(new Blob([src],{type:'text/javascript'}));return TOUT_URL}
+function bufB64(ab){const u=new Uint8Array(ab);let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)}
+async function tableOutStart(bin){
+  if(TOUT)return;if(!MUSIC_PORT){try{TeteAndroid.hello()}catch{}await new Promise(r=>setTimeout(r,600));if(!MUSIC_PORT){stopDj(true);info("Music from your phone didn't start",'Tete lost touch with the app. Close Tete and open it again.');return}}
+  let ctx=null;try{ctx=new AudioContext({sampleRate:48000,latencyHint:'interactive'})}catch{}
+  if(!ctx||ctx.sampleRate!==48000){try{ctx&&ctx.close()}catch{}return outOff()}
+  try{await ctx.audioWorklet.addModule(toutWorkletUrl())}catch{try{ctx.close()}catch{}return outOff()}
+  if(!DJ||DJ.kind!=='phone'||TOUT){try{ctx.close()}catch{}return}
+  const node=new AudioWorkletNode(ctx,'tete-out',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[2],channelCount:2,channelCountMode:'explicit'});
+  const mix=ctx.createGain(),hush=ctx.createGain();hush.gain.value=0;mix.connect(node);node.connect(hush);hush.connect(ctx.destination);
+  TOUT={ctx,mix,node,voices:new Map(),fx:null,sent:0};
+  node.port.onmessage=e=>{const t=TOUT,p=MUSIC_PORT;if(!t||!p)return;t.sent++;try{if(bin)p.postMessage(e.data,[e.data]);else p.postMessage('b64:'+bufB64(e.data))}catch{}};
+  for(const [pid,c] of PC)toutVoice(pid,c);
+  try{const st=window.TeteSound&&TeteSound.tap&&TeteSound.tap();if(st){const src=ctx.createMediaStreamSource(st);src.connect(mix);TOUT.fx=src}}catch{}
+  try{if(ctx.state!=='running')await ctx.resume()}catch{}}
+function outOff(){try{if(MUSIC_PORT)MUSIC_PORT.postMessage('tete:out-off')}catch{}}
+function toutVoice(pid,c){const t=TOUT;if(!t||!c||!c.stream||!c.stream.getAudioTracks().length)return;const had=t.voices.get(pid);if(had&&had.stream===c.stream)return;if(had)toutDrop(pid);
+  try{const src=t.ctx.createMediaStreamSource(c.stream),g=t.ctx.createGain();g.gain.value=AVS.spk?1:0;src.connect(g);g.connect(t.mix);t.voices.set(pid,{src,g,stream:c.stream})}catch{}}
+function toutDrop(pid){const t=TOUT,v=t&&t.voices.get(pid);if(!v)return;try{v.src.disconnect();v.g.disconnect()}catch{}t.voices.delete(pid)}
+function toutSpk(){const t=TOUT;if(t)for(const [,v] of t.voices)v.g.gain.value=AVS.spk?1:0}
+function tableOutStop(){const t=TOUT;if(!t)return;TOUT=null;try{t.node.port.onmessage=null}catch{}try{window.TeteSound&&TeteSound.untap&&TeteSound.untap()}catch{}try{t.ctx.close()}catch{}}
 function setDjSend(v){DJ_SEND=Math.max(0,Math.min(1,v));try{localStorage.setItem('tete.djvol',String(DJ_SEND))}catch{}if(DJ)try{DJ.lvl.gain.setTargetAtTime(DJ_SEND,DJ.ctx.currentTime,0.08)}catch{}}
 // who's playing, from the table's state: their stream plays here (not on their own screen: they hear their tab), the
 // table's songs rest meanwhile; if someone else starts, yours stops; if the server lost track of yours, it's told again
@@ -1562,7 +1593,7 @@ function levelLoop(){LV_T=null;if(!LEVELS.size){if(ACTX&&ACTX.state==='running')
   LV_T=setTimeout(levelLoop,document.hidden?1500:200)}
 $('#btn-mic').onclick=async()=>{AVS.mic=!AVS.mic;if(ACTX&&ACTX.state==='suspended')ACTX.resume();await ensureLocal();toast(AVS.mic?'Mic on — the table can hear you':'Mic muted');avUI()};
 $('#btn-cam').onclick=async()=>{AVS.cam=!AVS.cam;await ensureLocal();toast(AVS.cam?'Camera on':'Camera off');avUI()};
-$('#btn-spk').onclick=()=>{AVS.spk=!AVS.spk;$$('#voices audio').forEach(a=>{a.muted=!AVS.spk;if(AVS.spk&&a.paused)a.play().catch(()=>{})});if(ACTX&&ACTX.state==='suspended')ACTX.resume();toast(AVS.spk?'You can hear the table':'Other players muted');avUI()};
+$('#btn-spk').onclick=()=>{AVS.spk=!AVS.spk;toutSpk();$$('#voices audio').forEach(a=>{a.muted=!AVS.spk;if(AVS.spk&&a.paused)a.play().catch(()=>{})});if(ACTX&&ACTX.state==='suspended')ACTX.resume();toast(AVS.spk?'You can hear the table':'Other players muted');avUI()};
 document.addEventListener('visibilitychange',()=>{const v=LOCAL&&LOCAL.getVideoTracks()[0];if(v)v.enabled=!document.hidden&&AVS.cam;if(!document.hidden&&S){turnTick();updateTurnMark()}});
 // browsers block remote audio until a tap: resume on first interaction
 document.addEventListener('pointerdown',()=>{if(ACTX&&ACTX.state==='suspended')ACTX.resume();$$('.seat video').forEach(v=>{if(v.paused)v.play().catch(()=>{})});$$('#voices audio').forEach(a=>{if(a.paused)a.play().catch(()=>{})})},{passive:true});
