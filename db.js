@@ -82,8 +82,8 @@ async function usersByIds(ids) {
 // everyone with an account, newest first (the owner's Members list); no passwords
 async function listUsers(limit) {
   const n = Math.max(1, Math.min(2000, limit | 0 || 300));
-  const strip = u => u && ({ id: u.id, username: u.username, display: u.display, av: u.av || null, stats: u.stats || {}, created_at: u.created_at });
-  if (pool) { const r = await q('select id, username, display, av, stats, created_at from t21_users order by created_at desc limit $1', [n]); return r.rows.map(row2user).map(strip); }
+  const strip = u => u && ({ id: u.id, username: u.username, display: u.display, av: u.av || null, stats: u.stats || {}, created_at: u.created_at, balance: u.balance || 0 });
+  if (pool) { const r = await q('select id, username, display, av, stats, created_at, balance from t21_users order by created_at desc limit $1', [n]); return r.rows.map(row2user).map(strip); }
   return Object.values(mem.users).sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, n).map(strip);
 }
 async function saveUser(u) {

@@ -40,6 +40,7 @@ const rand = n => crypto.randomBytes(n).toString('base64url');
 const send = (ws, m) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); };
 const isId = x => typeof x === 'string' && /^[0-9a-f]{16}$/.test(x);
 const fmt = n => (+n || 0).toLocaleString('en-GB');
+const TOPUPS = [1000, 5000, 10000]; // what the owner can give a member at a time (play chips)
 
 // ---------- sealed copies of standing rooms ----------
 // Standing rooms are saved in the database. As a second line of defence every player's device
@@ -384,7 +385,7 @@ async function membersView() {
     const have = new Set(users.map(u => u.id)), missing = Object.keys(P).filter(id => !have.has(id) && isId(id)).slice(0, 500);
     if (missing.length) users = users.concat(await accounts.usersByIds(missing));
   } catch (e) { console.error('members list:', e.message); }
-  const row = u => { const p = P[u.id] || {}; return { id: u.id, name: u.display, user: u.username, av: u.av || null, hands: (u.stats && u.stats.hands) || 0, since: u.created_at || 0, asked: p.asked || 0, at: p.at || 0, via: p.via || '', here: online.has(u.id) ? 1 : 0 }; };
+  const row = u => { const p = P[u.id] || {}; return { id: u.id, name: u.display, user: u.username, av: u.av || null, hands: (u.stats && u.stats.hands) || 0, bal: (accounts.cached(u.id) || u).balance || 0, since: u.created_at || 0, asked: p.asked || 0, at: p.at || 0, via: p.via || '', here: online.has(u.id) ? 1 : 0 }; };
   const v = { type: 'members', on: members.on() ? 1 : 0, forced: members.forcedOff() ? 1 : 0, waiting: [], yes: [], no: [], others: [], invites: members.invites(),
     hosts: members.hostsAll() ? 'all' : 'owner', tables: [...tables.values()].filter(t => !t.closed).map(t => ({ name: t.tableName, host: hostName(t), people: t.players.filter(p => !p.isBot && !p.gone).length, here: t.humansConnected(), keep: t.persistent ? 1 : 0 })) };
   for (const u of users) {
@@ -704,6 +705,16 @@ async function handle(ws, m) {
       const who = await accounts.get(m.id).catch(() => null); if (!who || members.isOwner(who)) return;
       if (!members.set(m.id, m.s === 'yes' ? 'yes' : 'no', ws.uid)) pushMembers();
       break;
+    }
+    case 'member_topup': { // the owner gives a member chips from the house, straight onto their balance (his alone, for now)
+      if (!ownerOf(ws) || !isId(m.id)) return;
+      const amt = Math.floor(+m.amt); if (!TOPUPS.includes(amt)) return;
+      const who = await accounts.get(m.id).catch(() => null); if (!who) return;
+      const u = await accounts.grant(who.id, amt, ws.uid); if (!u) return;
+      let out = false; for (const [, t] of tables) if (!t.closed) for (const p of t.players) if (p.uid === u.id && !p.gone && p.chips < t.wager) out = true;
+      const o = online.get(u.id);
+      if (o) for (const s of o.socks) { send(s, { type: 'account_lite', user: accounts.pub(u), inPlay: inPlay(u.id), bonus: accounts.bonusInfo(u) }); send(s, { type: 'gift', amt, from: members.OWNER_NAME, out: out ? 1 : 0 }); }
+      send(ws, { type: 'toast', msg: `${u.display || u.username} has ${fmt(amt)} more chips${out ? '. They can tap Rebuy now' : ''}.` }); pushMembers(); break;
     }
     case 'invite_new': { if (!ownerOf(ws)) return; const key = members.newInvite(ws.uid, m.max); send(ws, { type: 'invite_link', key, max: Math.max(1, Math.min(10, Math.floor(+m.max) || 1)) }); break; }
     case 'invite_cancel': if (ownerOf(ws)) members.cancelInvite(String(m.key || '')); break;

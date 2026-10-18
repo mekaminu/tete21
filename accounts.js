@@ -117,6 +117,13 @@ function spin(u) {
   db.addLedger(u.id, prize, 'wheel', { seg }).catch(() => {});
   return { seg, prize, balance: u.balance, bonus: bonusInfo(u) };
 }
+// the owner gives someone chips from the house (play money): straight onto their balance, written in the ledger
+async function grant(uid, amt, by) {
+  const u = await get(uid); if (!u) return null;
+  u.balance += amt; persist(u);
+  db.addLedger(u.id, amt, 'gift', { by }).catch(() => {});
+  return u;
+}
 
 // ----- hands -----
 // called by the table at the end of every hand for each account at it
@@ -172,5 +179,5 @@ async function adoptDeviceFriends(u, devIds) {
 }
 async function accountOf(id) { try { const u = await get(id); if (u) return u; const m = await db.deviceUsers([id]); return m.has(id) ? await get(m.get(id)) : null; } catch { return null; } }
 
-module.exports = { init, isReady, get, cached, friendData, signup, signin, fromSession, signout, changePassword, payload, pub, setLook, spin, bonusInfo, settle, request, answer, cancel, unfriend, link, friendIds, adoptDeviceFriends, accountOf, level, WHEEL, kvGet: (...a) => db.kvGet(...a), kvSet: (...a) => db.kvSet(...a),
+module.exports = { init, isReady, get, cached, friendData, signup, signin, fromSession, signout, changePassword, payload, pub, setLook, spin, grant, bonusInfo, settle, request, answer, cancel, unfriend, link, friendIds, adoptDeviceFriends, accountOf, level, WHEEL, kvGet: (...a) => db.kvGet(...a), kvSet: (...a) => db.kvSet(...a),
   listUsers: n => db.listUsers(n), usersByIds: ids => db.usersByIds(ids).then(l => l.map(u => ({ id: u.id, username: u.username, display: u.display, av: u.av || null, stats: u.stats || {}, created_at: u.created_at }))) };

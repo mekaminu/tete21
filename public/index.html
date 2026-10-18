@@ -765,6 +765,14 @@ html[data-felt="midnight"] .felt .ring{border-color:rgba(217,178,95,.32)}
 #m-members .frow.go-no{animation:mgono .45s forwards}
 @keyframes mgoyes{30%{background:rgba(79,201,139,.18)}100%{background:rgba(79,201,139,.0);opacity:0;transform:translateX(30px)}}
 @keyframes mgono{100%{opacity:0;transform:translateX(-30px)}}
+#m-members .fstat .bal{color:var(--gold-hi)}
+#m-members .topup{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:2px 0 8px;padding:9px 11px;border:1px solid rgba(217,178,95,.4);border-radius:12px;background:linear-gradient(180deg,rgba(217,178,95,.13),rgba(217,178,95,.03));font-size:13px;color:var(--gold-hi);animation:topin .3s cubic-bezier(.2,1.2,.4,1) both;transform-origin:top center}
+#m-members .topup .tamt{display:flex;gap:6px;flex-wrap:wrap}
+#m-members .topup .btn{padding:6px 11px;font-size:12.5px}
+#m-members .topup.sent{border-color:rgba(79,201,139,.5);color:var(--good)}
+#m-members .frow.gifted{animation:mgift 1s ease}
+@keyframes topin{from{opacity:0;transform:translateY(-6px) scaleY(.85)}to{opacity:1;transform:none}}
+@keyframes mgift{25%{background:rgba(217,178,95,.24)}100%{background:transparent}}
 #m-members .fstat .here{color:var(--good)}
 #m-members .msec{margin-bottom:6px}
 #m-members .msec.waiting{background:linear-gradient(180deg,rgba(217,178,95,.10),rgba(217,178,95,.02));border:1px solid rgba(217,178,95,.35);border-radius:14px;padding:6px 10px 4px;margin:4px 0 12px}

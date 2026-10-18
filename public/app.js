@@ -200,6 +200,8 @@ function onMessage(m){
   if(m.type==='invite_link'){MBR_FRESH=m.key;toast('Link ready: tap Share to send it',2600);SND('pop');if($('#m-members').classList.contains('on'))renderMembers();return}
   if(m.type==='members_out'){toGate(m.msg||'Members only',true);return}
   if(m.type==='account_lite'){if(!ACCT)return;Object.assign(ACCT,{user:m.user,inPlay:m.inPlay,bonus:m.bonus});renderAcct(true);renderRooms();return}
+  // the owner topped up your balance: coins rain at the table, and if you'd run out, Rebuy gets you back in
+  if(m.type==='gift'){toast(`🎁 ${m.from||'Meka'} gave you ${fmt(m.amt)} chips${m.out?'. Tap Rebuy to get back in':''}`,5000);SND('pot',{bg:true});buzz([40,30,80]);if(S&&!LOCALT)coinShower(28);return}
   if(m.type==='friends'){if(!ACCT)return;Object.assign(ACCT,{friends:m.friends,incoming:m.incoming,outgoing:m.outgoing});syncAcctFriends();renderFriends();renderFriendReqs();renderMeChip();return}
   if(m.type==='friend_req_in'){toast(`${m.from.name} (@${m.from.username}) wants to be friends`,3500);SND('join',{bg:true});buzz([40,30,40]);return}
   if(m.type==='friend_msg'){if($('#m-friends').classList.contains('on')){const el=$('#fr-msg');el.textContent=m.msg;el.className='fr-msg '+(m.ok?'ok':'bad');if(m.ok)$('#fr-user').value=''}else toast(m.msg,3000);if(m.ok)SND('pop');return}
@@ -462,7 +464,8 @@ function setAccount(m){const first=!ACCT;ACCT=m;syncAcctFriends();
 // The owner (Meka) lets people in: the lobby's Members button (with how many are waiting), the Members sheet, and a
 // card that drops in when someone asks. Anyone else lands here only once they've been let in; if they're taken off,
 // or sign out, they go back to the sign-in page.
-let MO={on:0,owner:0,forced:0,waiting:0},MBR=null,MBR_FRESH=null,MBR_INVN=1,MBR_ASK=null,MBR_ASKT=null;
+let MO={on:0,owner:0,forced:0,waiting:0},MBR=null,MBR_FRESH=null,MBR_INVN=1,MBR_ASK=null,MBR_ASKT=null,MBR_TOP=null;
+const TOPUPS=[1000,5000,10000]; // what the owner can give a member at a time, from the house (the server checks it's him)
 // a lost connection might mean you're no longer let in (signed out elsewhere, taken off): ask the server, at most every 20 s
 let GATECHK=0;function gateCheck(){if(Date.now()-GATECHK<20000)return;GATECHK=Date.now();fetch('/api/me',{cache:'no-store',credentials:'same-origin'}).then(r=>r.json()).then(v=>{if(v&&v.on&&v.status!=='yes'&&v.status!=='owner')toGate('Members only',true)}).catch(()=>{})}
 function toGate(msg,force){let last=0;try{last=+sessionStorage.getItem('tete.gate')||0}catch{}
@@ -497,7 +500,7 @@ function renderMembers(){
     +(tl.length?'<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn btn-ghost" id="mbr-closeall" type="button">Close all tables</button></div>':'')+`</div>`;
   const invs=m.invites.filter(x=>x.live).concat(m.invites.filter(x=>!x.live).slice(0,3));
   h+=`<div class="msec"><h3 class="subh">Invite a friend</h3><p class="note" style="margin-top:0">A link that lets them straight in, no waiting. It works for 3 days.</p><div class="invmake"><div class="seg sm" id="mbr-invn"><button type="button" data-n="1" class="${MBR_INVN===1?'on':''}">1 person</button><button type="button" data-n="5" class="${MBR_INVN===5?'on':''}">Up to 5</button></div><button class="btn btn-gold" id="mbr-invnew" type="button">Make a link</button></div>${invs.map(invRow).join('')}</div>`;
-  h+=`<div class="msec"><h3 class="subh">Members · ${m.yes.length}</h3>${m.yes.length?m.yes.map((p,i)=>row(p,i,p.via==='invite link'?'came with your invite':`let in ${ago(p.at)}`,'<button class="btn btn-ghost" data-rm type="button">Remove</button>')).join(''):'<p class="mempty">Nobody yet. People you let in show here.</p>'}</div>`;
+  h+=`<div class="msec"><h3 class="subh">Members · ${m.yes.length}</h3>${m.yes.length?m.yes.map((p,i)=>row(p,i,`<span class="bal">${fmt(p.bal||0)} chips</span> · `+(p.via==='invite link'?'came with your invite':`let in ${ago(p.at)}`),'<button class="btn btn-gold" data-top type="button">Top up</button><button class="btn btn-ghost" data-rm type="button">Remove</button>')).join(''):'<p class="mempty">Nobody yet. People you let in show here.</p>'}</div>`;
   if(m.no.length)h+=`<div class="msec"><h3 class="subh">Not let in · ${m.no.length}</h3>${m.no.map((p,i)=>row(p,i,ago(p.at),'<button class="btn btn-ghost" data-yes type="button">Let in</button>')).join('')}</div>`;
   if(m.others.length)h+=`<div class="msec"><h3 class="subh">Everyone else with an account · ${m.othersTotal}</h3><p class="note" style="margin-top:0">They made accounts before members only. They ask when they next come back, or you can let them in now.</p>${m.others.map((p,i)=>row(p,i,hands(p),'<button class="btn btn-ghost" data-yes type="button">Let in</button>')).join('')}${m.othersTotal>m.others.length?`<p class="note more">and ${m.othersTotal-m.others.length} more</p>`:''}</div>`;
   h+=m.forced?'<p class="note">Members only is switched off on the server.</p>':`<div class="setrow mswitch"><span>Members only<small>${m.on?'On: only people you let in can play':'Off: anyone with the link can play'}</small></span><div class="seg sm"><button type="button" id="mbr-on" class="${m.on?'on':''}">On</button><button type="button" id="mbr-off" class="${m.on?'':'on'}">Off</button></div></div>`;
@@ -505,7 +508,13 @@ function renderMembers(){
   body.querySelectorAll('.frow').forEach(r=>{const id=r.dataset.id,y=r.querySelector('[data-yes]'),n=r.querySelector('[data-no]'),rm=r.querySelector('[data-rm]');
     if(y)y.onclick=()=>{r.classList.add('go-yes');SND('pop');buzz(20);send({type:'member_set',id,s:'yes'})};
     if(n)n.onclick=()=>{r.classList.add('go-no');send({type:'member_set',id,s:'no'})};
-    if(rm)rm.onclick=()=>{if(!rm.dataset.arm){rm.dataset.arm='1';rm.textContent='Tap again';setTimeout(()=>{if(rm.isConnected){delete rm.dataset.arm;rm.textContent='Remove'}},3500);return}r.classList.add('go-no');send({type:'member_set',id,s:'no'})}});
+    if(rm)rm.onclick=()=>{if(!rm.dataset.arm){rm.dataset.arm='1';rm.textContent='Tap again';setTimeout(()=>{if(rm.isConnected){delete rm.dataset.arm;rm.textContent='Remove'}},3500);return}r.classList.add('go-no');send({type:'member_set',id,s:'no'})};
+    const tp=r.querySelector('[data-top]');if(tp)tp.onclick=()=>{const was=MBR_TOP===id;body.querySelectorAll('.topup').forEach(x=>x.remove());MBR_TOP=was?null:id;if(!was)topupStrip(r)}});
+  // Top up: chips from the house onto a member's balance (the owner's alone). The strip stays open across refreshes.
+  function topupStrip(r){const id=r.dataset.id,name=r.querySelector('.fname').textContent,s=document.createElement('div');s.className='topup';
+    s.innerHTML=`<span>Give ${esc(name)} chips from the house</span><div class="tamt">${TOPUPS.map(a=>`<button class="btn btn-gold" type="button" data-a="${a}">+${fmt(a)}</button>`).join('')}</div>`;r.after(s);
+    s.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{const a=+b.dataset.a;send({type:'member_topup',id,amt:a});MBR_TOP=null;s.classList.add('sent');s.innerHTML=`<span>🎁 ${fmt(a)} chips on their way to ${esc(name)}</span>`;r.classList.add('gifted');SND('pot');buzz(30);setTimeout(()=>s.remove(),1600)})}
+  if(MBR_TOP){const r=body.querySelector(`.frow[data-id="${CSS.escape(MBR_TOP)}"]`);if(r&&r.querySelector('[data-top]'))topupStrip(r);else MBR_TOP=null}
   const seg=$('#mbr-invn');if(seg)seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{MBR_INVN=+b.dataset.n;seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b))});
   const nb=$('#mbr-invnew');if(nb)nb.onclick=()=>{nb.disabled=true;send({type:'invite_new',max:MBR_INVN});setTimeout(()=>{if(nb.isConnected)nb.disabled=false},1500)};
   body.querySelectorAll('.inv').forEach(r=>{const k=r.dataset.key,sh=r.querySelector('[data-share]'),c=r.querySelector('[data-cancel]');
