@@ -117,7 +117,7 @@ function sitError(ws, t) {
   if (!ws.uid) return '';
   const u = accounts.cached(ws.uid); if (!u) return 'Your account is still loading. Try again in a moment.';
   const free = freeChips(ws.uid);
-  return free >= t.buyIn ? '' : `You need ${fmt(t.buyIn)} free chips to sit at this table and you have ${fmt(Math.max(0, free))}. Spin the daily wheel in your profile, or pick a table with a smaller buy-in.`;
+  return free >= t.buyIn ? '' : `You need ${fmt(t.buyIn)} free chips to sit at this table and you have ${fmt(Math.max(0, free))}. ${members.isOwner(u) ? 'Top yourself up in 👥 Members' : 'Spin the daily wheel in your profile'}, or pick a table with a smaller buy-in.`;
 }
 function hookTable(t) {
   t.canBuy = (p, amount) => !p.uid || freeChips(p.uid) >= amount;
@@ -628,7 +628,7 @@ async function handle(ws, m) {
       // the name matches a seat waiting for its owner: the host decides whether it is really them
       const ret = waitingSeat(t, name, ws.uid);
       if (ret >= 0) return askToJoin(ws, t, m, ret);
-      if (t.wasRemoved(ws.uid, name)) return askToJoin(ws, t, m, -1); // taken off by the host: the host decides
+      if (t.wasRemoved(ws.uid, name) && !ownerOf(ws)) return askToJoin(ws, t, m, -1); // taken off by the host: the host decides (not for the owner)
       seatNew(ws, t, m); break;
     }
     case 'request': {
@@ -637,6 +637,7 @@ async function handle(ws, m) {
       if (returnAcct(ws, t)) return;
       const name = cleanName(m.name); if (!name) return send(ws, { type: 'error', msg: 'Type your name first.' });
       const ret = waitingSeat(t, name, ws.uid);
+      if (ret < 0 && ownerOf(ws)) return seatNew(ws, t, m); // the owner (admin) sits straight down at any table with a free seat
       if (ret >= 0) return askToJoin(ws, t, m, ret);
       if (t.pub && !t.wasRemoved(ws.uid, name)) return seatNew(ws, t, m);
       askToJoin(ws, t, m, -1); break;

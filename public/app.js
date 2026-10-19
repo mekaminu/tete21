@@ -327,8 +327,10 @@ function roomRows(){
 }
 function roomHTML(r,i){
   const fr=friendsAt(r.rid);const full=!r.mine&&r.seats&&r.seated>=r.seats;
-  const status=r.asleep?'Asleep. Return to wake it':`${r.host?esc(r.host)+"'s room · ":''}${r.seated} of ${r.seats} seated${r.here?` · ${r.here} here`:''} · ${fmt(r.wager)} a hand · ${r.started?'Hand '+r.hand:'Waiting to start'}`;
-  const btn=r.mine?`<button class="btn btn-gold" data-ret="${esc(r.mine)}">Return</button>`:full?`<button class="btn btn-dark" disabled>Full</button>`:r.pub?`<button class="btn btn-gold" data-ask="${esc(r.rid)}">Join</button>`:`<button class="btn btn-ghost" data-ask="${esc(r.rid)}">Ask to join</button>`;
+  // who's actually there: seats in a room that stays open are held for people who stepped away, so say so
+  const who=r.here?`${r.here} here now · ${r.seated} of ${r.seats} seats taken`:r.seated?`Nobody here now · ${r.seated} ${r.seated===1?'seat':'seats'} held`:`${r.seats} seats free`;
+  const status=r.asleep?'Asleep. Return to wake it':`${r.host?esc(r.host)+"'s room · ":''}${who} · ${fmt(r.wager)} a hand · ${r.started?(r.here?'Hand '+r.hand:'Paused at hand '+r.hand):'Waiting to start'}`;
+  const btn=r.mine?`<button class="btn btn-gold" data-ret="${esc(r.mine)}">Return</button>`:full?`<button class="btn btn-dark" disabled>Full</button>`:(r.pub||MO.owner)?`<button class="btn btn-gold" data-ask="${esc(r.rid)}">Join</button>`:`<button class="btn btn-ghost" data-ask="${esc(r.rid)}">Ask to join</button>`;
   return`<div class="rrow ${r.mine?'mine':''} ${r.asleep?'asleep':''} ${r.gold?'goldrow':''}" style="animation-delay:${i*.04}s"><div class="rico">${r.mine?ICON.home:r.pub?ICON.open:ICON.lock}${r.here?'<span class="live"></span>':''}</div><div style="min-width:0"><div class="rname"><span class="t">${esc(r.name)}</span>${r.gold?'<span class="tag goldtag">Gold</span>':''}${r.mine?'<span class="tag you">Your seat</span>':''}${r.keep?'<span class="tag">Always open</span>':''}${r.pub?'<span class="tag pub">Public</span>':''}</div><div class="rmeta">${status}</div>${fr.length?`<div class="rfr">${esc(nameList(fr))} ${fr.length>1?'are':'is'} here</div>`:''}${r.pub&&r.members&&r.members.length&&!fr.length?`<div class="rmeta">${esc(r.members.join(', '))}</div>`:''}</div>${btn}</div>`}
 function retHTML(r){return`<div class="retcard${r.gold?' goldrow':''}"><div class="rico">${ICON.home}${r.here?'<span class="live"></span>':''}</div><div style="min-width:0"><div class="rname"><span class="t">${esc(r.name)}</span><span class="tag you">Your seat</span></div><div class="rmeta">${r.asleep?'Asleep. Return wakes it up with everyone\'s chips':`${r.here?r.here+' at the table · ':''}${r.started?'Hand '+r.hand:'Waiting to start'}`}</div></div><button class="btn btn-gold" data-ret="${esc(r.mine)}">Return</button></div>`}
 function wireRooms(box){box.querySelectorAll('[data-ret]').forEach(b=>b.onclick=()=>returnTo(b.dataset.ret));box.querySelectorAll('[data-ask]').forEach(b=>b.onclick=()=>askRoom(b.dataset.ask))}
@@ -354,7 +356,7 @@ function friendRows(ctx){
   return friendIds().map((id,i)=>{const f=FR()[id],s=friendState(id),p=PRES[id]||{};let btn='';
     if(ctx==='invite'){const here=S&&IDS.includes(id);btn=here?'<span class="fstat on">At this table</span>':p.on?`<button class="btn btn-gold" data-inv="${id}">Invite</button>`:'<span class="fstat">Offline</span>'}
     else if(FEDIT)btn=`<button class="btn btn-dark" data-rm="${id}">Remove</button>`;
-    else if(p.on&&p.room){const mine=myCodeForRid(p.room.rid);btn=mine?`<button class="btn btn-gold" data-ret="${esc(mine)}">Return</button>`:`<button class="btn ${p.room.pub?'btn-gold':'btn-ghost'}" data-ask="${esc(p.room.rid)}">${p.room.pub?'Join':'Ask to join'}</button>`}
+    else if(p.on&&p.room){const mine=myCodeForRid(p.room.rid);btn=mine?`<button class="btn btn-gold" data-ret="${esc(mine)}">Return</button>`:`<button class="btn ${(p.room.pub||MO.owner)?'btn-gold':'btn-ghost'}" data-ask="${esc(p.room.rid)}">${(p.room.pub||MO.owner)?'Join':'Ask to join'}</button>`}
     return`<div class="frow" style="animation-delay:${i*.04}s">${avHTML(f.av,f.name)}<span class="dot ${s.k}"></span></div><div style="min-width:0"><div class="fname">${esc(f.name||'Friend')}</div><div class="fstat ${s.k}">${esc(s.t)}</div></div>${btn}</div>`}).join('');
 }
 function renderFriends(){
@@ -377,7 +379,7 @@ function removeFriend(id){const F=FR(),nm=F[id]&&F[id].name;delete F[id];if(!ACC
 function openFriend(id){const f=FR()[id];if(!f)return;const p=PRES[id]||{};const a=avStyle(f.av,(f.name||'?')[0].toUpperCase());const el=$('#pl-av');el.style.cssText=a.style;el.textContent=a.text;
   $('#pl-name').textContent=f.name||'Friend';
   $('#pl-body').innerHTML=p.on?(p.room?`At <b>${esc(p.room.name)}</b> right now`:'Online now'):esc(f.seen?`Last seen ${ago(f.seen)}`:'Offline');
-  let h='';if(p.on&&p.room){const mine=myCodeForRid(p.room.rid);h=mine?`<button class="btn btn-gold" data-ret="${esc(mine)}">Return to your seat</button>`:`<button class="btn btn-gold" data-ask="${esc(p.room.rid)}">${p.room.pub?'Join them':'Ask to join them'}</button>`}
+  let h='';if(p.on&&p.room){const mine=myCodeForRid(p.room.rid);h=mine?`<button class="btn btn-gold" data-ret="${esc(mine)}">Return to your seat</button>`:`<button class="btn btn-gold" data-ask="${esc(p.room.rid)}">${(p.room.pub||MO.owner)?'Join them':'Ask to join them'}</button>`}
   h+=`<button class="btn btn-dark" id="pl-rm">Remove</button><button class="btn btn-ghost" data-close>Close</button>`;
   $('#pl-actions').innerHTML=h;
   $$('#pl-actions [data-ret]').forEach(b=>b.onclick=()=>{closeModal('#m-player');returnTo(b.dataset.ret)});
