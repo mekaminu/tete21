@@ -39,7 +39,7 @@ TURN_PASS=...
 
 ## Rooms, friends and invites
 
-- **Rooms list:** every open table shows in the lobby. Public rooms can be joined with one tap; private rooms need the code, or the host's OK when someone taps "Ask to join".
+- **Rooms list:** every open table shows in the lobby. Public rooms can be joined with one tap; private rooms need the code, or the host's OK when someone taps "Ask to join". The owner (Meka) gets **Join** on every table and sits straight down if there's a free seat. Each row says who's actually there: "2 here now · 3 of 6 seats taken", or, for a room that stays open after everyone has stepped away, "Nobody here now · 3 seats held" (their seats and chips wait for them).
 - **Invite:** inside a room, Invite shows the code, copies the link, opens the phone's share menu (WhatsApp, Messages, contacts) and lists your friends with an Invite button.
 - **Friends:** each device has a private key; its public id is derived from it, so nothing needs storing on the server. Share your friend link once and you're friends. Friend lists live on each device; the server only tracks who is online and at which table.
 
