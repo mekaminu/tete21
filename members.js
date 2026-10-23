@@ -97,7 +97,21 @@ const hostsAll = () => FORCED_OFF || state.hosts === 'all';
 const canHost = u => hostsAll() || (!!u && isOwner(u));
 // Gold tables (the premium look): the owner's for now; later, people who've paid for it
 const canGold = u => FORCED_OFF || (!!u && isOwner(u));
+// the owner's per-player switches: the daily wheel, and buying back in once their chips have run out at a table
+// (stored with the member as nowheel / norebuy; switched on again by deleting them)
+function setFlags(id, f) {
+  if (!ready || typeof id !== 'string') return false;
+  const p = state.people[id] || (state.people[id] = { asked: 0 });
+  let ch = false;
+  for (const [k, key] of [['wheel', 'nowheel'], ['rebuy', 'norebuy']]) {
+    if (f[k] == null) continue; const off = !f[k];
+    if (!!p[key] !== off) { if (off) p[key] = 1; else delete p[key]; ch = true; }
+  }
+  if (ch) save(); return ch;
+}
+const wheelOff = uid => !!(uid && state.people[uid] && state.people[uid].nowheel);
+const rebuyOff = uid => !!(uid && state.people[uid] && state.people[uid].norebuy);
 function setHosts(all) { const h = all ? 'all' : 'owner'; if (!ready || state.hosts === h) return false; state.hosts = h; save(); emit('hosts', all); return true; }
 
 const people = () => state.people;
-module.exports = { init, onEvent, on, forcedOff, isOwner, status, allowed, ask, set, newInvite, cancelInvite, liveInvite, redeem, invites, setOpen, hostsAll, canHost, setHosts, canGold, people, waitingCount, OWNER_NAME, OWNERS };
+module.exports = { init, onEvent, on, forcedOff, isOwner, status, allowed, ask, set, newInvite, cancelInvite, liveInvite, redeem, invites, setOpen, hostsAll, canHost, setHosts, canGold, setFlags, wheelOff, rebuyOff, people, waitingCount, OWNER_NAME, OWNERS };

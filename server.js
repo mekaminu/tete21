@@ -122,6 +122,7 @@ function sitError(ws, t) {
 }
 function hookTable(t) {
   t.canBuy = (p, amount) => !p.uid || freeChips(p.uid) >= amount;
+  t.noRebuy = p => !p.isBot && !!p.uid && members.rebuyOff(p.uid); // the owner switched buying back in off for them
   t.onHandEnd = res => { for (const r of res) if (r.p.uid) { accounts.settle(r.p.uid, { delta: r.delta, played: r.played, won: r.won, adasi: r.adasi, total: r.total, table: t.tableName }); pushAccount(r.p.uid); }
     // resets the owner asked for during the hand happen now, before the next one
     const tr = t.pendingTableReset, pr = t.pendingResets; t.pendingTableReset = null; t.pendingResets = null;
@@ -130,8 +131,20 @@ function hookTable(t) {
   t.onMoved = (p, delta, why, other) => { if (p.uid && delta) { const o = other ? other.name : ''; const label = why === 'spray' ? (delta > 0 ? `Spray from ${o}` : `You sprayed ${o}`) : why === 'lend' ? (delta > 0 ? `Loan from ${o}` : `You lent ${o}`) : why === 'repay' ? (delta > 0 ? `${o} paid you back` : `You paid ${o} back`) : `Treats at ${t.tableName}`; accounts.settle(p.uid, { delta, played: false, won: false, table: label }); pushAccount(p.uid); } };
   t.onLeave = (p, delta) => { if (p.uid && delta) { accounts.settle(p.uid, { delta, played: true, won: false, table: t.tableName }); setTimeout(() => pushAccount(p.uid), 50); } };
 }
+// the daily wheel as this player sees it: off when the owner has switched it off for them
+function bonusFor(u) { const b = accounts.bonusInfo(u); if (u && members.wheelOff(u.id)) { b.ready = false; b.off = 1; } return b; }
+// the owner switched someone's wheel or buying back in: refresh their wheel and their seat, and tell them
+function flagsChanged(uid, f) {
+  for (const { t } of seatsOf(uid)) t.sync();
+  pushAccount(uid);
+  const o = online.get(uid); if (!o) return;
+  const bits = [];
+  if (f.wheel != null) bits.push(f.wheel ? 'the daily wheel is back on for you' : 'the daily wheel is off for you');
+  if (f.rebuy != null) bits.push(f.rebuy ? 'you can buy back in again' : "no buying back in: when your chips run out, you're out");
+  for (const s of o.socks) send(s, { type: 'toast', msg: `${members.OWNER_NAME}: ${bits.join(', and ')}.` });
+}
 // balance and stats after something changed (no database reads, so it is quick)
-function pushAccount(uid) { const u = accounts.cached(uid), o = online.get(uid); if (!u || !o) return; const m = { type: 'account_lite', user: accounts.pub(u), inPlay: inPlay(uid), bonus: accounts.bonusInfo(u) }; for (const s of o.socks) send(s, m); }
+function pushAccount(uid) { const u = accounts.cached(uid), o = online.get(uid); if (!u || !o) return; const m = { type: 'account_lite', user: accounts.pub(u), inPlay: inPlay(uid), bonus: bonusFor(u) }; for (const s of o.socks) send(s, m); }
 // ----- the owner resets chips: a player (or everyone at a table) back to RESET_TO, so a table carries on level -----
 // Their stack at the table becomes the amount, their buy-ins restart there (Tonight's scores start level), and their
 // balance becomes the amount too (plus chips they hold at any other table). In the middle of a hand it waits for the
@@ -155,7 +168,7 @@ async function resetTable(t, amt, by) {
   t.log(`${escHtml(members.OWNER_NAME)} reset everyone's chips to ${fmt(amt)}`, 'hi'); t.sync(); if (t.persistent) saveRoom(t); listDirty = true;
   return 'now';
 }
-async function sendAccount(ws) { if (!ws.uid) return; try { const u = await accounts.get(ws.uid); if (u) send(ws, await accounts.payload(u, ws.tz, inPlay(u.id))); } catch (e) { console.error('account payload:', e.message); } }
+async function sendAccount(ws) { if (!ws.uid) return; try { const u = await accounts.get(ws.uid); if (u) { const pl = await accounts.payload(u, ws.tz, inPlay(u.id)); pl.bonus = bonusFor(u); send(ws, pl); } } catch (e) { console.error('account payload:', e.message); } }
 function notify(uid, m) { const o = online.get(uid); if (o) for (const s of o.socks) send(s, m); }
 async function pushFriends(uid) {
   const o = online.get(uid); if (!o || !o.acct) return;
@@ -405,6 +418,8 @@ async function api(req, res, url) {
   res.writeHead(404, { 'content-type': 'application/json' }); res.end('{"error":"Not found"}');
 }
 // the owner's view of everyone: waiting, members, not let in, everyone else with an account, and the invite links
+// everyone at the table (but the owner) has the wheel and buying back in switched off
+function lastOne(t) { const hs = t.players.filter(p => !p.isBot && !p.gone && p.uid && !members.isOwner(accounts.cached(p.uid))); return hs.length > 0 && hs.every(p => members.wheelOff(p.uid) && members.rebuyOff(p.uid)); }
 async function membersView() {
   const P = members.people();
   let users = [];
@@ -413,9 +428,9 @@ async function membersView() {
     const have = new Set(users.map(u => u.id)), missing = Object.keys(P).filter(id => !have.has(id) && isId(id)).slice(0, 500);
     if (missing.length) users = users.concat(await accounts.usersByIds(missing));
   } catch (e) { console.error('members list:', e.message); }
-  const row = u => { const p = P[u.id] || {}; return { id: u.id, name: u.display, user: u.username, av: u.av || null, hands: (u.stats && u.stats.hands) || 0, bal: (accounts.cached(u.id) || u).balance || 0, since: u.created_at || 0, asked: p.asked || 0, at: p.at || 0, via: p.via || '', here: online.has(u.id) ? 1 : 0 }; };
+  const row = u => { const p = P[u.id] || {}; return { id: u.id, name: u.display, user: u.username, av: u.av || null, hands: (u.stats && u.stats.hands) || 0, bal: (accounts.cached(u.id) || u).balance || 0, since: u.created_at || 0, asked: p.asked || 0, at: p.at || 0, via: p.via || '', here: online.has(u.id) ? 1 : 0, nowheel: p.nowheel ? 1 : 0, norebuy: p.norebuy ? 1 : 0 }; };
   const v = { type: 'members', on: members.on() ? 1 : 0, forced: members.forcedOff() ? 1 : 0, waiting: [], yes: [], no: [], others: [], owners: [], invites: members.invites(),
-    hosts: members.hostsAll() ? 'all' : 'owner', tables: [...tables.values()].filter(t => !t.closed).map(t => ({ rid: t.rid, name: t.tableName, host: hostName(t), people: t.players.filter(p => !p.isBot && !p.gone).length, here: t.humansConnected(), keep: t.persistent ? 1 : 0 })) };
+    hosts: members.hostsAll() ? 'all' : 'owner', tables: [...tables.values()].filter(t => !t.closed).map(t => ({ rid: t.rid, lastOne: lastOne(t) ? 1 : 0, name: t.tableName, host: hostName(t), people: t.players.filter(p => !p.isBot && !p.gone).length, here: t.humansConnected(), keep: t.persistent ? 1 : 0 })) };
   for (const u of users) {
     if (members.isOwner(u)) { v.owners.push(row(u)); continue; } // the owner tops himself up from his own row
     const s = (P[u.id] || {}).s;
@@ -570,10 +585,11 @@ async function handle(ws, m) {
     case 'profile': { if (typeof m.tz === 'number') ws.tz = m.tz; await sendAccount(ws); break; }
     case 'spin': {
       if (!ws.uid) return send(ws, { type: 'need_account', why: 'wheel' });
+      if (members.wheelOff(ws.uid)) return send(ws, { type: 'toast', msg: `${members.OWNER_NAME} has switched the daily wheel off for you for now.` });
       const u = await accounts.get(ws.uid); const r = u && accounts.spin(u);
       if (!r) return send(ws, { type: 'toast', msg: 'You have spun today already. The wheel is back tomorrow.' });
       send(ws, Object.assign({ type: 'spun' }, r));
-      const o = online.get(ws.uid); if (o) for (const s of o.socks) if (s !== ws) send(s, { type: 'account_lite', user: accounts.pub(u), inPlay: inPlay(u.id), bonus: accounts.bonusInfo(u) });
+      const o = online.get(ws.uid); if (o) for (const s of o.socks) if (s !== ws) send(s, { type: 'account_lite', user: accounts.pub(u), inPlay: inPlay(u.id), bonus: bonusFor(u) });
       break;
     }
 
@@ -743,9 +759,24 @@ async function handle(ws, m) {
       let out = false; for (const [, t] of tables) if (!t.closed) for (const p of t.players) if (p.uid === u.id && !p.gone && p.chips < t.wager) out = true;
       const o = online.get(u.id);
       const self = u.id === ws.uid;
-      if (o) for (const s of o.socks) { send(s, { type: 'account_lite', user: accounts.pub(u), inPlay: inPlay(u.id), bonus: accounts.bonusInfo(u) }); send(s, { type: 'gift', amt, from: members.OWNER_NAME, out: out ? 1 : 0, self: self ? 1 : 0 }); }
+      if (o) for (const s of o.socks) { send(s, { type: 'account_lite', user: accounts.pub(u), inPlay: inPlay(u.id), bonus: bonusFor(u) }); send(s, { type: 'gift', amt, from: members.OWNER_NAME, out: out ? 1 : 0, self: self ? 1 : 0 }); }
       if (!self) send(ws, { type: 'toast', msg: `${u.display || u.username} has ${fmt(amt)} more chips${out ? '. They can tap Rebuy now' : ''}.` });
       pushMembers(); break;
+    }
+    case 'member_flags': { // the owner's switches for one player: the daily wheel, and buying back in when out
+      if (!ownerOf(ws) || !isId(m.id)) return;
+      const who = await accounts.get(m.id).catch(() => null); if (!who || members.isOwner(who)) return;
+      const f = {}; if (m.wheel != null) f.wheel = !!m.wheel; if (m.rebuy != null) f.rebuy = !!m.rebuy;
+      if (members.setFlags(who.id, f)) flagsChanged(who.id, f);
+      pushMembers(); break;
+    }
+    case 'table_flags': { // "last one standing" for everyone at a table: no wheel and no buying back in (or both on again)
+      if (!ownerOf(ws)) return;
+      const t = byRid.get(String(m.rid || '')); if (!t || t.closed) return send(ws, { type: 'toast', msg: 'That table has closed.' });
+      const on = !!m.on, f = { wheel: !on, rebuy: !on };
+      for (const p of t.players) if (!p.isBot && !p.gone && p.uid && !members.isOwner(accounts.cached(p.uid)) && members.setFlags(p.uid, f)) flagsChanged(p.uid, f);
+      t.log(on ? `${escHtml(members.OWNER_NAME)} made it last one standing: no daily wheel and no buying back in` : `${escHtml(members.OWNER_NAME)} switched the daily wheel and buying back in on again`, 'hi'); t.sync();
+      send(ws, { type: 'toast', msg: on ? `Last one standing at ${t.tableName}: no wheel, no buying back in.` : `The wheel and buying back in are on again at ${t.tableName}.` }); pushMembers(); break;
     }
     case 'member_reset': { // the owner puts one player's chips back to RESET_TO
       if (!ownerOf(ws) || !isId(m.id)) return;

@@ -193,7 +193,7 @@ class Table {
     const S = this;
     return {
       now: Date.now(), gd: S.gold ? 1 : 0, dj: S.dj, djt: S.dj >= 0 ? S.djTitle : '', tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, lb: S.leadBy, ln: S.loans.map(l => [l.id, l.from, l.to, l.amt, l.paid, l.fromName, l.toName, l.out ? 1 : 0]), bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), bw: S.board.map(c => (c && c.taken && c.by != null ? c.by : -1)), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0, fl: S.fill ? 1 : 0, pb: S.pub ? 1 : 0, pc: S.pendingCfg || null,
-      pl: S.players.map(p => { const show = p.id === forId || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0, p.away ? 1 : 0, p.color, p.treat || '', p.streak || 0, p.bought || 0, p.wins || 0, p.best || 0, p.voice || null]; }),
+      pl: S.players.map(p => { const show = p.id === forId || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0, p.away ? 1 : 0, p.color, p.treat || '', p.streak || 0, p.bought || 0, p.wins || 0, p.best || 0, p.voice || null, !p.isBot && S.noRebuy && S.noRebuy(p) ? 1 : 0]; }),
       sbs: S.sideBets.slice(-8).map(b => [b.id, b.a, b.b, b.type, b.amt, b.mine, b.theirs, b.status, b.result || '', b.winner ?? -1]),
     };
   }
@@ -217,7 +217,7 @@ class Table {
       case 'drop': case 'take': case 'stay': case 'adasi': if (P && P.pid === pid && P.kinds.includes(a.type)) P.done(a); break;
       case 'deal': case 'next': if (pid === this.hostId && P && P.kinds.includes(a.type)) P.done(a); break;
       case 'rejoin': p.sitout = false; p.satOutByTimer = false; p.strikes = 0; this.log(`${esc(p.name)} rejoins`); break;
-      case 'rebuy': if (p.chips < this.wager) { if (this.canBuy && !this.canBuy(p, this.buyIn)) { this.fx({ k: 'toast', pid, t: 'Not enough free chips in your balance to rebuy. Spin the daily wheel in your profile.', ms: 4000 }); break; } p.chips += this.buyIn; p.bought = (p.bought || 0) + this.buyIn; p.sitout = false; p.broke = false; this.log(`${esc(p.name)} rebuys ${fmt(this.buyIn)}`, 'hi'); if (this.onSave) this.onSave(); } break;
+      case 'rebuy': if (p.chips < this.wager) { if (this.noRebuy && this.noRebuy(p)) { this.fx({ k: 'toast', pid, t: "Buying back in is off for you, so you're out for this game.", ms: 4000 }); break; } if (this.canBuy && !this.canBuy(p, this.buyIn)) { this.fx({ k: 'toast', pid, t: 'Not enough free chips in your balance to rebuy. Spin the daily wheel in your profile.', ms: 4000 }); break; } p.chips += this.buyIn; p.bought = (p.bought || 0) + this.buyIn; p.sitout = false; p.broke = false; this.log(`${esc(p.name)} rebuys ${fmt(this.buyIn)}`, 'hi'); if (this.onSave) this.onSave(); } break;
       case 'sb': this.proposeSB(pid, a); break;
       case 'sb_ans': this.answerSB(pid, a); break;
       case 'rebuy_all': if (pid === this.hostId && P && P.kinds.includes('rebuy_all')) P.done(a); break;
@@ -272,7 +272,7 @@ class Table {
     if (participants.length < 2) {
       S.busy = false; S.phase = 6; S.msgHost = 'Not enough players with chips for a hand. Rebuy, or wait for someone to join.'; S.sync();
       await S.waitFor(S.hostId, ['rebuy_all', 'next'], 0);
-      S.players.forEach(p => { if (p.gone) return; const need = Math.max(0, S.buyIn - p.chips); if (need && S.canBuy && !S.canBuy(p, need)) return; p.chips = Math.max(p.chips, S.buyIn); p.bought = (p.bought || 0) + need; p.sitout = false; p.satOutByTimer = false; });
+      S.players.forEach(p => { if (p.gone || (S.noRebuy && S.noRebuy(p))) return; const need = Math.max(0, S.buyIn - p.chips); if (need && S.canBuy && !S.canBuy(p, need)) return; p.chips = Math.max(p.chips, S.buyIn); p.bought = (p.bought || 0) + need; p.sitout = false; p.satOutByTimer = false; });
       return S.playHand(S.players.map(p => p.id));
     }
     if (redeal) { /* same dealer, pot stays */ } else if (S.tiebreak) S.tiebreak = false; else S.dealer = S.nextOf(S.dealer, participants);
@@ -480,6 +480,7 @@ class Table {
     const S = this, A = S.players[from], B = S.players[+a.to]; if (!A || !B || A === B || A.gone || B.gone || !S.started) return;
     const amt = Math.floor(+a.amt || 0); if (!(amt >= 5)) return;
     if (amt > A.chips) { S.fx({ k: 'toast', pid: from, t: 'Not enough chips in front of you to spray that much.' }); return; }
+    if (B.chips < S.wager && S.noRebuy && S.noRebuy(B)) { S.fx({ k: 'toast', pid: from, t: `${B.name} can't buy back in this game, so they stay out.` }); return; }
     A.chips -= amt; B.chips += amt; S.moved(A, -amt, 'spray', B); S.moved(B, amt, 'spray', A);
     S.fx({ k: 'spray', from, to: B.id, amt }); S.log(`${esc(A.name)} sprays ${esc(B.name)} ${fmt(amt)}`, 'hi');
     if (B.isBot) setTimeout(() => S.fx({ k: 'bubble', pid: B.id, t: THANKS[Math.floor(Math.random() * THANKS.length)], ms: 1800 }), 1300);
@@ -491,6 +492,7 @@ class Table {
     const S = this, A = S.players[from], B = S.players[+a.to]; if (!A || !B || A === B || A.gone || B.gone || !S.started) return;
     const amt = Math.floor(+a.amt || 0); if (!(amt >= 5)) return;
     if (amt > A.chips) { S.fx({ k: 'toast', pid: from, t: 'Not enough chips in front of you to lend that much.' }); return; }
+    if (B.chips < S.wager && S.noRebuy && S.noRebuy(B)) { S.fx({ k: 'toast', pid: from, t: `${B.name} can't buy back in this game, so they stay out.` }); return; }
     A.chips -= amt; B.chips += amt; A.bought = (A.bought || 0) - amt; B.bought = (B.bought || 0) + amt;
     S.moved(A, -amt, 'lend', B); S.moved(B, amt, 'lend', A);
     S.loans.push({ id: ++S.loanN, from, to: B.id, amt, paid: 0, fromName: A.name, toName: B.name, out: false }); if (S.loans.length > 60) S.loans.splice(0, S.loans.length - 60);
