@@ -195,7 +195,7 @@ function onMessage(m){
   if(m.type==='session'){SESSION=m.token;try{localStorage.setItem('tete.session',m.token)}catch{}if(m.quiet)return;closeModal('#m-auth');$('#au-pass').value='';if(m.welcome)setTimeout(()=>celebrate(m.welcome,'Welcome bonus','chips to start you off'),450);else toast('Signed in. Welcome back');return}
   if(m.type==='account'){setAccount(m);return}
   if(m.type==='members_role'){MO=m;renderMbrBtn();renderHostTile();return}
-  if(m.type==='members'){MBR=m;MO.waiting=m.waiting.length;renderMbrBtn();if($('#m-members').classList.contains('on'))renderMembers();return}
+  if(m.type==='members'){MBR=m;MO.waiting=m.waiting.length;renderMbrBtn();if($('#m-members').classList.contains('on')&&!document.querySelector('#m-members .topup[data-dirty]'))renderMembers();return}
   if(m.type==='members_ask'){mbrAsk(m.who);return}
   if(m.type==='invite_link'){MBR_FRESH=m.key;toast('Link ready: tap Share to send it',2600);SND('pop');if($('#m-members').classList.contains('on'))renderMembers();return}
   if(m.type==='members_out'){toGate(m.msg||'Members only',true);return}
@@ -203,7 +203,8 @@ function onMessage(m){
   // the owner topped up your balance: coins rain at the table, and if you'd run out, Rebuy gets you back in
   // the owner put your chips back to a set amount (at your table too)
   if(m.type==='reset'){toast(`♻️ ${m.from||'Meka'} reset your chips to ${fmt(m.amt)}`,4500);SND('pop',{bg:true});buzz([30,30,30]);return}
-  if(m.type==='gift'){toast(m.self?`🎁 ${fmt(m.amt)} chips added to your balance${m.out?'. Tap Rebuy to get back in':''}`:`🎁 ${m.from||'Meka'} gave you ${fmt(m.amt)} chips${m.out?'. Tap Rebuy to get back in':''}`,5000);SND('pot',{bg:true});buzz([40,30,80]);if(S&&!LOCALT)coinShower(28);return}
+  if(m.type==='totable'){toast(`🎲 ${m.from||'Meka'} put ${fmt(m.amt)} of your chips on the table`,4500);SND('pot',{bg:true});buzz([40,30,80]);if(S&&!LOCALT)coinShower(16);return}
+  if(m.type==='gift'){toast(m.self?`🎁 ${fmt(m.amt)} chips added${m.table?', on the table':' to your balance'}`:`🎁 ${m.from||'Meka'} gave you ${fmt(m.amt)} chips${m.table?', on the table':''}`,5000);SND('pot',{bg:true});buzz([40,30,80]);if(S&&!LOCALT)coinShower(28);return}
   if(m.type==='friends'){if(!ACCT)return;Object.assign(ACCT,{friends:m.friends,incoming:m.incoming,outgoing:m.outgoing});syncAcctFriends();renderFriends();renderFriendReqs();renderMeChip();return}
   if(m.type==='friend_req_in'){toast(`${m.from.name} (@${m.from.username}) wants to be friends`,3500);SND('join',{bg:true});buzz([40,30,40]);return}
   if(m.type==='friend_msg'){if($('#m-friends').classList.contains('on')){const el=$('#fr-msg');el.textContent=m.msg;el.className='fr-msg '+(m.ok?'ok':'bad');if(m.ok)$('#fr-user').value=''}else toast(m.msg,3000);if(m.ok)SND('pop');return}
@@ -518,11 +519,21 @@ function renderMembers(){
     const tp=r.querySelector('[data-top]');if(tp)tp.onclick=()=>{const was=MBR_TOP===id;body.querySelectorAll('.topup').forEach(x=>x.remove());MBR_TOP=was?null:id;if(!was)topupStrip(r)}});
   // Top up: chips from the house onto a member's balance (the owner's alone). The strip stays open across refreshes.
   function topupStrip(r){const id=r.dataset.id,self=!!(ACCT&&ACCT.user&&id===ACCT.user.id),name=self?'you':r.querySelector('.fname').firstChild.textContent,s=document.createElement('div');s.className='topup';
-    s.innerHTML=`<span>${self?'Add chips to your own balance, from the house':`Give ${esc(name)} chips from the house`}</span><div class="tamt">${TOPUPS.map(a=>`<button class="btn btn-gold" type="button" data-a="${a}">+${fmt(a)}</button>`).join('')}</div>`
+    const mem=[...((MBR&&MBR.yes)||[]),...((MBR&&MBR.owners)||[])].find(x=>x.id===id)||{},off=mem.at?(mem.spare||0):(mem.bal||0),who=self?'You have':esc(name)+' has';
+    s.innerHTML=`<span>${self?'Add chips from the house':`Give ${esc(name)} chips from the house`}${mem.at?`, onto the table at ${esc(mem.at)}`:''}</span><div class="tamt">${TOPUPS.map(a=>`<button class="btn btn-gold" type="button" data-a="${a}">+${fmt(a)}</button>`).join('')}</div>`
+      // where their chips are: on the table (their stack) and off it (the rest of their balance)
+      +(mem.at?`<span class="tline">${who} <b>${fmt(mem.stack||0)}</b> on the table at ${esc(mem.at)} and <b>${fmt(off)}</b> off it</span>`:`<span class="tline">${who} <b>${fmt(off)}</b>, and isn't sitting at a table</span>`)
+      +`<div class="tset">${mem.at?`<label>On the table<input type="number" inputmode="numeric" min="0" step="50" data-set="table" value="${mem.stack||0}"></label>`:''}<label>Off the table<input type="number" inputmode="numeric" min="0" step="50" data-set="off" value="${off}"></label><button class="btn btn-ghost" type="button" data-setgo>Set chips</button></div>`
       +`<span class="tline">${self?'Or start yourself again at exactly':`Or start ${esc(name)} again at exactly`} ${fmt(RESET_TO)}${self?'':', at their table too'}</span><button class="btn btn-ghost" type="button" data-reset>Reset to ${fmt(RESET_TO)}</button>`
       +(self?'':(()=>{const mem=((MBR&&MBR.yes)||[]).find(x=>x.id===id)||{};const sw=(k,label,off)=>`<div class="tsw"><span>${label}</span><div class="seg sm" data-flag="${k}"><button type="button" data-v="1" class="${off?'':'on'}">On</button><button type="button" data-v="0" class="${off?'on':''}">Off</button></div></div>`;
         return`<span class="tline">Rules for ${esc(name)}</span>`+sw('wheel','Daily wheel',mem.nowheel)+sw('rebuy','Buy back in when their chips run out',mem.norebuy)})());r.after(s);
     s.querySelectorAll('[data-flag]').forEach(g=>g.querySelectorAll('button').forEach(b=>b.onclick=()=>{if(b.classList.contains('on'))return;g.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));send(Object.assign({type:'member_flags',id},{[g.dataset.flag]:+b.dataset.v}));SND('pop');buzz(20)}));
+    // set exactly what they have on the table and off it (two taps); typing holds the sheet still until it's sent
+    s.querySelectorAll('[data-set]').forEach(i=>i.oninput=()=>{s.dataset.dirty='1'});
+    const sg=s.querySelector('[data-setgo]');if(sg)sg.onclick=()=>{const ti=s.querySelector('[data-set="table"]'),oi=s.querySelector('[data-set="off"]'),tv=ti?Math.floor(+ti.value):null,ov=Math.floor(+oi.value);
+      if(!(ov>=0)||(ti&&!(tv>=0))){toast('Type whole numbers of chips');return}
+      if(!sg.dataset.arm){sg.dataset.arm='1';sg.textContent='Sure? Tap again';sg.classList.replace('btn-ghost','btn-gold');toast(`${self?'You':name}: ${ti?fmt(tv)+' on the table, ':''}${fmt(ov)} off it`,3500);setTimeout(()=>{if(sg.isConnected){delete sg.dataset.arm;sg.textContent='Set chips';sg.classList.replace('btn-gold','btn-ghost')}},4000);return}
+      $$('.toast').forEach(x=>x.remove());send({type:'member_setchips',id,table:ti?tv:null,off:ov});MBR_TOP=null;delete s.dataset.dirty;s.classList.add('sent');s.innerHTML=`<span>✓ ${self?'Your':esc(name)+"'s"} chips: ${ti?fmt(tv)+' on the table, ':''}${fmt(ov)} off it</span>`;r.classList.add('gifted');SND('pop');buzz(30);setTimeout(()=>s.remove(),1800)};
     s.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{const a=+b.dataset.a;send({type:'member_topup',id,amt:a});MBR_TOP=null;s.classList.add('sent');s.innerHTML=`<span>🎁 ${fmt(a)} chips on their way to ${esc(name)}</span>`;r.classList.add('gifted');SND('pot');buzz(30);setTimeout(()=>s.remove(),1600)});
     const rs=s.querySelector('[data-reset]');rs.onclick=()=>{if(!rs.dataset.arm){rs.dataset.arm='1';rs.textContent='Sure? Tap again';rs.classList.replace('btn-ghost','btn-gold');setTimeout(()=>{if(rs.isConnected){delete rs.dataset.arm;rs.textContent=`Reset to ${fmt(RESET_TO)}`;rs.classList.replace('btn-gold','btn-ghost')}},3500);return}
       send({type:'member_reset',id});MBR_TOP=null;s.classList.add('sent');s.innerHTML=`<span>♻️ ${self?'You go':esc(name)+' goes'} back to ${fmt(RESET_TO)}</span>`;r.classList.add('gifted');SND('pop');buzz(30);setTimeout(()=>s.remove(),1600)}}

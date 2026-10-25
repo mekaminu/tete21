@@ -118,10 +118,10 @@ function spin(u) {
   return { seg, prize, balance: u.balance, bonus: bonusInfo(u) };
 }
 // the owner gives someone chips from the house (play money): straight onto their balance, written in the ledger
-async function grant(uid, amt, by) {
+async function grant(uid, amt, by, kind) {
   const u = await get(uid); if (!u) return null;
-  u.balance += amt; persist(u);
-  db.addLedger(u.id, amt, 'gift', { by }).catch(() => {});
+  u.balance = Math.max(0, u.balance + amt); persist(u);
+  db.addLedger(u.id, amt, kind || 'gift', { by }).catch(() => {});
   return u;
 }
 

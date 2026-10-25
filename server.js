@@ -125,7 +125,8 @@ function hookTable(t) {
   t.noRebuy = p => !p.isBot && !!p.uid && members.rebuyOff(p.uid); // the owner switched buying back in off for them
   t.onHandEnd = res => { for (const r of res) if (r.p.uid) { accounts.settle(r.p.uid, { delta: r.delta, played: r.played, won: r.won, adasi: r.adasi, total: r.total, table: t.tableName }); pushAccount(r.p.uid); }
     // resets the owner asked for during the hand happen now, before the next one
-    const tr = t.pendingTableReset, pr = t.pendingResets; t.pendingTableReset = null; t.pendingResets = null;
+    const tr = t.pendingTableReset, pr = t.pendingResets, ps = t.pendingSets; t.pendingTableReset = null; t.pendingResets = null; t.pendingSets = null;
+    if (ps) for (const [uid, r] of ps) setChips(uid, r.table, r.off, r.by).catch(e => console.error('set chips:', e.message));
     if (tr) resetTable(t, tr.amt, tr.by).catch(e => console.error('table reset:', e.message));
     else if (pr) for (const [uid, r] of pr) resetAccount(uid, r.amt, r.by, t).catch(e => console.error('reset:', e.message)); };
   t.onMoved = (p, delta, why, other) => { if (p.uid && delta) { const o = other ? other.name : ''; const label = why === 'spray' ? (delta > 0 ? `Spray from ${o}` : `You sprayed ${o}`) : why === 'lend' ? (delta > 0 ? `Loan from ${o}` : `You lent ${o}`) : why === 'repay' ? (delta > 0 ? `${o} paid you back` : `You paid ${o} back`) : `Treats at ${t.tableName}`; accounts.settle(p.uid, { delta, played: false, won: false, table: label }); pushAccount(p.uid); } };
@@ -150,6 +151,17 @@ function pushAccount(uid) { const u = accounts.cached(uid), o = online.get(uid);
 // balance becomes the amount too (plus chips they hold at any other table). In the middle of a hand it waits for the
 // hand to end, so the pot's books stay straight.
 function seatsOf(uid) { const out = []; for (const [, t] of tables) if (!t.closed) for (const p of t.players) if (p.uid === uid && !p.gone && !p.isBot) out.push({ t, p }); return out; }
+// the seat that counts for a player: the table they're connected to, else the first they hold
+function seatFor(uid) { const seats = seatsOf(uid); return seats.find(x => x.p.conn) || seats[0] || null; }
+// chips onto a player's stack at a table (the owner's top-up, or chips moved from their balance). Their buy-ins go up
+// by the same, so Tonight's scores don't count it as a win; in the middle of a hand the hand's books move with it.
+function addToStack(t, p, amt, line) {
+  p.chips += amt; p.bought = (p.bought || 0) + amt;
+  if (t.handStart && t.handStart.has(p)) t.handStart.set(p, t.handStart.get(p) + amt);
+  if (line) t.log(line, 'hi');
+  t.fx({ k: 'bubble', pid: p.id, t: `🎁 +${fmt(amt)}`, ms: 2600 });
+  t.sync(); if (t.persistent) saveRoom(t);
+}
 async function resetAccount(uid, amt, by, atTable, quiet) {
   const seats = seatsOf(uid);
   const s = atTable ? seats.find(x => x.t === atTable) : (seats.find(x => x.p.conn) || seats[0]);
@@ -159,6 +171,19 @@ async function resetAccount(uid, amt, by, atTable, quiet) {
   const u = await accounts.setBalance(uid, amt + others, by, { table: s ? s.t.tableName : '' }); if (!u) return '';
   if (s) { if (!quiet) s.t.log(`${escHtml(members.OWNER_NAME)} reset ${escHtml(s.p.name)}'s chips to ${fmt(amt)}`, 'hi'); s.t.sync(); if (s.t.persistent) saveRoom(s.t); }
   pushAccount(uid); const o = online.get(uid); if (o) for (const k of o.socks) send(k, { type: 'reset', amt, from: members.OWNER_NAME });
+  return 'now';
+}
+// the owner sets exactly what a player has: on the table (their stack where they sit) and off it (the rest of their
+// balance). A stack change counts as a buy-in, so Tonight's scores don't see it as a win or a loss. Mid-hand it waits.
+async function setChips(uid, onTable, off, by) {
+  const seats = seatsOf(uid), s = seats.find(x => x.p.conn) || seats[0];
+  if (s && s.t.handStart) { (s.t.pendingSets || (s.t.pendingSets = new Map())).set(uid, { table: onTable, off, by }); return 'later'; }
+  if (s) { const d = onTable - s.p.chips; s.p.chips = onTable; s.p.bought = (s.p.bought || 0) + d;
+    if (d) { s.t.log(`${escHtml(members.OWNER_NAME)} set ${escHtml(s.p.name)}'s chips to ${fmt(onTable)}`, 'hi'); s.t.fx({ k: 'bubble', pid: s.p.id, t: `${d > 0 ? '🎁 +' : '−'}${fmt(Math.abs(d))}`, ms: 2600 }); }
+    s.t.sync(); if (s.t.persistent) saveRoom(s.t); }
+  const others = seats.filter(x => x !== s).reduce((n, x) => n + x.p.chips, 0);
+  const u = await accounts.setBalance(uid, (s ? onTable : 0) + off + others, by, { table: s ? s.t.tableName : '', set: 1 }); if (!u) return '';
+  pushAccount(uid); const o = online.get(uid); if (o) for (const k of o.socks) send(k, { type: 'toast', msg: `${members.OWNER_NAME} set your chips: ${s ? `${fmt(onTable)} on the table, ` : ''}${fmt(off)} off it.` });
   return 'now';
 }
 async function resetTable(t, amt, by) {
@@ -428,7 +453,7 @@ async function membersView() {
     const have = new Set(users.map(u => u.id)), missing = Object.keys(P).filter(id => !have.has(id) && isId(id)).slice(0, 500);
     if (missing.length) users = users.concat(await accounts.usersByIds(missing));
   } catch (e) { console.error('members list:', e.message); }
-  const row = u => { const p = P[u.id] || {}; return { id: u.id, name: u.display, user: u.username, av: u.av || null, hands: (u.stats && u.stats.hands) || 0, bal: (accounts.cached(u.id) || u).balance || 0, since: u.created_at || 0, asked: p.asked || 0, at: p.at || 0, via: p.via || '', here: online.has(u.id) ? 1 : 0, nowheel: p.nowheel ? 1 : 0, norebuy: p.norebuy ? 1 : 0 }; };
+  const row = u => { const p = P[u.id] || {}; return { id: u.id, name: u.display, user: u.username, av: u.av || null, hands: (u.stats && u.stats.hands) || 0, bal: (accounts.cached(u.id) || u).balance || 0, since: u.created_at || 0, asked: p.asked || 0, at: p.at || 0, via: p.via || '', here: online.has(u.id) ? 1 : 0, nowheel: p.nowheel ? 1 : 0, norebuy: p.norebuy ? 1 : 0, ...(() => { const s = seatFor(u.id); return s ? { at: s.t.tableName, stack: s.p.chips, spare: Math.max(0, freeChips(u.id)) } : {}; })() }; };
   const v = { type: 'members', on: members.on() ? 1 : 0, forced: members.forcedOff() ? 1 : 0, waiting: [], yes: [], no: [], others: [], owners: [], invites: members.invites(),
     hosts: members.hostsAll() ? 'all' : 'owner', tables: [...tables.values()].filter(t => !t.closed).map(t => ({ rid: t.rid, lastOne: lastOne(t) ? 1 : 0, name: t.tableName, host: hostName(t), people: t.players.filter(p => !p.isBot && !p.gone).length, here: t.humansConnected(), keep: t.persistent ? 1 : 0 })) };
   for (const u of users) {
@@ -756,12 +781,21 @@ async function handle(ws, m) {
       const amt = Math.floor(+m.amt); if (!TOPUPS.includes(amt)) return;
       const who = await accounts.get(m.id).catch(() => null); if (!who) return;
       const u = await accounts.grant(who.id, amt, ws.uid); if (!u) return;
-      let out = false; for (const [, t] of tables) if (!t.closed) for (const p of t.players) if (p.uid === u.id && !p.gone && p.chips < t.wager) out = true;
+      // sitting at a table: the chips go straight onto their stack there, for everyone to see
+      const seat = seatFor(u.id); if (seat) addToStack(seat.t, seat.p, amt, `${escHtml(members.OWNER_NAME)} gave ${escHtml(seat.p.name)} ${fmt(amt)} chips`);
       const o = online.get(u.id);
       const self = u.id === ws.uid;
-      if (o) for (const s of o.socks) { send(s, { type: 'account_lite', user: accounts.pub(u), inPlay: inPlay(u.id), bonus: bonusFor(u) }); send(s, { type: 'gift', amt, from: members.OWNER_NAME, out: out ? 1 : 0, self: self ? 1 : 0 }); }
-      if (!self) send(ws, { type: 'toast', msg: `${u.display || u.username} has ${fmt(amt)} more chips${out ? '. They can tap Rebuy now' : ''}.` });
+      if (o) for (const s of o.socks) { send(s, { type: 'account_lite', user: accounts.pub(u), inPlay: inPlay(u.id), bonus: bonusFor(u) }); send(s, { type: 'gift', amt, from: members.OWNER_NAME, table: seat ? seat.t.tableName : '', self: self ? 1 : 0 }); }
+      if (!self) send(ws, { type: 'toast', msg: `${u.display || u.username} has ${fmt(amt)} more chips${seat ? ` on the table at ${seat.t.tableName}` : ''}.` });
       pushMembers(); break;
+    }
+    case 'member_setchips': { // the owner sets exactly what a player has on the table and off it
+      if (!ownerOf(ws) || !isId(m.id)) return;
+      const n = v => Math.floor(+v), onT = n(m.table), off = n(m.off);
+      if (!(off >= 0 && off <= 1e7) || (m.table != null && !(onT >= 0 && onT <= 1e7))) return send(ws, { type: 'toast', msg: 'Type whole numbers of chips.' });
+      const who = await accounts.get(m.id).catch(() => null); if (!who) return; const nm = who.display || who.username;
+      const r = await setChips(who.id, m.table != null ? onT : 0, off, ws.uid);
+      send(ws, { type: 'toast', msg: r === 'later' ? `${nm}'s chips change when this hand ends.` : `${nm}'s chips are set.` }); pushMembers(); break;
     }
     case 'member_flags': { // the owner's switches for one player: the daily wheel, and buying back in when out
       if (!ownerOf(ws) || !isId(m.id)) return;
