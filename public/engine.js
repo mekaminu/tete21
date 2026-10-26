@@ -223,6 +223,7 @@ class Table {
       case 'rebuy_all': if (pid === this.hostId && P && P.kinds.includes('rebuy_all')) P.done(a); break;
       case 'spray': this.spray(pid, a); break;
       case 'lend': this.lend(pid, a); break;
+      case 'give': this.give(pid, a); break;
       case 'repay': this.repay(pid, a); break;
       case 'settle_loan': this.settleLoan(pid, a); break;
       case 'treat': this.treat(pid, a); break;
@@ -497,6 +498,20 @@ class Table {
     S.moved(A, -amt, 'lend', B); S.moved(B, amt, 'lend', A);
     S.loans.push({ id: ++S.loanN, from, to: B.id, amt, paid: 0, fromName: A.name, toName: B.name, out: false }); if (S.loans.length > 60) S.loans.splice(0, S.loans.length - 60);
     S.fx({ k: 'lend', from, to: B.id, amt }); S.log(`${esc(A.name)} lends ${esc(B.name)} ${fmt(amt)}`, 'hi');
+    if (B.broke && B.chips >= S.wager) S.fx({ k: 'bubble', pid: B.id, t: 'Back in next hand 💪', ms: 2200 });
+    else if (B.isBot) setTimeout(() => S.fx({ k: 'bubble', pid: B.id, t: THANKS[Math.floor(Math.random() * THANKS.length)], ms: 1800 }), 1300);
+    S.sync(); if (S.onSave) S.onSave();
+  }
+  // sending chips: they're the other player's straight away, nothing written down (they settle up outside the game).
+  // Like a loan, both players' buy-ins move with it, so Tonight's scores don't count it as a win or a loss.
+  give(from, a) {
+    const S = this, A = S.players[from], B = S.players[+a.to]; if (!A || !B || A === B || A.gone || B.gone || !S.started) return;
+    const amt = Math.floor(+a.amt || 0); if (!(amt >= 5)) return;
+    if (amt > A.chips) { S.fx({ k: 'toast', pid: from, t: 'Not enough chips in front of you to send that much.' }); return; }
+    if (B.chips < S.wager && S.noRebuy && S.noRebuy(B)) { S.fx({ k: 'toast', pid: from, t: `${B.name} can't buy back in this game, so they stay out.` }); return; }
+    A.chips -= amt; B.chips += amt; A.bought = (A.bought || 0) - amt; B.bought = (B.bought || 0) + amt;
+    S.moved(A, -amt, 'give', B); S.moved(B, amt, 'give', A);
+    S.fx({ k: 'give', from, to: B.id, amt }); S.log(`${esc(A.name)} sends ${esc(B.name)} ${fmt(amt)}`, 'hi');
     if (B.broke && B.chips >= S.wager) S.fx({ k: 'bubble', pid: B.id, t: 'Back in next hand 💪', ms: 2200 });
     else if (B.isBot) setTimeout(() => S.fx({ k: 'bubble', pid: B.id, t: THANKS[Math.floor(Math.random() * THANKS.length)], ms: 1800 }), 1300);
     S.sync(); if (S.onSave) S.onSave();

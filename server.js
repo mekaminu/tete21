@@ -129,7 +129,7 @@ function hookTable(t) {
     if (ps) for (const [uid, r] of ps) setChips(uid, r.table, r.off, r.by).catch(e => console.error('set chips:', e.message));
     if (tr) resetTable(t, tr.amt, tr.by).catch(e => console.error('table reset:', e.message));
     else if (pr) for (const [uid, r] of pr) resetAccount(uid, r.amt, r.by, t).catch(e => console.error('reset:', e.message)); };
-  t.onMoved = (p, delta, why, other) => { if (p.uid && delta) { const o = other ? other.name : ''; const label = why === 'spray' ? (delta > 0 ? `Spray from ${o}` : `You sprayed ${o}`) : why === 'lend' ? (delta > 0 ? `Loan from ${o}` : `You lent ${o}`) : why === 'repay' ? (delta > 0 ? `${o} paid you back` : `You paid ${o} back`) : `Treats at ${t.tableName}`; accounts.settle(p.uid, { delta, played: false, won: false, table: label }); pushAccount(p.uid); } };
+  t.onMoved = (p, delta, why, other) => { if (p.uid && delta) { const o = other ? other.name : ''; const label = why === 'spray' ? (delta > 0 ? `Spray from ${o}` : `You sprayed ${o}`) : why === 'lend' ? (delta > 0 ? `Loan from ${o}` : `You lent ${o}`) : why === 'repay' ? (delta > 0 ? `${o} paid you back` : `You paid ${o} back`) : why === 'give' ? (delta > 0 ? `Chips from ${o}` : `You sent ${o} chips`) : `Treats at ${t.tableName}`; accounts.settle(p.uid, { delta, played: false, won: false, table: label }); pushAccount(p.uid); } };
   t.onLeave = (p, delta) => { if (p.uid && delta) { accounts.settle(p.uid, { delta, played: true, won: false, table: t.tableName }); setTimeout(() => pushAccount(p.uid), 50); } };
 }
 // the daily wheel as this player sees it: off when the owner has switched it off for them

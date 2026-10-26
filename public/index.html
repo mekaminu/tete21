@@ -907,6 +907,8 @@ button.code{cursor:pointer;margin-top:6px;font-size:clamp(22px,6vw,32px)}
 #ld-who small.out{display:block;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:#ff9a90;margin-top:1px}
 #ld-who button.on small.out{color:#8a1c12}
 .ld-other{margin-top:8px;width:100%}
+.ld-mode{display:flex;margin:2px 0 0}
+.ld-mode button{flex:1;padding:9px 8px;font-size:13.5px}
 .res-owed{margin-top:12px;padding:10px 12px;border:1px solid rgba(243,217,144,.35);border-radius:12px;background:rgba(0,0,0,.25)}
 .res-owed h3{margin:0 0 6px;font-size:14px}
 .res-owed .owe{font-size:14px;padding:3px 0}
@@ -1339,8 +1341,9 @@ html.goldt .drama .card.goldace::before{content:"";position:absolute;inset:0;bor
 <div class="modal" id="m-player"><div class="box invited"><div class="bigav" id="pl-av"></div><h2 id="pl-name">Player</h2><p id="pl-body"></p><div class="actions" id="pl-actions"></div></div></div>
 
 <div class="modal sheet" id="m-lend"><div class="box"><div class="grab"></div>
-<h2>Lend chips</h2>
-<p class="note" style="margin-top:0">From the chips in front of you. It's written down below and they can pay you back from their stack. Someone who has run out is back in from the next hand once they can cover the wager. A loan doesn't count as a win or a loss in Tonight's scores.</p>
+<h2 id="ld-title">Lend chips</h2>
+<div class="seg ld-mode" id="ld-mode"><button type="button" data-m="lend" class="on">Lend · paid back</button><button type="button" data-m="send">Send · settle outside</button></div>
+<p class="note" id="ld-note" style="margin-top:8px"></p>
 <div class="field"><label>Who to?</label><div class="opts" id="ld-who"></div></div>
 <div class="field"><label>How much?</label><div class="opts" id="ld-amts"></div><input class="ld-other" id="ld-other" type="number" min="5" step="5" inputmode="numeric" placeholder="Amount" hidden><p class="note" id="ld-mine" style="margin:6px 0 0"></p></div>
 <div class="actions"><button class="btn btn-ghost" data-close type="button">Close</button><button class="btn btn-gold" id="ld-go" type="button">Lend</button></div>

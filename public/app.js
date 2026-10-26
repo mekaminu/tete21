@@ -426,7 +426,7 @@ function openPlayer(pid){const p=S&&S.players[pid];if(!p||pid===ME||p.gone)retur
   $('#pl-name').textContent=p.name;$('#pl-body').textContent=`${fmt(p.chips)} chips${p.isBot?' · computer player':''}${p.away?' · away':''}`;
   const isF=id&&FR()[id];const canSpray=S.started&&ME>=0&&!p.gone;const broke=canSpray&&p.chips<S.wager,mine0=S.players[ME]?S.players[ME].chips:0,out=broke&&p.noBuy;
   if(broke)$('#pl-body').textContent=out?`${p.name} is out of chips, and buying back in is off for them: they're out for this game.`:`${p.name} is out of chips and sitting out. Give them a buy-in and they're back in from the next hand.`;
-  $('#pl-actions').innerHTML=(broke&&!out&&mine0>=S.buyIn?`<button class="btn btn-gold" id="pl-give">Give a buy-in (${fmt(S.buyIn)})</button>`:'')+(canSpray&&pid!==ME&&!out?`<button class="btn ${broke?'btn-gold':'btn-ghost'}" id="pl-lend">Lend 🤝</button>`:'')+(canSpray&&!out?'<button class="btn '+(broke?'btn-ghost':'btn-gold')+'" id="pl-spray">Spray money 💸</button>':'')+(canSpray?'<button class="btn btn-ghost" id="pl-treat">Send a treat 🍹</button>':'')+(p.isBot?'':(!id?'':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-ghost" id="pl-add">Add as a friend</button>'))+(HOST&&!LOCALT&&!p.isBot&&!p.gone&&!p.away&&pid!==S.hostId?'<button class="btn btn-ghost" id="pl-host">Make host</button>':'')+(HOST&&!LOCALT&&!p.gone&&pid!==S.hostId?'<button class="btn btn-ghost kickbtn" id="pl-kick">Remove from the table</button>':'')+'<button class="btn btn-ghost" data-close>Close</button>';
+  $('#pl-actions').innerHTML=(broke&&!out&&mine0>=S.buyIn?`<button class="btn btn-gold" id="pl-give">Give a buy-in (${fmt(S.buyIn)})</button>`:'')+(canSpray&&pid!==ME&&!out?`<button class="btn ${broke?'btn-gold':'btn-ghost'}" id="pl-lend">Lend 🤝</button><button class="btn btn-ghost" id="pl-send">Send chips 🪙</button>`:'')+(canSpray&&!out?'<button class="btn '+(broke?'btn-ghost':'btn-gold')+'" id="pl-spray">Spray money 💸</button>':'')+(canSpray?'<button class="btn btn-ghost" id="pl-treat">Send a treat 🍹</button>':'')+(p.isBot?'':(!id?'':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-ghost" id="pl-add">Add as a friend</button>'))+(HOST&&!LOCALT&&!p.isBot&&!p.gone&&!p.away&&pid!==S.hostId?'<button class="btn btn-ghost" id="pl-host">Make host</button>':'')+(HOST&&!LOCALT&&!p.gone&&pid!==S.hostId?'<button class="btn btn-ghost kickbtn" id="pl-kick">Remove from the table</button>':'')+'<button class="btn btn-ghost" data-close>Close</button>';
   // the host can take someone off the table, after a second tap to be sure
   const kk=$('#pl-kick');if(kk)kk.onclick=()=>{SND('flick');
     $('#pl-body').textContent=`Take ${p.name} off the table? Their seat goes${S.started&&S.phase>0&&S.phase<6?' and they\'re out of this hand':''}.${p.isBot?'':' They can only come back if you let them in.'}`;
@@ -442,7 +442,8 @@ function openPlayer(pid){const p=S&&S.players[pid];if(!p||pid===ME||p.gone)retur
     $$('#pl-body [data-amt]').forEach(b=>b.onclick=()=>{closeModal('#m-player');act({type:'spray',to:pid,amt:+b.dataset.amt})});SND('flick')};
   const tb=$('#pl-treat');if(tb)tb.onclick=()=>{closeModal('#m-player');openTreats(pid)};
   const gv=$('#pl-give');if(gv)gv.onclick=()=>{closeModal('#m-player');act({type:'spray',to:pid,amt:S.buyIn})};
-  const lb=$('#pl-lend');if(lb)lb.onclick=()=>{closeModal('#m-player');setTimeout(()=>openLend(pid),180)};
+  const lb=$('#pl-lend');if(lb)lb.onclick=()=>{closeModal('#m-player');setTimeout(()=>openLend(pid,'lend'),180)};
+  const sb=$('#pl-send');if(sb)sb.onclick=()=>{closeModal('#m-player');setTimeout(()=>openLend(pid,'send'),180)};
   openModal('#m-player');SND('flick')}
 function onPresence(list){const first=!PRES_READY;PRES_READY=true;const lobby=$('#lobby').classList.contains('on');
   for(const p of list){const was=PRES[p.id];PRES[p.id]={on:!!p.on,room:p.room||null};const f=FR()[p.id];if(!f)continue;
@@ -729,6 +730,7 @@ function runFx(e){
     case 'shuffle':shuffleFx();break;
     case 'spray':sprayFx(e.from,e.to,e.amt);break;
     case 'lend':lendFx(e.from,e.to,e.amt,e.back);break;
+    case 'give':{const a=seatEl(e.from),b=seatEl(e.to);if(a&&b&&!RM())flyChip(a,b,'c100',Math.min(6,2+Math.floor(e.amt/Math.max(1,S?S.buyIn:1000))));SND(isGold()?'coin':'chips');setTimeout(()=>bubble(e.to,`+${fmt(e.amt)} 🪙`,2000),350);if(e.to===ME){buzz([30,30,60]);toast(`🪙 ${S&&S.players[e.from]?S.players[e.from].name:'Someone'} sent you ${fmt(e.amt)} chips`,3500)}break}
     case 'treat':treatFx(e.from,e.to,e.item);break;
     case 'react':reactFx(e.pid,e.r);break;
     case 'chat':bubble(e.pid,e.t,Math.min(6500,2200+e.t.length*55),'chat');if(e.pid!==ME)SND('pop');break;
@@ -1031,13 +1033,18 @@ function renderTreats(){const others=S.players.filter(p=>!p.gone&&p.id!==ME),n=S
   $$('#treats .tbtn').forEach(b=>b.onclick=()=>{closeModal('#m-treat');act({type:'treat',item:b.dataset.item,to:TREAT_TO})})}
 $('#btn-treat').onclick=()=>openTreats('all');
 // ---------- lending: chips to someone (usually someone who has run out), written down, paid back later ----------
-let LEND_TO=null,LEND_AMT=0,ARMED={id:-1,until:0};
+let LEND_TO=null,LEND_AMT=0,LEND_MODE='lend',ARMED={id:-1,until:0};
+// Lend (written down, paid back) or Send (theirs straight away; they settle up outside the game)
+const LD_NOTE={lend:"From the chips in front of you. It's written down below and they can pay you back from their stack. Someone who has run out is back in from the next hand once they can cover the wager. A loan doesn't count as a win or a loss in Tonight's scores.",
+  send:"From the chips in front of you. They're theirs straight away: nothing is written down and there's nothing to pay back, so settle up outside the game. Someone who has run out is back in from the next hand once they can cover the wager. It doesn't count as a win or a loss in Tonight's scores."};
+$$('#ld-mode button').forEach(b=>b.onclick=()=>{LEND_MODE=b.dataset.m;renderLend();SND('flick')});
 // redraw a part of a sheet only when what it shows has changed, so a button never moves under a finger
 function setH(el,html,bind){if(!el||el._h===html)return false;el.innerHTML=html;el._h=html;if(bind)bind(el);return true}
-function openLend(to){if(!S||!S.started||ME<0){toast('Lending is for when the game is on');return}
+function openLend(to,mode){if(!S||!S.started||ME<0){toast('Lending and sending are for when the game is on');return}if(mode)LEND_MODE=mode;
   const others=S.players.filter(p=>!p.gone&&p.id!==ME);LEND_TO=to!=null?to:((others.find(p=>p.chips<S.wager)||others[0]||{}).id);LEND_AMT=0;$('#ld-other').hidden=true;$('#ld-other').value='';
   renderLend();openModal('#m-lend');SND('flick')}
 function renderLend(){if(!S||ME<0)return;const me=S.players[ME],mine=me?me.chips:0,others=S.players.filter(p=>!p.gone&&p.id!==ME);
+  $('#ld-title').textContent=LEND_MODE==='send'?'Send chips':'Lend chips';$('#ld-note').textContent=LD_NOTE[LEND_MODE];$$('#ld-mode button').forEach(b=>b.classList.toggle('on',b.dataset.m===LEND_MODE));
   if(LEND_TO!=null&&!others.some(p=>p.id===LEND_TO))LEND_TO=others.length?others[0].id:null;
   setH($('#ld-who'),others.length?others.map(p=>`<button type="button" data-to="${p.id}" class="${p.id===LEND_TO?'on':''}">${esc(p.name)}${p.chips<S.wager?' <small class="out">out of chips</small>':''}</button>`).join(''):'<span class="note" style="margin:0">Nobody else is at the table yet.</span>',
     el=>el.querySelectorAll('button').forEach(b=>b.onclick=()=>{LEND_TO=+b.dataset.to;renderLend();SND('flick')}));
@@ -1047,9 +1054,9 @@ function renderLend(){if(!S||ME<0)return;const me=S.players[ME],mine=me?me.chips
     el=>el.querySelectorAll('button').forEach(b=>b.onclick=()=>{SND('flick');if(b.dataset.v==='other'){other.hidden=false;other.focus();LEND_AMT=Math.round(+other.value)||0}else{other.hidden=true;LEND_AMT=+b.dataset.v}renderLend()}));
   lendBtn();renderLoans()}
 function lendBtn(){const me=S&&S.players[ME],mine=me?me.chips:0,tp=S&&LEND_TO!=null?S.players[LEND_TO]:null,b=$('#ld-go'),ok=!!tp&&LEND_AMT>=5&&LEND_AMT<=mine;
-  b.textContent=tp&&LEND_AMT>=5?`Lend ${fmt(LEND_AMT)} to ${tp.name}`:'Lend';b.disabled=!ok;$('#ld-mine').textContent=`You have ${fmt(mine)} in front of you.`+(LEND_AMT>mine?' Not enough for that.':'')}
+  const vb=LEND_MODE==='send'?'Send':'Lend';b.textContent=tp&&LEND_AMT>=5?`${vb} ${fmt(LEND_AMT)} to ${tp.name}`:vb;b.disabled=!ok;$('#ld-mine').textContent=`You have ${fmt(mine)} in front of you.`+(LEND_AMT>mine?' Not enough for that.':'')}
 $('#ld-other').addEventListener('input',()=>{LEND_AMT=Math.round(+$('#ld-other').value)||0;lendBtn()});
-$('#ld-go').onclick=()=>{const tp=S&&S.players[LEND_TO];if(!tp||!(LEND_AMT>=5))return;closeModal('#m-lend');act({type:'lend',to:LEND_TO,amt:LEND_AMT})};
+$('#ld-go').onclick=()=>{const tp=S&&S.players[LEND_TO];if(!tp||!(LEND_AMT>=5))return;closeModal('#m-lend');act({type:LEND_MODE==='send'?'give':'lend',to:LEND_TO,amt:LEND_AMT})};
 $('#btn-lend').onclick=()=>openLend();
 // the record: who lent whom, what's still owed; the borrower can pay back, the lender can mark it settled
 function loanRows(list,withActions){const me=S&&S.players[ME],can=me?me.chips:0;return list.map(l=>{const owe=l.amt-l.paid,who=`${esc(l.from===ME?'You':l.fromName)} → ${esc(l.to===ME?'you':l.toName)}`;
