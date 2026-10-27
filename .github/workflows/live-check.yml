@@ -19,7 +19,7 @@ jobs:
           # expect.txt names the commit that should be live (its first 7 characters): wait up to 12 minutes for /version to say so
           W=$(head -c 7 expect.txt 2>/dev/null)
           [ -z "$W" ] && exit 0
-          for i in $(seq 1 72); do v=$(curl -s --max-time 20 https://tete21.onrender.com/version); echo "$(date -u +%T) live: $v"; [ "$v" = "$W" ] && exit 0; sleep 10; done
+          for i in $(seq 1 72); do v=$(curl -s --max-time 30 https://tete21.onrender.com/version || true); echo "$(date -u +%T) live: $v"; [ "$v" = "$W" ] && exit 0; sleep 10; done
           echo "still not live after 12 minutes"
       - name: Look at the live site
         run: |
