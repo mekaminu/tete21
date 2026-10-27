@@ -184,7 +184,7 @@ for(const k of Object.keys(SEATS)){const s=SEATS[k];if(!s||!s.token||(!s.keep&&D
 function saveSeats(){try{localStorage.setItem('tete.seats',JSON.stringify(SEATS))}catch{}}
 function setCurrent(c){CURRENT=c;try{c?localStorage.setItem('tete.current',c):localStorage.removeItem('tete.current')}catch{}}
 function closeSheets(){$$('.modal.on').forEach(m=>{if(m.id!=='m-invited')m.classList.remove('on')});AFTER_NAME=null}
-function backToLobby(){goldLook(false);rtcLeaveAll();S=null;ME=-1;setTimeout(()=>{placeMarks();musicSync()},0);SIDE_MANUAL=null;SIDE_HOLD=-1;$('.room').classList.remove('with-side');$('.me').classList.remove('myturn');IDS=[];REQS=[];$('#reqs').innerHTML='';clearMotion();setTimeout(()=>{renderRooms();renderFriends()},0);$('#game').classList.remove('on');$('#lobby').classList.add('on');$('#btn-join').disabled=false;$('#btn-start').disabled=false;$('#join-note').textContent='Enter the code the host sent you. Just the last four letters works too.';
+function backToLobby(){goldLook(false);rtcLeaveAll();S=null;ME=-1;$('#series-ask').hidden=true;$('#vote-card').hidden=true;setTimeout(()=>{placeMarks();musicSync()},0);SIDE_MANUAL=null;SIDE_HOLD=-1;$('.room').classList.remove('with-side');$('.me').classList.remove('myturn');IDS=[];REQS=[];$('#reqs').innerHTML='';clearMotion();setTimeout(()=>{renderRooms();renderFriends()},0);$('#game').classList.remove('on');$('#lobby').classList.add('on');$('#btn-join').disabled=false;$('#btn-start').disabled=false;$('#join-note').textContent='Enter the code the host sent you. Just the last four letters works too.';
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches)$$('.tiles .tile').forEach((el,i)=>el.animate([{transform:'translateY(-40px) rotate(-8deg) scale(.9)',opacity:0},{transform:'translateY(0px) rotate(0deg) scale(1)',opacity:1}],{duration:520,delay:i*70,easing:'cubic-bezier(.2,1.25,.35,1)',fill:'backwards'}))}
 function onMessage(m){
   if(m.type==='joined'){hideReqbar();PENDING_JOIN=null;ME=m.id;if(m.token&&m.code!=='PRACTICE'){SEATS[m.code]=Object.assign({},SEATS[m.code],{token:m.token,rid:m.rid,keep:!!m.keep,t:Date.now()});saveSeats();setCurrent(m.code)}if(!S||$('#lobby').classList.contains('on')){S={code:m.code,players:[],sideBets:[],board:[],participants:[]};enterGame()}if(m.resumed)toast('Back at your seat');return}
@@ -676,7 +676,8 @@ function celebrate(amount,title,sub){
 // ---------- state ----------
 function applyState(o,fx){
   const prev=S;const before=prev&&prev.players&&prev.players.length?snapCards():new Map();
-  S={oh:!!o.oh,dj:o.dj==null?-1:o.dj,djTitle:o.djt||'',tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,leadBy:o.lb!=null?o.lb:-1,loans:(o.ln||[]).map(a=>({id:a[0],from:a[1],to:a[2],amt:a[3],paid:a[4],fromName:a[5],toName:a[6],out:!!a[7]})),boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,tieSplit:!!o.ts,fill:!!o.fl,pub:!!o.pb,pending:o.pc||null,
+  const tz=t=>t+(Date.now()-o.now);
+  S={oh:!!o.oh,vote:o.vt?{n:o.vt[0],kind:o.vt[1],from:o.vt[2],until:tz(o.vt[3]),yes:o.vt[4],need:o.vt[5],cards:(o.vt[6]||[]).map(dec)}:null,boardAsk:o.ba?{until:tz(o.ba[0]),cards:o.ba[1].map(dec)}:null,seriesAsk:o.sa?{until:tz(o.sa[0]),cards:o.sa[1].map(dec)}:null,canVote:!!o.cv,dj:o.dj==null?-1:o.dj,djTitle:o.djt||'',tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,leadBy:o.lb!=null?o.lb:-1,loans:(o.ln||[]).map(a=>({id:a[0],from:a[1],to:a[2],amt:a[3],paid:a[4],fromName:a[5],toName:a[6],out:!!a[7]})),boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,tieSplit:!!o.ts,fill:!!o.fl,pub:!!o.pb,pending:o.pc||null,
     players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||'',streak:a[17]||0,bought:a[18]!=null?a[18]:null,wins:a[19]||0,best:a[20]||0,voice:a[21]||null,noBuy:!!a[22],watching:!!a[23],seat:a[24]!=null?a[24]:a[0],watch:!!a[25],sitNext:!!a[26],hid:!!a[27]})),
     sideBets:o.sbs.map(a=>({id:a[0],a:a[1],b:a[2],type:a[3],amt:a[4],mine:a[5],theirs:a[6],status:a[7],result:a[8],winner:a[9],desc:sbDesc(a[3],a[5],a[6])}))};
   ME=o.me;HOST=o.host===ME;S.gold=!!o.gd;goldLook(S.gold);djRefresh();
@@ -731,6 +732,7 @@ function runFx(e){
     case 'nudge':if(e.pid===ME){nudge(e.t);SND('error');buzz(40)}break;
     case 'adasi':drama('adasi',e);break;
     case 'series':drama('series',e);break;
+    case 'salute':saluteFx(e);break;
     case 'sel':if(e.pid===ME){const el=$(`#myhand .card[data-id="${e.id}"]`);el&&el.classList.add('pop')}break;
     case 'shuffle':shuffleFx();break;
     case 'spray':sprayFx(e.from,e.to,e.amt);break;
@@ -747,7 +749,7 @@ function runFx(e){
 }
 
 // ---------- rendering ----------
-function renderAll(){const sig=S.players.map(p=>p.id+(p.isBot?'b':'h')+p.name+(p.av?JSON.stringify(p.av):'')+'@'+p.seat+(p.watch?'w':'')+(p.hid?'x':'')).join('|')+'#'+ME;const fresh=sig!==lastSig;lastSig=sig;renderSeats(fresh||lastCount!==S.players.filter(p=>!p.watch&&!p.hid).length||lastME!==ME);renderBoard();renderSide();renderMe();renderPhases()}
+function renderAll(){const sig=S.players.map(p=>p.id+(p.isBot?'b':'h')+p.name+(p.av?JSON.stringify(p.av):'')+'@'+p.seat+(p.watch?'w':'')+(p.hid?'x':'')).join('|')+'#'+ME;const fresh=sig!==lastSig;lastSig=sig;renderSeats(fresh||lastCount!==S.players.filter(p=>!p.watch&&!p.hid).length||lastME!==ME);renderBoard();renderSide();renderMe();renderPhases();renderVotes()}
 // seats round the oval; on a tall phone table, seats that would sit level with the board row are lifted
 // (or dropped) out of its way, so a face, a dropped card or a video never hides behind the cards
 function seatLayout(n,tall){
@@ -882,6 +884,44 @@ function renderSitBtn(me){const b=$('#btn-sit');if(!b)return;if(!S||LOCALT||!me|
   const st=me.sitNext?'next':me.sitout?'out':'in';if(st==='out'&&me.chips<S.wager&&!me.watching){b.hidden=true;return}
   b.hidden=false;b.dataset.st=st;b.textContent=st==='in'?'Sit out':st==='next'?'Stay in':'Deal me in';b.classList.toggle('go',st!=='in')}
 $('#btn-sit').onclick=()=>{const st=$('#btn-sit').dataset.st;act({type:'sit',out:st==='in'});SND('flick');buzz(15)};
+// ---------- the table decides together: a redeal (anyone in the hand asks, everyone has to say yes), busting a series
+// on the board that isn't in a row, and your own series (bust it or play it: only you see that) ----------
+const secs=u=>{const s=Math.max(0,Math.ceil((u-Date.now())/1000));return s+'s'};
+function renderVotes(){
+  const me=S&&S.players[ME],inHand=!!(S&&me&&!me.gone&&S.participants.includes(ME));
+  // Redeal? (two taps): in the hand, from the deal until the hands are turned over
+  const rb=$('#btn-redeal');if(rb){const show=!!(S&&!LOCALT&&S.canVote&&inHand);rb.hidden=!show;if(!show&&rb.classList.contains('arm')){rb.classList.remove('arm');rb.textContent='🔁 Redeal?'}}
+  // your series
+  const sa=$('#series-ask'),q=S&&S.seriesAsk;
+  if(q){if(sa.hidden){$('#sa-cards').innerHTML=q.cards.map(c=>cardHTML(c)).join('');sa.hidden=false;SND('turn',{bg:true});buzz([60,40,60])}sa.dataset.until=q.until}else sa.hidden=true;
+  // the table's vote, or the moment to ask about the board's series
+  const vc=$('#vote-card'),v=S&&S.vote,ba=S&&S.boardAsk;
+  if(v){
+    const f=S.players[v.from],who=v.from===ME?'You':f?f.name:'Someone',board=v.kind==='board',mine=v.need.includes(ME),said=v.yes.includes(ME),yes=v.yes.filter(id=>v.need.includes(id)).length;
+    vc.classList.toggle('board',board);$('#vc-ico').textContent=board?'💥':'🔁';
+    $('#vc-title').textContent=board?`${who} ${v.from===ME?'want':'wants'} to bust the series on the board`:`${who} ${v.from===ME?'asked':'asks'} to redeal this hand`;
+    $('#vc-sub').textContent=`Everyone in the hand has to say yes: ${yes} of ${v.need.length} so far`;
+    const key='v'+v.n+(mine&&!said?'a':'w');
+    if(vc.dataset.key!==key){vc.dataset.key=key;$('#vc-cards').innerHTML=board?v.cards.map(c=>cardHTML(c)).join(''):'';
+      $('#vc-acts').innerHTML=mine&&!said?`<button class="btn btn-gold" type="button" data-v="1">${board?'💥 Bust it':'🔁 Yes, redeal'}</button><button class="btn btn-ghost" type="button" data-v="0">No, play on</button>`:`<span class="vc-wait">${mine?'You said yes. Waiting for the others…':'The players in the hand are deciding.'}</span>`;
+      vc.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{act({type:'vote',n:v.n,yes:b.dataset.v==='1'});SND('flick');buzz(15)});
+      if(vc.hidden||mine&&!said){SND('pop',{bg:true});if(mine&&!said)buzz([40,30,40])}}
+    vc.dataset.until=v.until;vc.hidden=false;
+  }else if(ba&&inHand){
+    vc.classList.add('board');$('#vc-ico').textContent='💥';$('#vc-title').textContent='Series on the board, but not in a row';$('#vc-sub').textContent='Want it busted? Ask the table: everyone in the hand has to agree.';
+    const key='ba'+ba.cards.map(c=>c.id).join('');
+    if(vc.dataset.key!==key){vc.dataset.key=key;$('#vc-cards').innerHTML=ba.cards.map(c=>cardHTML(c)).join('');
+      $('#vc-acts').innerHTML='<button class="btn btn-gold" type="button" id="vc-ask">💥 Ask to bust it</button><button class="btn btn-ghost" type="button" id="vc-skip">Play on</button>';
+      $('#vc-ask').onclick=()=>{act({type:'board_ask'});SND('pop')};$('#vc-skip').onclick=()=>{vc.hidden=true;vc.dataset.skip=key};SND('pop',{bg:true})}
+    vc.dataset.until=ba.until;vc.hidden=vc.dataset.skip===key;
+  }else{vc.hidden=true;vc.dataset.key=''}
+}
+$('#btn-redeal').onclick=()=>{const b=$('#btn-redeal');if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='Ask everyone?';SND('flick');clearTimeout(b._t);b._t=setTimeout(()=>{b.classList.remove('arm');b.textContent='🔁 Redeal?'},3500);return}
+  clearTimeout(b._t);b.classList.remove('arm');b.textContent='🔁 Redeal?';act({type:'redeal_ask'});SND('pop');buzz(15)};
+$('#sa-bust').onclick=()=>{act({type:'series_ans',bust:true});$('#series-ask').hidden=true;buzz([30,20,60])};
+$('#sa-play').onclick=()=>{act({type:'series_ans',bust:false});$('#series-ask').hidden=true;SND('flick')};
+// the countdowns on those cards
+setInterval(()=>{const sa=$('#series-ask'),vc=$('#vote-card');if(!sa.hidden)$('#sa-time').textContent=`Busts by itself in ${secs(+sa.dataset.until)}`;if(!vc.hidden)$('#vc-time').textContent=secs(+vc.dataset.until)},250);
 // who hosts (when it's the owner, not playing), and Take host for the owner when someone else has it
 function renderHostBits(){if(!S)return;const hp=S.players[S.hostId],pill=$('#t-hostby'),tk=$('#btn-takehost');
   pill.hidden=!(hp&&hp.watch&&!hp.gone);if(!pill.hidden)pill.textContent=`👁 ${hp.name} hosts`;
@@ -988,6 +1028,17 @@ function drama(kind,e){
   if(kind==='adasi'){if(gA){coinShower(36);setTimeout(()=>coinShower(24),900);SND('goldpot',{bg:true,delay:.3})}else{confetti();setTimeout(confetti,500);setTimeout(confetti,1000)}for(const id of (e.pids||[e.pid])){const el=$('#seat-'+id);if(el){el.classList.add('winner');setTimeout(()=>el.classList.remove('winner'),3500)}}}
   buzz(kind==='adasi'?[80,40,80,40,200]:[200,60,200]);
   setTimeout(()=>d.remove(),kind==='adasi'?3500:4000);
+}
+// 7 7 7: the whole table salutes (a 🫡 goes up over every other seat, round the table)
+function saluteFx(e){
+  const fx=$('#fx');$$('.drama').forEach(d=>d.remove());SND('salute',{bg:true});
+  const cards=(e.cards||[]).map(dec),d=document.createElement('div');d.className='drama salute';
+  d.innerHTML=`<div class="dim"></div><div class="inner"><div class="cards">${cards.map(c=>cardHTML(c,isGold()?'goldace':'')).join('')}</div><div class="word">SALUTE!</div><div class="sub">7 · 7 · 7 — everyone salutes ${esc(e.who)} 🫡</div></div>`;
+  fx.appendChild(d);
+  const el=$('#seat-'+e.pid);if(el){el.classList.add('winner');setTimeout(()=>el.classList.remove('winner'),3800)}
+  const ring=S?S.players.filter(p=>!p.watch&&!p.hid&&!p.gone&&p.id!==e.pid):[];ring.forEach((p,i)=>setTimeout(()=>bubble(p.id,'🫡',2200),500+i*160));
+  if(isGold()){coinShower(28);setTimeout(()=>coinShower(18),800)}else{confetti();setTimeout(confetti,600)}
+  buzz([60,40,60,40,160]);setTimeout(()=>d.remove(),3500);
 }
 function banner(text,cls){const b=document.createElement('div');b.className='banner'+(cls?' '+cls:'');b.textContent=text;$('#fx').appendChild(b);setTimeout(()=>b.remove(),2300)}
 // confetti that really falls the whole way down whatever it rains on

@@ -75,6 +75,13 @@
       for (let i = 0; i < 14; i++) tone(t + 0.4 + i * 0.07, { f: N.C6 * Math.pow(2, (i % 7) / 7), dur: 0.2, gain: 0.06, wet: 0.6 });
       tone(t + 0.32, { f: 65, dur: 0.5, gain: 0.4, slideTo: 45 });
     },
+    // 777: a snare roll and a bugle call while the table salutes
+    salute(t) {
+      for (let i = 0; i < 7; i++) burst(t + i * 0.045, { dur: 0.04, freq: 1800, q: 1.2, gain: 0.12 });
+      [[N.G4, 0], [N.C5, 0.16], [N.E5, 0.32], [N.G5, 0.48]].forEach(([f, d]) => brass(t + 0.34 + d, f, d === 0.48 ? 1.15 : 0.14, 0.13));
+      [N.C5, N.E5].forEach(f => brass(t + 0.82, f, 0.95, 0.08)); tone(t + 0.82, { f: 65, dur: 0.5, gain: 0.3, slideTo: 50 });
+      SOUNDS.sparkle(t + 1.05);
+    },
     series(t) {
       tone(t, { f: 80, dur: 0.5, gain: 0.5, slideTo: 38 }); burst(t, { dur: 0.12, freq: 400, q: 0.8, gain: 0.4, type: 'lowpass' });
       [N.D4, N.Cs4, N.C4, N.B3].forEach((f, i) => brass(t + 0.35 + i * 0.28, f, i === 3 ? 0.9 : 0.26, 0.12));

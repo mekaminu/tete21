@@ -212,6 +212,7 @@ class Table {
     clearTimeout(p.awayT); p.gone = true; p.away = false; p.conn = null; this.log(note || `${esc(p.name)} left the table`);
     if (this.handStart && this.handStart.has(p)) { const start = this.handStart.get(p); this.handStart.delete(p); if (this.onLeave) try { this.onLeave(p, p.chips - start); } catch (e) { console.error('leave hook', e); } }
     if (this.pend && this.pend.pid === p.id) this.pend.done(null);
+    if (this.vote) this.checkVote();
     if (id === this.hostId) { const h = this.players.find(x => !x.isBot && !x.gone && x.conn) || this.players.find(x => !x.isBot && !x.gone); if (h) { this.hostId = h.id; this.log(`${esc(h.name)} is now the host`, 'hi'); } }
     if (!this.started) this.compact();
     if (this.onSave) this.onSave();
@@ -290,7 +291,13 @@ class Table {
   snapshot(forId) {
     const S = this;
     return {
-      now: Date.now(), gd: S.gold ? 1 : 0, oh: S.ownerIsHost() ? 1 : 0, dj: S.dj, djt: S.dj >= 0 ? S.djTitle : '', tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, lb: S.leadBy, ln: S.loans.map(l => [l.id, l.from, l.to, l.amt, l.paid, l.fromName, l.toName, l.out ? 1 : 0]), bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), bw: S.board.map(c => (c && c.taken && c.by != null ? c.by : -1)), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0, fl: S.fill ? 1 : 0, pb: S.pub ? 1 : 0, pc: S.pendingCfg || null,
+      now: Date.now(), gd: S.gold ? 1 : 0, oh: S.ownerIsHost() ? 1 : 0,
+      // a vote on the table (redeal, or busting the board's series), the window to ask about a series on the board
+      // that isn't in a row, your own series to bust or play (only you see it), and whether a redeal can be asked now
+      vt: S.vote ? [S.vote.n, S.vote.kind, S.vote.from, S.vote.until, [...S.vote.yes], S.voters().map(p => p.id), (S.vote.cards || []).map(enc)] : null,
+      ba: S.boardAsk ? [S.boardAsk.until, S.boardAsk.cards.map(enc)] : null,
+      sa: S.seriesAsk && S.seriesAsk.pid === forId ? [S.seriesAsk.until, S.seriesAsk.cards.map(enc)] : null,
+      cv: S.canVote() && !S.vote && (S.participants || []).includes(forId) ? 1 : 0, dj: S.dj, djt: S.dj >= 0 ? S.djTitle : '', tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, lb: S.leadBy, ln: S.loans.map(l => [l.id, l.from, l.to, l.amt, l.paid, l.fromName, l.toName, l.out ? 1 : 0]), bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), bw: S.board.map(c => (c && c.taken && c.by != null ? c.by : -1)), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0, fl: S.fill ? 1 : 0, pb: S.pub ? 1 : 0, pc: S.pendingCfg || null,
       pl: S.players.map(p => { const show = p.id === forId || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0, p.away ? 1 : 0, p.color, p.treat || '', p.streak || 0, p.bought || 0, p.wins || 0, p.best || 0, p.voice || null, !p.isBot && S.noRebuy && S.noRebuy(p) ? 1 : 0, p.watching ? 1 : 0, p.seat != null ? p.seat : p.id, p.watch ? 1 : 0, p.sitNext ? 1 : 0, p.hid ? 1 : 0]; }),
       sbs: S.sideBets.slice(-8).map(b => [b.id, b.a, b.b, b.type, b.amt, b.mine, b.theirs, b.status, b.result || '', b.winner ?? -1]),
     };
@@ -299,13 +306,84 @@ class Table {
   // ----- actions from clients -----
   waitFor(pid, kinds, ms) {
     return new Promise(res => {
-      let to = null; const p = this.players[pid];
+      const p = this.players[pid];
       if (!p || p.gone) { res(null); return; }
       if (!(ms > 0) && !p.isBot && !p.conn) ms = 30000;
-      const P = { pid, kinds, timed: ms > 0, done: a => { clearTimeout(to); if (this.pend === P) this.pend = null; res(a); } };
+      const P = { pid, kinds, timed: ms > 0, to: null, end: 0, left: null, done: a => { clearTimeout(P.to); if (this.pend === P) this.pend = null; res(a); } };
+      P.arm = t => { clearTimeout(P.to); P.left = null; P.end = Date.now() + t; P.to = setTimeout(() => { if (this.pend === P) { this.pend = null; res(null); } }, t); };
       this.pend = P;
-      if (ms > 0) to = setTimeout(() => { if (this.pend === P) { this.pend = null; res(null); } }, ms);
+      // while the table votes on a redeal the clock waits
+      if (ms > 0) { if (this.vote) { P.left = ms; this.deadline = 0; } else P.arm(ms); }
     });
+  }
+  pauseClock() { const P = this.pend; if (P && P.timed && P.to) { clearTimeout(P.to); P.to = null; P.left = Math.max(3000, P.end - Date.now()); this.deadline = 0; } }
+  resumeClock() {
+    const P = this.pend; if (!P || !P.timed || P.to || P.left == null) return;
+    P.arm(P.left); if (this.turn === P.pid) this.deadline = P.end;
+    if (this.seriesAsk && this.seriesAsk.pid === P.pid) this.seriesAsk.until = P.end;
+  }
+  // ----- the table votes: anyone in the hand can ask to redeal it (start the hand again, the pot stays), or to bust
+  // a series on the board that isn't in a row. Everyone in the hand has to say yes; one no and play goes on.
+  // Computer players answer for themselves: happy with their cards (17 to 21 after their drop, or Adasi), they say no.
+  // The turn clock stops while they decide.
+  botLikesHand(b) {
+    if (this.adasiStands(b)) return true;
+    const h = b.hand, sum = h.reduce((a, c) => a + val(c), 0);
+    const best = b.dropped || h.length < 3 ? sum : Math.max(...h.map(c => sum - val(c)).filter(x => x <= 21), 0);
+    return best >= 17 && best <= 21;
+  }
+  voters() { return (this.participants || []).map(id => this.players[id]).filter(p => p && !p.isBot && !p.gone && !p.watch); }
+  canVote() { return !!this.handStart && this.phase >= 1 && this.phase <= 5 && !this.abortHand && !this.closed; }
+  askVote(pid, kind) {
+    const S = this, p = S.players[pid];
+    if (!p || p.isBot || p.gone || !S.participants.includes(pid) || !S.canVote() || S.vote) return;
+    if (kind === 'board' && !S.boardAsk) return;
+    const last = (S.lastAsk || (S.lastAsk = new Map())).get(pid) || 0;
+    if (Date.now() - last < 25000) { S.fx({ k: 'toast', pid, t: 'You asked a moment ago. Give it a little while.', ms: 2500 }); return; }
+    S.lastAsk.set(pid, Date.now());
+    const ms = kind === 'board' ? 15000 : 20000; S.voteN = (S.voteN || 0) + 1;
+    S.vote = { n: S.voteN, kind, from: pid, yes: new Set([pid]), until: Date.now() + ms, cards: kind === 'board' ? S.boardAsk.cards : null };
+    const n = S.voteN; S.vote.t = setTimeout(() => { if (S.vote && S.vote.n === n) S.endVote(false, ''); }, ms);
+    S.pauseClock();
+    S.log(kind === 'board' ? `${esc(p.name)} asks to bust the series on the board` : `${esc(p.name)} asks everyone to redeal this hand`, 'hi');
+    S.fx({ k: 'vote', from: pid, kind });
+    // the computer players in the hand answer after a moment
+    const bots = S.participants.map(id => S.players[id]).filter(b => b && b.isBot && !b.gone), no = bots.find(b => S.botLikesHand(b));
+    if (no) setTimeout(() => { if (S.vote && S.vote.n === n) S.endVote(false, no.name); }, 1200 + Math.random() * 900);
+    S.checkVote(); S.sync();
+  }
+  answerVote(pid, a) {
+    const S = this, v = S.vote, p = S.players[pid]; if (!v || !p || v.n !== +a.n || !S.voters().includes(p)) return;
+    if (a.yes) { v.yes.add(pid); S.checkVote(); } else S.endVote(false, p.name);
+    S.sync();
+  }
+  checkVote() {
+    const S = this, v = S.vote; if (!v || !S.voters().every(p => v.yes.has(p.id))) return;
+    if (S.participants.some(id => { const b = S.players[id]; return b && b.isBot && !b.gone && S.botLikesHand(b); })) return; // a computer player says no in a moment
+    S.endVote(true);
+  }
+  endVote(pass, who) {
+    const S = this, v = S.vote; if (!v) return; clearTimeout(v.t); S.vote = null;
+    if (pass) { S.abortHand = { kind: v.kind, cards: v.cards }; if (S.pend) S.pend.done(null); }
+    else {
+      const t = who ? `${who} said play on, so the hand carries on` : 'Not everyone said yes in time, so the hand carries on';
+      S.log(esc(t)); S.fx({ k: 'toast', t, ms: 3200 }); S.resumeClock();
+    }
+    S.sync();
+  }
+  // everyone agreed: the hand starts again with the same people and the same pot (no new wagers)
+  async restartHand(participants) {
+    const S = this, ab = S.abortHand || {}; S.abortHand = null;
+    if (S.vote) { clearTimeout(S.vote.t); S.vote = null; }
+    S.boardAsk = null; S.seriesAsk = null; S.turn = -1; S.deadline = 0; S.adasiTurn = -1; S.msgHost = ''; S.sync();
+    if (S.closed) return;
+    if (ab.kind === 'board') {
+      await sleep(300); S.fx({ k: 'series', pid: -1, cards: (ab.cards || []).map(enc), who: 'the board' });
+      S.log(`<b>Series on the board!</b> ${(ab.cards || []).map(cname).join(' ')} — everyone agreed to bust it: redeal, pot stays`, 'hi');
+      S.sideBets.forEach(b => { if (b.status === 'pending' || b.status === 'open') b.status = 'declined'; });
+      await sleep(4200);
+    } else { S.fx({ k: 'banner', t: 'REDEAL! Everyone agreed' }); S.log('<b>Everyone agreed to redeal.</b> The hand starts again and the pot stays', 'hi'); await sleep(2000); }
+    if (S.closed) return; S.handNo--; return S.playHand(participants, true);
   }
   action(pid, a, owner) {
     const p = this.players[pid]; if (!p || p.gone || !a || typeof a !== 'object') return;
@@ -314,7 +392,10 @@ class Table {
     if (p.watch && !['start', 'deal', 'next', 'rebuy_all', 'settings', 'shuffle', 'chat', 'react'].includes(a.type)) return;
     switch (a.type) {
       case 'start': if ((pid === this.hostId || !this.hostConnected()) && !this.started) this.start(); break;
-      case 'drop': case 'take': case 'stay': case 'adasi': if (P && P.pid === pid && P.kinds.includes(a.type)) P.done(a); break;
+      case 'drop': case 'take': case 'stay': case 'adasi': case 'series_ans': if (P && P.pid === pid && P.kinds.includes(a.type)) P.done(a); break;
+      case 'redeal_ask': this.askVote(pid, 'redeal'); break;
+      case 'board_ask': this.askVote(pid, 'board'); break;
+      case 'vote': this.answerVote(pid, a); break;
       case 'deal': case 'next': if (pid === this.hostId && P && P.kinds.includes(a.type)) P.done(a); break;
       case 'rejoin': this.sit(p, false); break;
       case 'sit': this.sit(p, !!a.out); break;
@@ -358,6 +439,8 @@ class Table {
   }
   adasiStands(p) { return Table.adasiStands(p.hand, p.dropped ? null : this.leadSuit); }
   static seriesIn(cards) { const m = {}; for (const c of cards) { (m[c.r] = m[c.r] || []).push(c); if (m[c.r].length === 3) return m[c.r]; } return null; }
+  // three of a kind next to each other on the board, in the order they were opened (that one busts by itself)
+  static seriesRun(cards) { for (let i = 0; i + 2 < cards.length; i++) if (cards[i] && cards[i + 1] && cards[i + 2] && cards[i].r === cards[i + 1].r && cards[i].r === cards[i + 2].r) return cards.slice(i, i + 3); return null; }
   nextOf(id, ids) { const ring = this.seatRing(); let i = ring.indexOf(id); if (i < 0) i = ring.length - 1; for (let k = 1; k <= ring.length; k++) { const n = ring[(i + k) % ring.length]; if (ids.includes(n)) return n; } return ids[0]; }
   orderFrom(start, ids) { const out = [start]; let cur = start; while (out.length < ids.length) { cur = this.nextOf(cur, ids); if (out.includes(cur)) break; out.push(cur); } return out; }
   setPhase(i) { this.phase = i; this.sync(); }
@@ -365,9 +448,9 @@ class Table {
     const S = this; if (S.closed) return;
     while (S.humansConnected() === 0) { if (S.closed) return; S.paused = true; S.sync(); await sleep(1500); }
     S.paused = false;
-    S.applyPending(); S.applyTakeovers(); S.applySeatChanges();
+    if (!redeal) { S.applyPending(); S.applyTakeovers(); S.applySeatChanges(); }
     S.busy = true; S.handNo++; S.trickWinner = null; S.leadSuit = null; S.leadBy = -1; S.board = []; S.boardSize = 0; S.boardTop = 0; S.deadline = 0; S.next = null; S.msgHost = '';
-    S.players.forEach(p => { p.hand = []; p.dropped = null; p.picked = []; p.revealed = false; if (p.watch) { p.sitout = true; return; } if (p.sitNext) { p.sitNext = false; p.sitout = true; p.watching = true; } if (p.joinedMid) { p.joinedMid = false; p.sitout = false; } if (p.gone) p.sitout = true;
+    S.players.forEach(p => { p.hand = []; p.dropped = null; p.picked = []; p.revealed = false; if (p.watch) { p.sitout = true; return; } if (p.sitNext && !redeal) { p.sitNext = false; p.sitout = true; p.watching = true; } if (p.joinedMid) { p.joinedMid = false; p.sitout = false; } if (p.gone) p.sitout = true;
       if (p.chips < S.wager) { if (!p.sitout) p.broke = true; p.sitout = true; }
       else if (p.broke && !p.gone && !p.satOutByTimer) { p.broke = false; p.sitout = false; S.log(`${esc(p.name)} is back in the game`, 'hi'); S.fx({ k: 'bubble', pid: p.id, t: "I'm back! 💪", ms: 1800 }); } });
     if (!S.tiebreak && !redeal) participants = S.players.filter(p => !p.sitout && !p.gone && !(p.away && !p.isBot)).map(p => p.id);
@@ -400,43 +483,80 @@ class Table {
     S.setPhase(1); S.fx({ k: 'shuffle' }); await sleep(1150); // the dealer riffles the deck on the felt first
     for (let r = 0; r < 3; r++) for (const id of participants) { S.players[id].hand.push(S.deck.pop()); S.sync(); await sleep(140); }
     await sleep(400);
-    if (S.series) { for (const id of participants) { const p = S.players[id]; const tri = Table.seriesIn(p.hand); if (tri) { p.revealed = true; S.sync(); await sleep(500); S.fx({ k: 'series', pid: id, cards: tri.map(enc), who: p.name }); S.log(`<b>Series!</b> ${esc(p.name)} was dealt ${tri.map(cname).join(' ')} — redeal, pot stays`, 'hi'); await sleep(4200); S.handNo--; return S.playHand(participants, true); } } }
+    if (S.abortHand) return S.restartHand(participants);
+    // a series (three of a kind) in your hand: you choose, privately, to bust it (the hand is dealt again and the pot
+    // stays, with the drama) or to play it. No answer in time, or a computer player: it busts, as it always has
+    if (S.series) for (const id of S.orderFrom(S.nextOf(S.dealer, participants), participants)) {
+      const p = S.players[id], tri = Table.seriesIn(p.hand); if (!tri) continue;
+      let bust = true;
+      if (!p.isBot && p.conn && !p.away) {
+        S.seriesAsk = { pid: id, cards: tri, until: Date.now() + 12000 }; S.msgHost = 'One moment…'; S.sync();
+        const a = await S.waitFor(id, ['series_ans'], 12000);
+        S.seriesAsk = null; S.msgHost = '';
+        if (S.abortHand) return S.restartHand(participants);
+        bust = !a || a.bust !== false;
+      }
+      if (bust) { p.revealed = true; S.sync(); await sleep(500); S.fx({ k: 'series', pid: id, cards: tri.map(enc), who: p.name }); S.log(`<b>Series!</b> ${esc(p.name)} busts ${tri.map(cname).join(' ')} — redeal, pot stays`, 'hi'); await sleep(4200); S.handNo--; return S.playHand(participants, true); }
+      S.sync();
+    }
     // 2 flush
     S.setPhase(2); S.boardSize = participants.length + 1; S.boardTop = 0; S.sync(); await sleep(300);
     for (let i = 0; i < S.boardSize; i++) { S.board.push(S.deck.pop()); S.sync(); await sleep(380); }
     S.log(`Board: ${S.board.map(cname).join(' ')}`);
-    if (S.series) { const tri = Table.seriesIn(S.board); if (tri) { await sleep(400); S.fx({ k: 'series', pid: -1, cards: tri.map(enc), who: 'the board' }); S.log(`<b>Series on the board!</b> ${tri.map(cname).join(' ')} — redeal, pot stays`, 'hi'); S.sideBets.forEach(b => { if (b.status === 'pending' || b.status === 'open') b.status = 'declined'; }); await sleep(4200); S.handNo--; return S.playHand(participants, true); } }
+    if (S.abortHand) return S.restartHand(participants);
+    if (S.series) {
+      const run = Table.seriesRun(S.board), tri = run || Table.seriesIn(S.board);
+      if (run) { await sleep(400); S.fx({ k: 'series', pid: -1, cards: run.map(enc), who: 'the board' }); S.log(`<b>Series on the board!</b> ${run.map(cname).join(' ')} in a row — redeal, pot stays`, 'hi'); S.sideBets.forEach(b => { if (b.status === 'pending' || b.status === 'open') b.status = 'declined'; }); await sleep(4200); S.handNo--; return S.playHand(participants, true); }
+      if (tri && S.voters().length) {
+        S.boardAsk = { cards: tri, until: Date.now() + 9000 };
+        S.msgHost = `Series on the board, but not in a row (${tri.map(cname).join(' ')}). Anyone in the hand can ask to bust it.`;
+        S.log(`Series on the board, not in a row: ${tri.map(cname).join(' ')}. Anyone in the hand can ask the table to bust it`, 'hi'); S.sync();
+        while (!S.closed && !S.abortHand && (S.vote || Date.now() < S.boardAsk.until)) await sleep(250);
+        S.boardAsk = null; S.msgHost = ''; S.sync();
+        if (S.abortHand) return S.restartHand(participants);
+      }
+    }
     await S.settleSideBets('flush'); await sleep(500);
+    if (S.abortHand) return S.restartHand(participants);
     // 3 drop
     S.setPhase(3); S.leadSuit = null; S.leadBy = -1;
     for (const id of S.orderFrom(S.nextOf(S.dealer, participants), participants)) {
+      if (S.abortHand) return S.restartHand(participants);
       const p = S.players[id]; let card; S.turn = id;
       if (S.adasiStands(p)) { S.adasiTurn = id; S.deadline = S.timer ? Date.now() + S.timer * 1000 : 0; S.sync();
         if (p.isBot) { await sleep(1800 + Math.random() * 800); } else { await S.waitFor(id, ['adasi'], S.timer ? S.timer * 1000 : 0); }
-        S.adasiTurn = -1; S.deadline = 0; return S.adasiWin(p, participants); }
-      if (p.isBot) { S.deadline = S.timer ? Date.now() + S.timer * 1000 : 0; S.sync(); await sleep(650 + Math.random() * 500); card = S.botDrop(p); }
+        S.adasiTurn = -1; S.deadline = 0; if (S.abortHand) return S.restartHand(participants); return S.adasiWin(p, participants); }
+      if (p.isBot) { S.deadline = S.timer ? Date.now() + S.timer * 1000 : 0; S.sync(); await sleep(650 + Math.random() * 500); if (S.abortHand) return S.restartHand(participants); card = S.botDrop(p); }
       else card = await S.humanDrop(p);
+      if (S.abortHand) return S.restartHand(participants);
+      if (!card) { S.deadline = 0; continue; }
       S.deadline = 0; p.hand = p.hand.filter(c => c !== card); p.dropped = card;
       // the first card dropped is the call: its suit is the one everyone must follow
       S.log(!S.leadSuit ? `${esc(p.name)} calls ${card.s} with ${cname(card)}` : `${esc(p.name)} drops ${cname(card)}`);
       if (!S.leadSuit) { S.leadSuit = card.s; S.leadBy = p.id; }
       S.sync(); await sleep(350);
     }
+    if (S.abortHand) return S.restartHand(participants);
     // 4 trick
     S.setPhase(4); S.turn = -1;
     const played = participants.map(id => ({ p: id, card: S.players[id].dropped })).filter(t => t.card && t.card.s === S.leadSuit).sort((a, b) => val(b.card) - val(a.card));
     const winner = played[0].p; S.trickWinner = winner; S.sync();
     S.log(`${esc(S.players[winner].name)} wins the trick (${cname(played[0].card)})`, 'hi'); S.fx({ k: 'bubble', pid: winner, t: 'Trick!' });
     await sleep(1500);
+    if (S.abortHand) return S.restartHand(participants);
     // 5 pick
     S.setPhase(5);
     for (const id of S.orderFrom(winner, participants)) {
+      if (S.abortHand) return S.restartHand(participants);
       if (S.boardTop >= S.board.length) break;
       const p = S.players[id]; S.turn = id; S.sync();
       if (S.total(p) > 21) { S.log(`${esc(p.name)} is already over 21 and can't pick`); S.fx({ k: 'bubble', pid: id, t: 'Bust' }); await sleep(900); continue; }
       if (p.isBot) { S.deadline = S.timer ? Date.now() + S.timer * 1000 : 0; S.sync(); await S.botPick(p); } else await S.humanPick(p);
       S.deadline = 0;
     }
+    if (S.abortHand) return S.restartHand(participants);
+    // too late to redeal once the hands are turned over
+    if (S.vote) { clearTimeout(S.vote.t); S.vote = null; S.resumeClock(); }
     S.turn = -1;
     // 6 reveal: hands are turned over one player at a time, in picking order. A 21 gets its moment here,
     // and only here: while people pick it stays secret, like everyone else's total
@@ -444,7 +564,9 @@ class Table {
     for (const id of S.orderFrom(winner, participants)) {
       const p = S.players[id]; if (!p || p.revealed) continue;
       p.revealed = true; S.sync();
-      if (S.total(p) === 21) { S.fx({ k: 'bubble', pid: id, t: '21!' }); await sleep(1500); } else await sleep(650);
+      // 7 7 7 after the drop and the picks: 21 the hard way, and the whole table salutes
+      if (p.hand.length === 3 && p.hand.every(c => c.r === '7')) { S.fx({ k: 'salute', pid: id, who: p.name, cards: p.hand.map(enc) }); S.log(`<b>7 7 7!</b> Everyone salutes ${esc(p.name)} 🫡`, 'win'); await sleep(3600); }
+      else if (S.total(p) === 21) { S.fx({ k: 'bubble', pid: id, t: '21!' }); await sleep(1500); } else await sleep(650);
     }
     S.players.forEach(p => (p.revealed = true)); S.sync(); await sleep(350);
     const live = participants.map(id => S.players[id]).filter(p => S.total(p) <= 21);
@@ -659,7 +781,8 @@ class Table {
   async humanDrop(p) {
     const S = this; const ms = S.timer ? S.timer * 1000 : 0; S.deadline = ms ? Date.now() + ms : 0; S.sync(); const end = Date.now() + ms;
     for (;;) {
-      const a = await S.waitFor(p.id, ['drop'], ms ? Math.max(50, end - Date.now()) : 0);
+      const a = await S.waitFor(p.id, ['drop'], ms ? Math.max(4000, end - Date.now()) : 0);
+      if (!a && S.abortHand) return null;
       if (!a) { if (!p.gone) S.strike(p); const must = S.leadSuit && p.hand.some(c => c.s === S.leadSuit); const legal = must ? p.hand.filter(c => c.s === S.leadSuit) : p.hand.slice(); legal.sort((x, y) => val(x) - val(y)); return legal.find(x => p.hand.filter(y => y !== x).reduce((s, y) => s + val(y), 0) <= 21) || legal[0]; }
       const c = p.hand.find(x => x.id === a.card); if (!c) continue;
       const must = S.leadSuit && p.hand.some(x => x.s === S.leadSuit); if (must && c.s !== S.leadSuit) { S.fx({ k: 'nudge', pid: p.id, t: `You hold a ${S.leadSuit}, so you have to follow suit.` }); continue; }
@@ -677,6 +800,7 @@ class Table {
       if (t + val(c) > 21) { S.deadline = 0; S.sync(); await sleep(1100); S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); S.log(`${esc(p.name)} stays`); break; }
       const ms = S.timer ? S.timer * 1000 : 0; S.deadline = ms ? Date.now() + ms : 0; S.sync();
       const a = await S.waitFor(p.id, ['take'], ms);
+      if (S.abortHand) return;
       if (p.gone) break;
       if (a) p.strikes = 0; else { S.strike(p); S.log(`${esc(p.name)}'s time ran out, so ${cname(c)} is given to them`); }
       S.takeCard(p, c); S.fx({ k: 'sel', pid: p.id, id: c.id }); S.log(`${esc(p.name)} takes ${cname(c)}`);
@@ -696,6 +820,7 @@ class Table {
     // the same rule as everyone: keep taking while the next card keeps you on 21 or under
     while (S.boardTop < S.board.length) {
       const c = S.board[S.boardTop]; const t = S.total(p); await sleep(700 + Math.random() * 500);
+      if (S.abortHand) return;
       if (t + val(c) > 21) { S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); S.log(`${esc(p.name)} stays`); break; }
       S.takeCard(p, c); S.fx({ k: 'bubble', pid: p.id, t: `Takes ${cname(c)}` }); S.log(`${esc(p.name)} takes ${cname(c)}`);
       if (S.total(p) === 21) { await sleep(400); S.fx({ k: 'bubble', pid: p.id, t: 'Stay' }); S.log(`${esc(p.name)} stays`); break; }
