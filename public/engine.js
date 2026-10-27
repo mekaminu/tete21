@@ -59,7 +59,7 @@ class Table {
     this.djTitle = '';        // what they're playing, when it has a name (a song file's name)
     this.createdAt = Date.now(); this.lastActivity = Date.now();
   }
-  log(t, cls = '') { this.fx({ k: 'log', t, cls }); }
+  log(t, cls = '') { const b = this.logBuf || (this.logBuf = []); b.push({ at: Date.now(), t, cls }); if (b.length > 600) b.splice(0, b.length - 500); this.logDirty = true; this.fx({ k: 'log', t, cls }); }
   fx(e) { e.n = ++this.fxn; this.fxq.push(e); if (this.fxq.length > 40) this.fxq.shift(); this.sync(); }
   sync() { this.lastActivity = Date.now(); if (this._syncT) return; this._syncT = setTimeout(() => { this._syncT = null; this.send(this); }, 40); }
 
@@ -187,7 +187,7 @@ class Table {
   disconnect(id) {
     const p = this.players[id]; if (!p || p.gone || p.isBot) return;
     if (this.dj === id) { this.dj = -1; this.djTitle = ''; }
-    p.conn = null; p.away = true; this.log(`${esc(p.name)} lost connection — seat held`);
+    p.conn = null; p.away = true; this.log(p.watch ? `${esc(p.name)} stepped away${this.hostId === id ? ' (still the host)' : ''}` : `${esc(p.name)} lost connection — seat held`);
     clearTimeout(p.awayT); if (!this.persistent && !p.watch) p.awayT = setTimeout(() => { if (p.away && !p.conn) this.removeHuman(id); }, 120000);
     const P = this.pend; if (P && P.pid === id && !P.timed) setTimeout(() => { if (this.pend === P && !p.conn) P.done(null); }, 30000);
     this.sync(); if (this.onSave) this.onSave();
@@ -272,12 +272,13 @@ class Table {
   // ----- persistence (between hands) -----
   toJSON(hashFn) {
     const S = this;
-    return { code: S.code, cfg: { buyIn: S.buyIn, wager: S.wager, tableName: S.tableName, timer: S.timer, seats: S.seats, fill: S.fill, side: S.side, series: S.series, tie: S.tieSplit ? 'split' : 'playoff', keep: true, pub: S.pub, gold: S.gold, rid: S.rid }, pending: S.pendingCfg || null, loans: S.loans, removed: [...S.removed].slice(-100), pot: S.pot, handNo: S.handNo, dealer: S.dealer, hostId: S.hostId, createdAt: S.createdAt,
+    return { code: S.code, cfg: { buyIn: S.buyIn, wager: S.wager, tableName: S.tableName, timer: S.timer, seats: S.seats, fill: S.fill, side: S.side, series: S.series, tie: S.tieSplit ? 'split' : 'playoff', keep: true, pub: S.pub, gold: S.gold, rid: S.rid }, pending: S.pendingCfg || null, loans: S.loans, removed: [...S.removed].slice(-100), hostFor: S.hostFor || null, pot: S.pot, handNo: S.handNo, dealer: S.dealer, hostId: S.hostId, createdAt: S.createdAt,
       players: S.players.filter(p => !p.isBot && !p.gone).map(p => ({ id: p.id, name: p.name, chips: p.chips, av: p.av, color: p.color, uid: p.uid || null, streak: p.streak || 0, bought: p.bought || 0, wins: p.wins || 0, best: p.best || 0, seat: p.seat, watch: p.watch ? 1 : 0, tokenHash: p.tokenHash || (p.token && hashFn ? hashFn(p.token) : null) })) };
   }
   static fromJSON(o, send) {
     const t = new Table(o.code, o.cfg, send); t.pendingCfg = o.pending && typeof o.pending === 'object' ? o.pending : null; t.pot = o.pot || 0; t.handNo = o.handNo || 0; t.createdAt = o.createdAt || Date.now(); t.persistent = true;
     t.removed = new Set(Array.isArray(o.removed) ? o.removed.filter(x => typeof x === 'string' && x.length <= 80).slice(-100) : []);
+    t.hostFor = typeof o.hostFor === 'string' && /^[0-9a-f]{16}$/.test(o.hostFor) ? o.hostFor : null;
     // compact ids so seats are contiguous; everyone is away until they resume
     o.players.forEach((q, i) => { const p = t.mkPlayer(i, cleanName(q.name) || 'Guest', false); p.chips = Math.max(0, Math.floor(+q.chips || 0)); p.av = cleanAv(q.av); p.token = null; p.tokenHash = typeof q.tokenHash === 'string' ? q.tokenHash : null; p.uid = typeof q.uid === 'string' && /^[0-9a-f]{16}$/.test(q.uid) ? q.uid : null; p.streak = Math.max(0, Math.min(99, q.streak | 0)); p.bought = q.bought != null && isFinite(+q.bought) ? Math.floor(+q.bought) : t.buyIn; p.wins = Math.max(0, q.wins | 0); p.best = Math.max(0, q.best | 0); p.away = true; p.oldId = q.id; p.seat = isFinite(+q.seat) && q.seat !== null ? +q.seat : i; if (q.watch) { p.watch = true; p.sitout = true; p.chips = 0; p.bought = 0; } t.players.push(p); });
     const host = t.players.find(p => p.oldId === o.hostId); t.hostId = host ? host.id : 0; t.dealer = t.players.length - 1;

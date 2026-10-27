@@ -111,7 +111,7 @@ function restoreFromSeal(o) {
 
 // ---------- accounts at the tables ----------
 // your balance backs the chips in front of you; each hand's result lands on it when the hand ends
-function inPlay(uid) { const out = []; if (!uid) return out; for (const [, t] of tables) { if (t.closed) continue; for (const p of t.players) if (p.uid === uid && !p.gone && !p.isBot) out.push({ rid: t.rid, code: t.code.toUpperCase(), name: t.tableName, chips: p.chips, keep: t.persistent ? 1 : 0, here: p.conn ? 1 : 0 }); } return out; }
+function inPlay(uid) { const out = []; if (!uid) return out; for (const [, t] of tables) { if (t.closed) continue; for (const p of t.players) if (p.uid === uid && !p.gone && !p.isBot) out.push({ rid: t.rid, code: t.code.toUpperCase(), name: t.tableName, chips: p.chips, keep: t.persistent ? 1 : 0, here: p.conn ? 1 : 0, watch: p.watch ? 1 : 0 }); } return out; }
 const inPlayTotal = uid => inPlay(uid).reduce((a, x) => a + x.chips, 0);
 function freeChips(uid) { const u = accounts.cached(uid); return u ? u.balance - inPlayTotal(uid) : 0; }
 function sitError(ws, t) {
@@ -323,6 +323,12 @@ function enter(ws, t, r, resumed) {
   cancelRequest(ws);
   if (r.prev && r.prev !== ws) { const old = r.prev; old.table = null; old.pid = -1; send(old, { type: 'gone', code: t.code.toUpperCase(), msg: 'You opened this table on another screen.' }); }
   ws.table = t; ws.pid = r.id; ws.lastFx = t.fxn; setVoice(t, t.players[r.id], ws.me);
+  const me = t.players[r.id];
+  if (t.hostFor && me && !me.watch && !me.isBot && me.uid === t.hostFor) {
+    t.hostFor = null; t.hostId = me.id; t.log(`${escHtml(me.name)} is the host (${escHtml(members.OWNER_NAME)} handed it over)`, 'hi');
+    t.fx({ k: 'toast', pid: me.id, t: `${members.OWNER_NAME} made you the host of ${t.tableName}. You run the table: starting hands, settings and letting people in.`, ms: 6000 });
+    listDirty = true; pushMembers();
+  }
   send(ws, { type: 'joined', code: t.code.toUpperCase(), rid: t.rid, id: r.id, token: r.token, resumed: !!resumed, keep: t.persistent ? 1 : 0 });
   send(ws, { type: 'logs', items: t.fxq.filter(e => e.k === 'log').slice(-25) });
   t.sync(); if (t.persistent) saveRoom(t);
@@ -501,7 +507,7 @@ async function membersView() {
   } catch (e) { console.error('members list:', e.message); }
   const row = u => { const p = P[u.id] || {}; return { id: u.id, name: u.display, user: u.username, av: u.av || null, hands: (u.stats && u.stats.hands) || 0, bal: (accounts.cached(u.id) || u).balance || 0, since: u.created_at || 0, asked: p.asked || 0, at: p.at || 0, via: p.via || '', here: online.has(u.id) ? 1 : 0, nowheel: p.nowheel ? 1 : 0, norebuy: p.norebuy ? 1 : 0, ...(() => { const s = seatFor(u.id); return s ? { tbl: s.t.tableName, stack: s.p.chips, spare: Math.max(0, freeChips(u.id)) } : {}; })() }; }; // tbl, not at: at is when they asked
   const v = { type: 'members', on: members.on() ? 1 : 0, forced: members.forcedOff() ? 1 : 0, waiting: [], yes: [], no: [], others: [], owners: [], invites: members.invites(),
-    hosts: members.hostsAll() ? 'all' : 'owner', tables: [...tables.values()].filter(t => !t.closed).map(t => ({ rid: t.rid, lastOne: lastOne(t) ? 1 : 0, ownerHosts: t.ownerIsHost() ? 1 : 0, name: t.tableName, host: hostName(t), people: t.players.filter(p => !p.isBot && !p.gone && !p.watch).length, here: t.humansConnected(), keep: t.persistent ? 1 : 0 })) };
+    hosts: members.hostsAll() ? 'all' : 'owner', tables: [...tables.values()].filter(t => !t.closed).map(t => ({ rid: t.rid, lastOne: lastOne(t) ? 1 : 0, ownerHosts: t.ownerIsHost() ? 1 : 0, name: t.tableName, host: hostName(t), seated: t.players.filter(p => !p.isBot && !p.gone && !p.watch).map(p => [p.id, p.name, p.uid || '']), hostFor: t.hostFor ? ((accounts.cached(t.hostFor) || {}).display || 'someone') : '', hostForId: t.hostFor || '', people: t.players.filter(p => !p.isBot && !p.gone && !p.watch).length, here: t.humansConnected(), keep: t.persistent ? 1 : 0 })) };
   for (const u of users) {
     if (members.isOwner(u)) { v.owners.push(row(u)); continue; } // the owner tops himself up from his own row
     const s = (P[u.id] || {}).s;
@@ -726,12 +732,16 @@ async function handle(ws, m) {
     case 'host': {
       if (!members.canHost(ws.uid ? accounts.cached(ws.uid) : null)) return send(ws, { type: 'error', msg: `Only ${members.OWNER_NAME} can open tables for now. Join a table with its code, or play a practice game.` });
       if (!cleanName(m.name)) return send(ws, { type: 'error', msg: 'Type your name first.' });
-      const cfg = Object.assign({}, m.cfg || {}); delete cfg.rid;
+      // the owner can open a table without sitting at it: hosting only, no seat or chips, and it stays open while
+      // nobody's there, ready to hand to someone (Members > Tables > Hand to)
+      const hostOnly = !!(m.cfg && m.cfg.hostOnly) && ownerOf(ws);
+      const cfg = Object.assign({}, m.cfg || {}); delete cfg.rid; delete cfg.hostOnly; if (hostOnly) cfg.keep = true;
       if (cfg.gold && !members.canGold(accounts.cached(ws.uid))) delete cfg.gold; // a Gold table is the owner's to open, for now
       const t = new Table(newCode(), cfg, broadcast);
-      const err = sitError(ws, t); if (err) return send(ws, { type: 'error', msg: err, need: 'chips' });
+      if (!hostOnly) { const err = sitError(ws, t); if (err) return send(ws, { type: 'error', msg: err, need: 'chips' }); }
       if (T) leave(ws);
       register(t);
+      if (hostOnly) { const u = accounts.cached(ws.uid), r = t.addWatcher(ws, (u && u.display) || cleanName(m.name), (u && u.av) || m.av, ws.uid); t.takeHost(r.id); enter(ws, t, r, false); persistAll(); pushMembers(); break; }
       const r = t.addHuman(ws, m.name, m.av, m.mic, m.cam, ws.uid); t.hostId = r.id;
       enter(ws, t, r, false); break;
     }
@@ -865,6 +875,33 @@ async function handle(ws, m) {
       t.log(on ? `${escHtml(members.OWNER_NAME)} made it last one standing: no daily wheel and no buying back in` : `${escHtml(members.OWNER_NAME)} switched the daily wheel and buying back in on again`, 'hi'); t.sync();
       send(ws, { type: 'toast', msg: on ? `Last one standing at ${t.tableName}: no wheel, no buying back in.` : `The wheel and buying back in are on again at ${t.tableName}.` }); pushMembers(); break;
     }
+    case 'table_handto': { // the owner hands a table to someone: at the table now, or when they next sit down there
+      if (!ownerOf(ws)) return;
+      const t = byRid.get(String(m.rid || '')); if (!t || t.closed) return send(ws, { type: 'toast', msg: 'That table has closed.' });
+      const makeHost = p => {
+        t.hostId = p.id; t.hostFor = null; t.log(`${escHtml(members.OWNER_NAME)} made ${escHtml(p.name)} the host`, 'hi');
+        t.fx({ k: 'toast', pid: p.id, t: `${members.OWNER_NAME} made you the host of ${t.tableName}. You run the table: starting hands, settings and letting people in.`, ms: 6000 }); t.sync();
+        send(ws, { type: 'toast', msg: `${p.name} is the host of ${t.tableName} now.` });
+      };
+      if (m.pid != null) { const p = t.players[Math.floor(+m.pid)]; if (!p || p.isBot || p.gone || p.watch) return; makeHost(p); }
+      else if (isId(m.uid)) {
+        const u = await accounts.get(m.uid).catch(() => null); if (!u) return;
+        const here = t.players.find(x => !x.isBot && !x.gone && !x.watch && x.uid === u.id);
+        if (here) makeHost(here);
+        else {
+          t.hostFor = u.id; t.log(`${escHtml(members.OWNER_NAME)} has asked ${escHtml(u.display || u.username)} to host: they take over when they sit down`, 'hi'); t.sync();
+          const o = online.get(u.id); if (o) for (const k of o.socks) send(k, { type: 'toast', msg: `${members.OWNER_NAME} has set up ${t.tableName} for you to host. Find it in Rooms and tap Join.` });
+          send(ws, { type: 'toast', msg: `${u.display || u.username} becomes the host when they sit down at ${t.tableName}.` });
+        }
+      } else if (m.uid === null) { t.hostFor = null; t.sync(); }
+      if (t.persistent) saveRoom(t); listDirty = true; pushMembers(); break;
+    }
+    case 'table_log': { // the table's log, for the owner, from outside the table
+      if (!ownerOf(ws)) return;
+      const t = byRid.get(String(m.rid || '')); if (!t) return send(ws, { type: 'toast', msg: 'That table has closed.' });
+      await loadLog(t);
+      send(ws, { type: 'table_log', rid: t.rid, name: t.tableName, lines: (t.logBuf || []).slice(-300) }); break;
+    }
     case 'table_hist': {
       if (!ownerOf(ws)) return;
       const t = byRid.get(String(m.rid || ''));
@@ -939,6 +976,16 @@ async function handle(ws, m) {
 }
 
 // rooms list to everyone in the lobby when something changes
+// each table's log is saved (the last 400 lines) while it changes, so the owner can still read it after a restart
+async function loadLog(t) { // after a restart: the lines saved before it, then the new ones
+  if (t.logLoaded) return; t.logLoaded = true;
+  const old = await accounts.kvGet('log:' + t.rid).catch(() => null);
+  if (Array.isArray(old) && old.length) { const cur = t.logBuf || [], first = cur.length ? cur[0].at : Infinity; t.logBuf = old.filter(x => x && x.at < first).concat(cur).slice(-500); }
+}
+setInterval(() => {
+  if (!accounts.isReady()) return;
+  for (const [, t] of tables) if (t.logDirty && !t.closed && t.rid) { t.logDirty = false; loadLog(t).then(() => accounts.kvSet('log:' + t.rid, (t.logBuf || []).slice(-400))).catch(e => console.error('log save:', e.message)); }
+}, 20000);
 setInterval(() => {
   if (!listDirty) return; listDirty = false;
   const json = roomsJSON(); if (json === lastListJSON) return; lastListJSON = json;

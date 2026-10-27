@@ -10,7 +10,7 @@ const fmt=n=>(+n||0).toLocaleString('en-GB');
 
 let S=null, ME=-1, WS=null, CONNECTED=false, HOST=false;
 let lastCount=0, lastME=null, lastSig='';
-let cfg={fill:true,side:true,series:false,tie:'playoff',keep:false,pub:false,soloSeries:false,gold:false,soloGold:false};
+let cfg={fill:true,side:true,series:false,tie:'playoff',keep:false,pub:false,soloSeries:false,gold:false,soloGold:false,hostOnly:false};
 let AFTER_NAME=null;
 const AVS={mic:false,cam:false,spk:true};
 const LOG=[];
@@ -143,8 +143,8 @@ function onOpt(k){if(k==='f-seats')seatsHint();updateMoreSum()}
 function seatsHint(){const n=+$('#f-seats').value;$('#seats-hint').textContent=n>6?'Two decks · 72 cards':'One deck · 36 cards'}
 function updateMoreSum(){const t=+$('#f-timer').value;$('#more-sum').textContent=[t?t+'s timer':'relaxed timer',cfg.fill?'computer fills seats':'seats stay empty',cfg.side?'side bets on':'no side bets',cfg.series?'series on':'',cfg.tie==='split'?'ties split':'',cfg.keep?'stays open':''].filter(Boolean).join(' · ')}
 function pair(onId,offId,key,onVal=true,offVal=false){$('#'+onId).onclick=()=>{cfg[key]=onVal;syncSegs();updateMoreSum();SND('flick')};$('#'+offId).onclick=()=>{cfg[key]=offVal;syncSegs();updateMoreSum();SND('flick')}}
-pair('fill-on','fill-off','fill');pair('sb-on','sb-off','side');pair('sr-on','sr-off','series');pair('keep-on','keep-off','keep');pair('pub-on','pub-off','pub');pair('tie-split','tie-playoff','tie','split','playoff');pair('ssr-on','ssr-off','soloSeries');pair('gold-on','gold-off','gold');pair('sgold-on','sgold-off','soloGold');
-function syncSegs(){$('#pub-hint').textContent=cfg.pub?'Anyone can sit down straight from the Open tables list.':'Friends need the code or your OK to sit down.';for(const [a,b,v] of [['fill-on','fill-off',cfg.fill],['sb-on','sb-off',cfg.side],['sr-on','sr-off',cfg.series],['keep-on','keep-off',cfg.keep],['pub-on','pub-off',cfg.pub],['tie-split','tie-playoff',cfg.tie==='split'],['ssr-on','ssr-off',cfg.soloSeries],['gold-on','gold-off',cfg.gold],['sgold-on','sgold-off',cfg.soloGold]]){$('#'+a).classList.toggle('on',!!v);$('#'+b).classList.toggle('on',!v)}}
+pair('fill-on','fill-off','fill');pair('sb-on','sb-off','side');pair('sr-on','sr-off','series');pair('keep-on','keep-off','keep');pair('pub-on','pub-off','pub');pair('tie-split','tie-playoff','tie','split','playoff');pair('ssr-on','ssr-off','soloSeries');pair('gold-on','gold-off','gold');pair('ho-on','ho-off','hostOnly');$('#ho-on').addEventListener('click',()=>{cfg.keep=true;syncSegs();updateMoreSum()});pair('sgold-on','sgold-off','soloGold');
+function syncSegs(){$('#ho-hint').textContent=cfg.hostOnly?"No seat and no chips: you run it from the side, and it stays open while nobody's there. Hand it to someone from 👥 Members › Tables.":'You sit down, play and host.';$('#pub-hint').textContent=cfg.pub?'Anyone can sit down straight from the Open tables list.':'Friends need the code or your OK to sit down.';for(const [a,b,v] of [['fill-on','fill-off',cfg.fill],['sb-on','sb-off',cfg.side],['sr-on','sr-off',cfg.series],['keep-on','keep-off',cfg.keep],['pub-on','pub-off',cfg.pub],['tie-split','tie-playoff',cfg.tie==='split'],['ssr-on','ssr-off',cfg.soloSeries],['gold-on','gold-off',cfg.gold],['ho-on','ho-off',cfg.hostOnly],['sgold-on','sgold-off',cfg.soloGold]]){$('#'+a).classList.toggle('on',!!v);$('#'+b).classList.toggle('on',!v)}}
 // the host sheet remembers the last table you opened
 function saveHostCfg(){try{localStorage.setItem('tete.hostcfg',JSON.stringify({table:$('#f-table').value,seats:$('#f-seats').value,buyIn:$('#f-buyin').value,wager:$('#f-wager').value,timer:$('#f-timer').value,cfg}))}catch{}}
 function restoreHostCfg(){let h=null;try{h=JSON.parse(localStorage.getItem('tete.hostcfg')||'null')}catch{}
@@ -199,6 +199,7 @@ function onMessage(m){
   if(m.type==='members_ask'){mbrAsk(m.who);return}
   if(m.type==='invite_link'){MBR_FRESH=m.key;toast('Link ready: tap Share to send it',2600);SND('pop');if($('#m-members').classList.contains('on'))renderMembers();return}
   if(m.type==='members_out'){toGate(m.msg||'Members only',true);return}
+  if(m.type==='table_log'){if(!LOGV||LOGV.rid!==m.rid)return;renderLog(m);return}
   if(m.type==='table_hist'){if(!HIST||HIST.rid!==m.rid)return;Object.assign(HIST,{list:m.list||[],name:m.name,open:m.open});renderHist();return}
   if(m.type==='account_lite'){if(!ACCT)return;Object.assign(ACCT,{user:m.user,inPlay:m.inPlay,bonus:m.bonus});renderAcct(true);renderRooms();return}
   // the owner topped up your balance: coins rain at the table, and if you'd run out, Rebuy gets you back in
@@ -242,7 +243,7 @@ function openFriends(){renderAcct();renderFriends();renderFriendReqs();$('#fr-ms
 $('#tile-host').onclick=openHost;$('#tile-join').onclick=openJoin;$('#tile-solo').onclick=openSolo;
 $('#rooms-all').onclick=openJoin;$('#friends-all').onclick=openFriends;
 $('#btn-start').onclick=()=>{if(!needName(openHost))return;if(!CONNECTED){toast(navigator.onLine?'Not connected to the server yet. One moment…':'You are offline. You can still practise against the computer.',3000);return}
-  const cfgT={seats:+$('#f-seats').value,buyIn:Math.round(+$('#f-buyin').value),wager:Math.round(+$('#f-wager').value),tableName:$('#f-table').value.trim()||(myName()+"'s table"),timer:+$('#f-timer').value,fill:cfg.fill,side:cfg.side,series:cfg.series,tie:cfg.tie,keep:cfg.keep,pub:cfg.pub,gold:!!(MO.gold&&cfg.gold)};
+  const cfgT={seats:+$('#f-seats').value,buyIn:Math.round(+$('#f-buyin').value),wager:Math.round(+$('#f-wager').value),tableName:$('#f-table').value.trim()||(myName()+"'s table"),timer:+$('#f-timer').value,fill:cfg.fill,side:cfg.side,series:cfg.series,tie:cfg.tie,keep:cfg.keep||!!(MO.owner&&cfg.hostOnly),pub:cfg.pub,gold:!!(MO.gold&&cfg.gold),hostOnly:!!(MO.owner&&cfg.hostOnly)};
   if(!(cfgT.buyIn>=50)){toast('The buy-in has to be at least 50 chips');return}
   if(!(cfgT.wager>=5)||cfgT.wager>cfgT.buyIn){toast('The wager has to be at least 5 and no more than the buy-in');return}
   saveHostCfg();HOST=true;$('#btn-start').disabled=true;setTimeout(()=>{$('#btn-start').disabled=false},4000);
@@ -336,7 +337,7 @@ function roomHTML(r,i){
   const status=r.asleep?'Asleep. Return to wake it':`${r.host?esc(r.host)+"'s room · ":''}${who} · ${fmt(r.wager)} a hand · ${r.started?(r.here?'Hand '+r.hand:'Paused at hand '+r.hand):'Waiting to start'}`;
   const btn=r.mine?`<button class="btn btn-gold" data-ret="${esc(r.mine)}">Return</button>`:full?`<button class="btn btn-dark" disabled>Full</button>`:`<button class="btn btn-gold" data-ask="${esc(r.rid)}">Join</button>`;
   return`<div class="rrow ${r.mine?'mine':''} ${r.asleep?'asleep':''} ${r.gold?'goldrow':''}" style="animation-delay:${i*.04}s"><div class="rico">${r.mine?ICON.home:r.pub?ICON.open:ICON.lock}${r.here?'<span class="live"></span>':''}</div><div style="min-width:0"><div class="rname"><span class="t">${esc(r.name)}</span>${r.gold?'<span class="tag goldtag">Gold</span>':''}${r.mine?'<span class="tag you">Your seat</span>':''}${r.keep?'<span class="tag">Always open</span>':''}${r.pub?'<span class="tag pub">Public</span>':''}</div><div class="rmeta">${status}</div>${fr.length?`<div class="rfr">${esc(nameList(fr))} ${fr.length>1?'are':'is'} here</div>`:''}${r.pub&&r.members&&r.members.length&&!fr.length?`<div class="rmeta">${esc(r.members.join(', '))}</div>`:''}</div>${btn}</div>`}
-function retHTML(r){return`<div class="retcard${r.gold?' goldrow':''}"><div class="rico">${ICON.home}${r.here?'<span class="live"></span>':''}</div><div style="min-width:0"><div class="rname"><span class="t">${esc(r.name)}</span><span class="tag you">Your seat</span></div><div class="rmeta">${r.asleep?'Asleep. Return wakes it up with everyone\'s chips':`${r.here?r.here+' at the table · ':''}${r.started?'Hand '+r.hand:'Waiting to start'}`}</div></div><button class="btn btn-gold" data-ret="${esc(r.mine)}">Return</button></div>`}
+function retHTML(r){return`<div class="retcard${r.gold?' goldrow':''}"><div class="rico">${ICON.home}${r.here?'<span class="live"></span>':''}</div><div style="min-width:0"><div class="rname"><span class="t">${esc(r.name)}</span><span class="tag you">${ACCT&&(ACCT.inPlay||[]).some(x=>x.rid===r.rid&&x.watch)?'You host':'Your seat'}</span></div><div class="rmeta">${r.asleep?'Asleep. Return wakes it up with everyone\'s chips':`${r.here?r.here+' at the table · ':''}${r.started?'Hand '+r.hand:'Waiting to start'}`}</div></div><button class="btn btn-gold" data-ret="${esc(r.mine)}">Return</button></div>`}
 function wireRooms(box){box.querySelectorAll('[data-ret]').forEach(b=>b.onclick=()=>returnTo(b.dataset.ret));box.querySelectorAll('[data-ask]').forEach(b=>b.onclick=()=>askRoom(b.dataset.ask))}
 function renderRooms(){
   const box=$('#rooms');if(!box)return;
@@ -485,7 +486,7 @@ function renderMbrBtn(){const b=$('#btn-members');if(!b)return;const was=+(b.dat
   b.hidden=!MO.owner;const bd=$('#mbr-badge');bd.hidden=!n;bd.textContent=n;b.dataset.n=n;
   b.setAttribute('aria-label',n?`Members: ${n} waiting to be let in`:'Members: who can play');
   if(n>was&&!matchMedia('(prefers-reduced-motion: reduce)').matches){b.classList.remove('ping');void b.offsetWidth;b.classList.add('ping')}}
-function renderHostTile(){for(const id of ['#gold-f','#sgold-f']){const f=$(id);if(f)f.hidden=!MO.gold}const t=$('#tile-host');if(!t)return;const no=MO.host===0,sm=t.querySelector('small');t.classList.toggle('locked',no);t.setAttribute('aria-disabled',no?'true':'false');
+function renderHostTile(){for(const id of ['#gold-f','#sgold-f']){const f=$(id);if(f)f.hidden=!MO.gold}const ho=$('#hostonly-f');if(ho)ho.hidden=!MO.owner;const t=$('#tile-host');if(!t)return;const no=MO.host===0,sm=t.querySelector('small');t.classList.toggle('locked',no);t.setAttribute('aria-disabled',no?'true':'false');
   if(sm)sm.textContent=no?`Only ${MO.ownerName||'Meka'} opens tables for now`:'Invite friends with a link or code'}
 function openMembers(){if(!MO.owner)return;send({type:'members'});renderMembers();openModal('#m-members');SND('flick')}
 const invUrl=k=>location.origin+'/?key='+encodeURIComponent(k);
@@ -505,7 +506,7 @@ function renderMembers(){
   const tl=m.tables||[],all=m.hosts==='all';
   h+=`<div class="msec"><h3 class="subh">Tables · ${tl.length?tl.length+' open':'none open'}</h3>`
     +`<div class="setrow mswitch"><span>Who can open tables<small>${all?'Any member can open a table':'Only you, for now. Members join the tables you open.'}</small></span><div class="seg sm"><button type="button" id="mbr-host-me" class="${all?'':'on'}">Only me</button><button type="button" id="mbr-host-all" class="${all?'on':''}">Any member</button></div></div>`
-    +tl.map((t,i)=>`<div class="tbl-row" style="animation-delay:${i*.035}s"><span class="tk" aria-hidden="true">${t.keep?'🏠':'♠'}</span><div style="min-width:0"><div class="fname">${esc(t.name)}</div><div class="fstat">${t.host?'host '+esc(t.host)+' · ':''}${t.people} ${t.people===1?'person':'people'}${t.here<t.people?' · '+t.here+' here now':''}${t.keep?' · standing room':''}</div></div><div class="tacts"><button class="btn btn-ghost" type="button" data-thist="${esc(t.rid||'')}">History</button><button class="btn ${t.ownerHosts?'btn-gold':'btn-ghost'}" type="button" data-thost="${esc(t.rid||'')}">${t.ownerHosts?'You host ✓ · Go':'Host this table'}</button>${t.people?`<button class="btn btn-ghost" type="button" data-treset="${esc(t.rid||'')}">Reset all to ${fmt(RESET_TO)}</button><button class="btn ${t.lastOne?'btn-gold':'btn-ghost'}" type="button" data-tlast="${esc(t.rid||'')}" data-on="${t.lastOne?1:0}">${t.lastOne?'Last one standing ✓':'Last one standing'}</button>`:''}</div></div>`).join('')
+    +tl.map((t,i)=>`<div class="tbl-row" style="animation-delay:${i*.035}s"><span class="tk" aria-hidden="true">${t.keep?'🏠':'♠'}</span><div style="min-width:0"><div class="fname">${esc(t.name)}</div><div class="fstat">${t.host?'host '+esc(t.host)+' · ':''}${t.people} ${t.people===1?'person':'people'}${t.here<t.people?' · '+t.here+' here now':''}${t.keep?' · standing room':''}${t.hostFor?' · '+esc(t.hostFor)+' hosts when they sit down':''}</div></div><div class="tacts"><button class="btn btn-ghost" type="button" data-thist="${esc(t.rid||'')}">History</button><button class="btn btn-ghost" type="button" data-tlog="${esc(t.rid||'')}">Log</button><button class="btn btn-ghost" type="button" data-thand="${esc(t.rid||'')}">Hand to…</button><button class="btn ${t.ownerHosts?'btn-gold':'btn-ghost'}" type="button" data-thost="${esc(t.rid||'')}">${t.ownerHosts?'You host ✓ · Go':'Host this table'}</button>${t.people?`<button class="btn btn-ghost" type="button" data-treset="${esc(t.rid||'')}">Reset all to ${fmt(RESET_TO)}</button><button class="btn ${t.lastOne?'btn-gold':'btn-ghost'}" type="button" data-tlast="${esc(t.rid||'')}" data-on="${t.lastOne?1:0}">${t.lastOne?'Last one standing ✓':'Last one standing'}</button>`:''}</div></div>`).join('')
     +(tl.length?'<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn btn-ghost" id="mbr-closeall" type="button">Close all tables</button></div>':'')+`</div>`;
   const invs=m.invites.filter(x=>x.live).concat(m.invites.filter(x=>!x.live).slice(0,3));
   h+=`<div class="msec"><h3 class="subh">Invite a friend</h3><p class="note" style="margin-top:0">A link that lets them straight in, no waiting. It works for 3 days.</p><div class="invmake"><div class="seg sm" id="mbr-invn"><button type="button" data-n="1" class="${MBR_INVN===1?'on':''}">1 person</button><button type="button" data-n="5" class="${MBR_INVN===5?'on':''}">Up to 5</button></div><button class="btn btn-gold" id="mbr-invnew" type="button">Make a link</button></div>${invs.map(invRow).join('')}</div>`;
@@ -550,6 +551,8 @@ function renderMembers(){
   body.querySelectorAll('[data-treset]').forEach(b=>b.onclick=()=>{if(!b.dataset.arm){b.dataset.arm='1';b.textContent='Sure? Tap again';b.classList.replace('btn-ghost','btn-gold');toast(`Everyone at this table goes back to ${fmt(RESET_TO)} chips, and Tonight's scores start again.`,3500);setTimeout(()=>{if(b.isConnected){delete b.dataset.arm;b.textContent=`Reset all to ${fmt(RESET_TO)}`;b.classList.replace('btn-gold','btn-ghost')}},4000);return}
     $$('.toast').forEach(x=>x.remove());b.disabled=true;b.textContent='♻️ Resetting…';send({type:'table_reset',rid:b.dataset.treset});SND('pop');buzz(30)});
   body.querySelectorAll('[data-thist]').forEach(b=>b.onclick=()=>{closeModal('#m-members');setTimeout(()=>openHist(b.dataset.thist),200)});
+  body.querySelectorAll('[data-tlog]').forEach(b=>b.onclick=()=>{closeModal('#m-members');setTimeout(()=>openLog(b.dataset.tlog),200)});
+  body.querySelectorAll('[data-thand]').forEach(b=>b.onclick=()=>{closeModal('#m-members');setTimeout(()=>openHandTo(b.dataset.thand),200)});
   // host a table yourself, playing or not: you go there as the host (and can hand it to a player and take it back)
   body.querySelectorAll('[data-thost]').forEach(b=>b.onclick=()=>{closeModal('#m-members');send({type:'table_host',rid:b.dataset.thost});SND('pop')});
   // last one standing: everyone at the table loses the daily wheel and buying back in (two taps); one tap undoes it
@@ -838,6 +841,27 @@ let NUDGE=null,SPRAYED=new Set();
 function msg(t){if(NUDGE)return;$('#msg').innerHTML=t}
 function nudge(t){NUDGE=t;$('#msg').innerHTML=`<span class="nudge">${t}</span>`;clearTimeout(nudge.t);nudge.t=setTimeout(()=>{NUDGE=null;renderMe()},2600)}
 function actions(html){$('#actions').innerHTML=html}
+// ---------- the owner, from outside a table: hand it to someone, and read its log ----------
+function openHandTo(rid){const t=((MBR&&MBR.tables)||[]).find(x=>x.rid===rid);if(!t)return;
+  $('#handto-title').textContent=`Hand ${t.name} to…`;
+  const at=t.seated||[],atU=new Set(at.map(x=>x[2]).filter(Boolean)),mem=((MBR&&MBR.yes)||[]).filter(u=>!atU.has(u.id)).sort((a,b)=>(b.here||0)-(a.here||0)||String(a.name||a.user).localeCompare(String(b.name||b.user)));
+  const row=(attrs,name,sub,i)=>`<button type="button" class="hrow" ${attrs} style="animation-delay:${Math.min(i,14)*.025}s"><span>${esc(name)}<br><small>${sub}</small></span><b class="go">Make host</b></button>`;
+  let h='';
+  if(t.hostFor)h+=`<p class="note">Waiting for <b>${esc(t.hostFor)}</b> to sit down and take over. <button type="button" class="linkbtn" id="handto-cancel">Cancel that</button></p>`;
+  h+=`<div class="hsec">At the table now</div>`+(at.length?at.map((x,i)=>row(`data-pid="${x[0]}"`,x[1],x[1]===t.host?'the host now':'sitting there',i)).join(''):'<p class="mempty">Nobody is sitting there yet.</p>');
+  h+=`<div class="hsec">Members (they take over when they sit down)</div>`+(mem.length?mem.map((u,i)=>row(`data-uid="${esc(u.id)}"`,u.name||u.user,'@'+esc(u.user)+(u.here?' · online':''),i)).join(''):'<p class="mempty">No other members.</p>');
+  $('#handto-body').innerHTML=h;
+  const c=$('#handto-cancel');if(c)c.onclick=()=>{send({type:'table_handto',rid,uid:null});closeModal('#m-handto');SND('flick')};
+  $$('#handto-body .hrow').forEach(b=>b.onclick=()=>{if(!b.classList.contains('arm')){$$('#handto-body .hrow.arm').forEach(x=>{x.classList.remove('arm');x.querySelector('.go').textContent='Make host'});b.classList.add('arm');b.querySelector('.go').textContent='Tap again';SND('flick');return}
+    send(b.dataset.pid!=null?{type:'table_handto',rid,pid:+b.dataset.pid}:{type:'table_handto',rid,uid:b.dataset.uid});closeModal('#m-handto');SND('pop')});
+  openModal('#m-handto');SND('flick')}
+let LOGV=null;
+function openLog(rid){LOGV={rid,seen:0};$('#log-title').textContent='Log';$('#log-body').innerHTML='<p class="mempty">Loading…</p>';openModal('#m-log');send({type:'table_log',rid});SND('flick');
+  clearInterval(openLog.iv);openLog.iv=setInterval(()=>{if(!$('#m-log').classList.contains('on')||!LOGV){clearInterval(openLog.iv);LOGV=null;return}send({type:'table_log',rid:LOGV.rid})},5000)}
+function renderLog(m){const b=$('#log-body');$('#log-title').textContent=`${m.name||'Table'} · log`;const L=(m.lines||[]).slice().reverse();
+  if(!L.length){b.innerHTML='<p class="mempty">Nothing yet.</p>';return}
+  const last=L[0].at,isNew=x=>LOGV.seen&&x.at>LOGV.seen,day=t=>new Date(t).toDateString()!==new Date().toDateString();
+  b.innerHTML=L.map(x=>`<div class="ll ${x.cls||''}${isNew(x)?' new':''}"><time>${day(x.at)?dday(x.at)+' ':''}${hhmm(x.at)}</time><span>${x.t}</span></div>`).join('');LOGV.seen=last}
 // ---------- hand records (the owner's): how every hand ended at a table, to check, put back, or save as a picture ----------
 let HIST=null,HIST_I=-1;
 const hhmm=t=>new Date(t).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),dday=t=>new Date(t).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
