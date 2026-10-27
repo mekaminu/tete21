@@ -292,7 +292,7 @@ class Table {
   snapshot(forId) {
     const S = this;
     return {
-      now: Date.now(), gd: S.gold ? 1 : 0, oh: S.ownerIsHost() ? 1 : 0,
+      now: Date.now(), gd: S.gold ? 1 : 0, oh: S.ownerIsHost() ? 1 : 0, po: S.playoff ? 1 : 0,
       // a vote on the table (redeal, or busting the board's series), the window to ask about a series on the board
       // that isn't in a row, your own series to bust or play (only you see it), and whether a redeal can be asked now
       vt: S.vote ? [S.vote.n, S.vote.kind, S.vote.from, S.vote.until, [...S.vote.yes], S.voters().map(p => p.id), (S.vote.cards || []).map(enc)] : null,
@@ -450,13 +450,17 @@ class Table {
     const S = this; if (S.closed) return;
     while (S.humansConnected() === 0) { if (S.closed) return; S.paused = true; S.sync(); await sleep(1500); }
     S.paused = false;
-    if (!redeal) { S.applyPending(); S.applyTakeovers(); S.applySeatChanges(); }
+    // a play-off (the pot stayed after a tie, or everyone bust) is for the people who were in that hand only:
+    // newcomers, and anyone who dealt themselves back in, wait for the next new hand (so does a seat changing hands)
+    if (!redeal) { S.applyPending(); if (!S.tiebreak) S.applyTakeovers(); S.applySeatChanges(); S.playoff = !!S.tiebreak; }
     S.busy = true; S.handNo++; S.trickWinner = null; S.leadSuit = null; S.leadBy = -1; S.board = []; S.boardSize = 0; S.boardTop = 0; S.deadline = 0; S.next = null; S.msgHost = '';
     S.players.forEach(p => { p.hand = []; p.dropped = null; p.picked = []; p.revealed = false; if (p.watch) { p.sitout = true; return; } if (p.sitNext && !redeal) { p.sitNext = false; p.sitout = true; p.watching = true; } if (p.joinedMid) { p.joinedMid = false; p.sitout = false; } if (p.gone) p.sitout = true;
       if (p.chips < S.wager) { if (!p.sitout) p.broke = true; p.sitout = true; }
       else if (p.broke && !p.gone && !p.satOutByTimer) { p.broke = false; p.sitout = false; S.log(`${esc(p.name)} is back in the game`, 'hi'); S.fx({ k: 'bubble', pid: p.id, t: "I'm back! 💪", ms: 1800 }); } });
     if (!S.tiebreak && !redeal) participants = S.players.filter(p => !p.sitout && !p.gone && !(p.away && !p.isBot)).map(p => p.id);
     else participants = participants.filter(id => { const p = S.players[id]; return p && !p.sitout && !p.gone && !(p.away && !p.isBot); });
+    // a play-off with fewer than two of its players left can't be played: it's over, and this is a new hand for everyone
+    if (participants.length < 2 && S.tiebreak && !redeal) { S.tiebreak = false; S.playoff = false; participants = S.players.filter(p => !p.sitout && !p.gone && !(p.away && !p.isBot)).map(p => p.id); }
     S.participants = participants;
     if (S.humansPresent() === 0) { S.busy = false; return; }
     if (participants.length < 2) {
@@ -473,6 +477,7 @@ class Table {
     S.sideBets.forEach(b => { if (b.status === 'open' && !(participants.includes(b.a) && participants.includes(b.b))) { b.status = 'declined'; S.log(`A carried side bet between ${esc(S.players[b.a].name)} and ${esc(S.players[b.b].name)} is off: one of them is out of this hand`); } });
     // 0 wager
     S.setPhase(0);
+    if (S.playoff && !redeal) S.log(`Play-off for the pot of ${fmt(S.pot)}: only the players from the last hand are in it`, 'hi');
     if (redeal) { S.log(`<b>Redeal</b> · pot of ${fmt(S.pot)} stays`, 'hi'); S.msgHost = 'Redealing. The pot stays on the table.'; S.sync(); await sleep(1500); }
     else {
       S.log(`<b>Hand ${S.handNo}</b> · dealer button on ${esc(S.players[S.dealer].name)}`, 'hi');
@@ -573,7 +578,7 @@ class Table {
     S.players.forEach(p => (p.revealed = true)); S.sync(); await sleep(350);
     const live = participants.map(id => S.players[id]).filter(p => S.total(p) <= 21);
     let next, winners = [], held = null;
-    if (!live.length) { S.msgHost = 'Everyone is bust. The pot stays on the table for the next hand.'; S.log('All players bust — pot carries over', 'hi'); S.sync(); await sleep(1500); next = S.players.map(p => p.id); }
+    if (!live.length) { S.msgHost = 'Everyone is bust. The pot stays on the table for the next hand.'; S.log('All players bust — pot carries over', 'hi'); S.sync(); await sleep(1500); S.tiebreak = true; next = participants.slice(); }
     else {
       const best = Math.max(...live.map(p => S.total(p))); const tied = live.filter(p => S.total(p) === best);
       if (tied.length === 1) {
@@ -588,7 +593,7 @@ class Table {
         for (const w of tied) S.fx({ k: 'chip', from: 'pot', to: w.id, cls: 'c100', n2: Math.min(6, Math.ceil(share / S.wager)) });
         await sleep(700); for (const w of tied) w.chips += share; S.pot = rem; S.sync(); await sleep(300);
         next = S.players.map(p => p.id);
-      } else { S.tiebreak = true; const names = tied.map(p => p.name).join(' and '); S.fx({ k: 'banner', t: 'TIE! Everyone plays again' }); S.msgHost = `${esc(names)} tie on ${best}. The pot stays and everyone puts in again for a bigger pot.`; S.log(`Tie on ${best}: ${esc(names)}. The pot of ${fmt(S.pot)} stays; everyone plays again`, 'hi'); S.sync(); await sleep(1800); held = tied.map(p => p.id); next = S.players.map(p => p.id); }
+      } else { S.tiebreak = true; const names = tied.map(p => p.name).join(' and '); S.fx({ k: 'banner', t: 'TIE! Everyone plays again' }); S.msgHost = `${esc(names)} tie on ${best}. The pot stays and everyone puts in again for a bigger pot.`; S.log(`Tie on ${best}: ${esc(names)}. The pot of ${fmt(S.pot)} stays; everyone who played plays again`, 'hi'); S.sync(); await sleep(1800); held = tied.map(p => p.id); next = participants.slice(); }
     }
     S.streaks(winners, held);
     await S.settleSideBets('reveal');
