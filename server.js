@@ -121,14 +121,21 @@ function sitError(ws, t) {
   return free >= t.buyIn ? '' : `You need ${fmt(t.buyIn)} free chips to sit at this table and you have ${fmt(Math.max(0, free))}. ${members.isOwner(u) ? 'Top yourself up in 👥 Members' : 'Spin the daily wheel in your profile'}, or pick a table with a smaller buy-in.`;
 }
 function hookTable(t) {
+  t.isOwner = p => !p.isBot && !!p.uid && members.isOwner(accounts.cached(p.uid));
   t.canBuy = (p, amount) => !p.uid || freeChips(p.uid) >= amount;
   t.noRebuy = p => !p.isBot && !!p.uid && members.rebuyOff(p.uid); // the owner switched buying back in off for them
   t.onHandEnd = res => { for (const r of res) if (r.p.uid) { accounts.settle(r.p.uid, { delta: r.delta, played: r.played, won: r.won, adasi: r.adasi, total: r.total, table: t.tableName }); pushAccount(r.p.uid); }
-    // resets the owner asked for during the hand happen now, before the next one
-    const tr = t.pendingTableReset, pr = t.pendingResets, ps = t.pendingSets; t.pendingTableReset = null; t.pendingResets = null; t.pendingSets = null;
-    if (ps) for (const [uid, r] of ps) setChips(uid, r.table, r.off, r.by).catch(e => console.error('set chips:', e.message));
-    if (tr) resetTable(t, tr.amt, tr.by).catch(e => console.error('table reset:', e.message));
-    else if (pr) for (const [uid, r] of pr) resetAccount(uid, r.amt, r.by, t).catch(e => console.error('reset:', e.message)); };
+    recordHand(t, res); // what the table looked like at the end of this hand, before any of the owner's changes below
+    // what the owner asked for during the hand happens now, before the next one: a restore first (it cleared anything
+    // asked before it), then chips set and resets, in that order
+    const rs = t.pendingRestore, tr = t.pendingTableReset, pr = t.pendingResets, ps = t.pendingSets; t.pendingRestore = null; t.pendingTableReset = null; t.pendingResets = null; t.pendingSets = null;
+    if (!rs && !tr && !pr && !ps) return;
+    (async () => {
+      if (rs) await restoreHand(t, rs.rec, rs.by).catch(e => console.error('restore:', e.message));
+      if (ps) for (const [uid, r] of ps) await setChips(uid, r.table, r.off, r.by, r.here ? t : undefined).catch(e => console.error('set chips:', e.message));
+      if (tr) await resetTable(t, tr.amt, tr.by).catch(e => console.error('table reset:', e.message));
+      else if (pr) for (const [uid, r] of pr) await resetAccount(uid, r.amt, r.by, t).catch(e => console.error('reset:', e.message));
+    })(); };
   t.onMoved = (p, delta, why, other) => { if (p.uid && delta) { const o = other ? other.name : ''; const label = why === 'spray' ? (delta > 0 ? `Spray from ${o}` : `You sprayed ${o}`) : why === 'lend' ? (delta > 0 ? `Loan from ${o}` : `You lent ${o}`) : why === 'repay' ? (delta > 0 ? `${o} paid you back` : `You paid ${o} back`) : why === 'give' ? (delta > 0 ? `Chips from ${o}` : `You sent ${o} chips`) : `Treats at ${t.tableName}`; accounts.settle(p.uid, { delta, played: false, won: false, table: label }); pushAccount(p.uid); } };
   t.onLeave = (p, delta) => { if (p.uid && delta) { accounts.settle(p.uid, { delta, played: true, won: false, table: t.tableName }); setTimeout(() => pushAccount(p.uid), 50); } };
 }
@@ -150,7 +157,7 @@ function pushAccount(uid) { const u = accounts.cached(uid), o = online.get(uid);
 // Their stack at the table becomes the amount, their buy-ins restart there (Tonight's scores start level), and their
 // balance becomes the amount too (plus chips they hold at any other table). In the middle of a hand it waits for the
 // hand to end, so the pot's books stay straight.
-function seatsOf(uid) { const out = []; for (const [, t] of tables) if (!t.closed) for (const p of t.players) if (p.uid === uid && !p.gone && !p.isBot) out.push({ t, p }); return out; }
+function seatsOf(uid) { const out = []; for (const [, t] of tables) if (!t.closed) for (const p of t.players) if (p.uid === uid && !p.gone && !p.isBot && !p.watch) out.push({ t, p }); return out; }
 // the seat that counts for a player: the table they're connected to, else the first they hold
 function seatFor(uid) { const seats = seatsOf(uid); return seats.find(x => x.p.conn) || seats[0] || null; }
 // chips onto a player's stack at a table (the owner's top-up, or chips moved from their balance). Their buy-ins go up
@@ -173,11 +180,50 @@ async function resetAccount(uid, amt, by, atTable, quiet) {
   pushAccount(uid); const o = online.get(uid); if (o) for (const k of o.socks) send(k, { type: 'reset', amt, from: members.OWNER_NAME });
   return 'now';
 }
+// ----- hand records: what the table looked like at the end of every hand (the owner's, to check or to put back) -----
+const HIST_MAX = 150, histKey = rid => 'hist:' + rid;
+const cardTxt = c => (c ? c.r + c.s : '');
+function recordHand(t, res) {
+  try {
+    const byP = new Map((res || []).map(r => [r.p, r]));
+    const ps = t.players.filter(p => !p.gone && !p.watch).sort((a, b) => (a.seat - b.seat) || (a.id - b.id)).map(p => {
+      const r = byP.get(p), u = p.uid ? accounts.cached(p.uid) : null;
+      return { n: p.name, b: p.isBot ? 1 : 0, u: p.uid || null, c: p.chips, bo: p.bought != null ? p.bought : null, bal: u ? u.balance : null, o: u ? Math.max(0, freeChips(p.uid)) : null, d: r ? r.delta : null, w: r && r.won ? 1 : 0, tot: r && r.total != null ? r.total : null, h: (p.revealed || (r && r.played)) ? p.hand.map(cardTxt) : [] };
+    });
+    const rec = { at: Date.now(), hand: t.handNo, table: t.tableName, board: (t.board || []).filter(Boolean).map(cardTxt), lead: t.leadSuit || '', pot: t.pot || 0, players: ps };
+    t.histQ = (t.histQ || Promise.resolve()).then(async () => {
+      let list = await accounts.kvGet(histKey(t.rid)).catch(() => null); list = Array.isArray(list) ? list : [];
+      list.push(rec); if (list.length > HIST_MAX) list.splice(0, list.length - HIST_MAX);
+      await accounts.kvSet(histKey(t.rid), list);
+    }).catch(e => console.error('hand record:', e.message));
+  } catch (e) { console.error('hand record:', e.message); }
+}
+// everyone back to what they had at the end of a recorded hand: their stack here, their buy-ins (so Tonight's scores
+// go back too), the chips they had off the table, the computer players' stacks and the pot. Between hands only.
+// Their chips at other tables now stay as they are; anyone who sat down since keeps what they have.
+async function restoreHand(t, rec, by) {
+  if (t.closed) return;
+  for (const pr of rec.players) {
+    if (pr.b) { const bot = t.players.find(x => x.isBot && !x.gone && x.name === pr.n); if (bot) { bot.chips = pr.c; if (pr.bo != null) bot.bought = pr.bo; } continue; }
+    if (!pr.u || pr.bal == null) continue;
+    const off = pr.o != null ? pr.o : Math.max(0, pr.bal - pr.c);
+    const here = t.players.find(x => x.uid === pr.u && !x.gone && !x.isBot && !x.watch);
+    if (here) { const d = pr.c - here.chips; here.chips = pr.c; here.bought = pr.bo != null ? pr.bo : (here.bought || 0) + d; }
+    const others = seatsOf(pr.u).filter(x => x.t !== t).reduce((n, x) => n + x.p.chips, 0);
+    const u = await accounts.setBalance(pr.u, pr.c + off + others, by, { table: t.tableName, restore: rec.at }); if (!u) continue;
+    pushAccount(pr.u); const o = online.get(pr.u);
+    if (o) for (const k of o.socks) send(k, { type: 'toast', msg: `${members.OWNER_NAME} put the chips back to hand ${rec.hand} at ${t.tableName}: ${here ? `${fmt(pr.c)} on the table, ` : ''}${fmt(here ? off : pr.c + off)} ${here ? 'off it' : 'in your balance'}.` });
+  }
+  if (rec.pot != null) t.pot = rec.pot;
+  const when = new Date(rec.at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
+  t.log(`${escHtml(members.OWNER_NAME)} put everyone's chips back to the end of hand ${rec.hand} (${when})`, 'hi');
+  t.sync(); if (t.persistent) saveRoom(t); pushMembers();
+}
 // the owner sets exactly what a player has: on the table (their stack where they sit) and off it (the rest of their
 // balance). A stack change counts as a buy-in, so Tonight's scores don't see it as a win or a loss. Mid-hand it waits.
-async function setChips(uid, onTable, off, by) {
-  const seats = seatsOf(uid), s = seats.find(x => x.p.conn) || seats[0];
-  if (s && s.t.handStart) { (s.t.pendingSets || (s.t.pendingSets = new Map())).set(uid, { table: onTable, off, by }); return 'later'; }
+async function setChips(uid, onTable, off, by, atTable) {
+  const seats = seatsOf(uid), s = atTable ? seats.find(x => x.t === atTable) : (seats.find(x => x.p.conn) || seats[0]);
+  if (s && s.t.handStart) { (s.t.pendingSets || (s.t.pendingSets = new Map())).set(uid, { table: onTable, off, by, here: !!atTable }); return 'later'; }
   if (s) { const d = onTable - s.p.chips; s.p.chips = onTable; s.p.bought = (s.p.bought || 0) + d;
     if (d) { s.t.log(`${escHtml(members.OWNER_NAME)} set ${escHtml(s.p.name)}'s chips to ${fmt(onTable)}`, 'hi'); s.t.fx({ k: 'bubble', pid: s.p.id, t: `${d > 0 ? '🎁 +' : '−'}${fmt(Math.abs(d))}`, ms: 2600 }); }
     s.t.sync(); if (s.t.persistent) saveRoom(s.t); }
@@ -203,7 +249,7 @@ async function pushFriends(uid) {
 // ---------- room list ----------
 function hostName(t) { const h = t.players[t.hostId]; return h && !h.isBot ? h.name : ''; }
 function summary(t) {
-  const humans = t.players.filter(p => !p.isBot && !p.gone);
+  const humans = t.players.filter(p => !p.isBot && !p.gone && !p.watch);
   return { rid: t.rid, name: t.tableName, host: hostName(t), pub: t.pub ? 1 : 0, keep: t.persistent ? 1 : 0, gold: t.gold ? 1 : 0, seats: t.seats,
     seated: humans.length, here: humans.filter(p => p.conn).length, wager: t.wager, buyIn: t.buyIn, started: t.started ? 1 : 0, hand: t.handNo,
     members: t.pub ? humans.map(p => p.name).slice(0, 8) : [] };
@@ -321,7 +367,7 @@ function leave(ws, dropped, forGood) {
   const T = ws.table; if (!T) return;
   const pid = ws.pid, p = T.players[pid];
   ws.table = null; ws.pid = -1;
-  if (p && p.conn === ws) { if (dropped || (T.persistent && !forGood)) T.disconnect(pid); else T.removeHuman(pid); }
+  if (p && p.conn === ws) { if (dropped || p.watch || (T.persistent && !forGood)) T.disconnect(pid); else T.removeHuman(pid); }
   for (const q of T.players) if (q.conn && q.conn !== ws) send(q.conn, { type: 'peer', id: pid, event: 'left' });
   listDirty = true; if (ws.me) presenceChanged(ws.me);
   if (ws.uid) setTimeout(() => pushAccount(ws.uid), 50);
@@ -453,9 +499,9 @@ async function membersView() {
     const have = new Set(users.map(u => u.id)), missing = Object.keys(P).filter(id => !have.has(id) && isId(id)).slice(0, 500);
     if (missing.length) users = users.concat(await accounts.usersByIds(missing));
   } catch (e) { console.error('members list:', e.message); }
-  const row = u => { const p = P[u.id] || {}; return { id: u.id, name: u.display, user: u.username, av: u.av || null, hands: (u.stats && u.stats.hands) || 0, bal: (accounts.cached(u.id) || u).balance || 0, since: u.created_at || 0, asked: p.asked || 0, at: p.at || 0, via: p.via || '', here: online.has(u.id) ? 1 : 0, nowheel: p.nowheel ? 1 : 0, norebuy: p.norebuy ? 1 : 0, ...(() => { const s = seatFor(u.id); return s ? { at: s.t.tableName, stack: s.p.chips, spare: Math.max(0, freeChips(u.id)) } : {}; })() }; };
+  const row = u => { const p = P[u.id] || {}; return { id: u.id, name: u.display, user: u.username, av: u.av || null, hands: (u.stats && u.stats.hands) || 0, bal: (accounts.cached(u.id) || u).balance || 0, since: u.created_at || 0, asked: p.asked || 0, at: p.at || 0, via: p.via || '', here: online.has(u.id) ? 1 : 0, nowheel: p.nowheel ? 1 : 0, norebuy: p.norebuy ? 1 : 0, ...(() => { const s = seatFor(u.id); return s ? { tbl: s.t.tableName, stack: s.p.chips, spare: Math.max(0, freeChips(u.id)) } : {}; })() }; }; // tbl, not at: at is when they asked
   const v = { type: 'members', on: members.on() ? 1 : 0, forced: members.forcedOff() ? 1 : 0, waiting: [], yes: [], no: [], others: [], owners: [], invites: members.invites(),
-    hosts: members.hostsAll() ? 'all' : 'owner', tables: [...tables.values()].filter(t => !t.closed).map(t => ({ rid: t.rid, lastOne: lastOne(t) ? 1 : 0, name: t.tableName, host: hostName(t), people: t.players.filter(p => !p.isBot && !p.gone).length, here: t.humansConnected(), keep: t.persistent ? 1 : 0 })) };
+    hosts: members.hostsAll() ? 'all' : 'owner', tables: [...tables.values()].filter(t => !t.closed).map(t => ({ rid: t.rid, lastOne: lastOne(t) ? 1 : 0, ownerHosts: t.ownerIsHost() ? 1 : 0, name: t.tableName, host: hostName(t), people: t.players.filter(p => !p.isBot && !p.gone && !p.watch).length, here: t.humansConnected(), keep: t.persistent ? 1 : 0 })) };
   for (const u of users) {
     if (members.isOwner(u)) { v.owners.push(row(u)); continue; } // the owner tops himself up from his own row
     const s = (P[u.id] || {}).s;
@@ -708,7 +754,9 @@ async function handle(ws, m) {
       const ret = waitingSeat(t, name, ws.uid);
       if (ret < 0 && ownerOf(ws)) return seatNew(ws, t, m); // the owner (admin) sits straight down at any table with a free seat
       if (ret >= 0) return askToJoin(ws, t, m, ret);
-      if (t.pub && !t.wasRemoved(ws.uid, name)) return seatNew(ws, t, m);
+      // members join straight in (a game that's going: watching, until they tap Deal me in); only someone the host
+      // took off the table still asks
+      if (!t.wasRemoved(ws.uid, name)) return seatNew(ws, t, m);
       askToJoin(ws, t, m, -1); break;
     }
     case 'return': { // an account going back to a seat it holds (works from any device)
@@ -752,14 +800,19 @@ async function handle(ws, m) {
       break;
     }
     case 'dj': if (T) T.setDj(ws.pid, !!m.on, m.title); break; // someone's own music for the table (a tab, or song files)
-    case 'make_host': { // the host hands the table to someone else at it (who then runs it; the old host can leave)
-      if (!T || ws.pid !== T.hostId) return;
+    case 'host_take': { // the owner takes the host back, at the table he's at
+      if (!T || !ownerOf(ws)) return;
+      if (T.takeHost(ws.pid)) { listDirty = true; if (T.persistent) persistAll(); }
+      break;
+    }
+    case 'make_host': { // the host (or the owner) hands the table to someone else at it, who runs it until it's taken back
+      if (!T || (ws.pid !== T.hostId && !ownerOf(ws))) return;
       if (T.makeHost(Math.floor(+m.pid))) { listDirty = true; if (T.persistent) persistAll(); }
       break;
     }
     case 'remove': { // the host takes someone off the table; a person can only come back if the host lets them in
-      if (!T || ws.pid !== T.hostId) return;
-      const pid = Math.floor(+m.pid), p = T.players[pid]; if (!p || p.gone || pid === T.hostId) return;
+      if (!T || (ws.pid !== T.hostId && !ownerOf(ws))) return;
+      const pid = Math.floor(+m.pid), p = T.players[pid]; if (!p || p.gone || pid === T.hostId || p.watch || (p.uid && members.isOwner(accounts.cached(p.uid)))) return;
       const c = p.conn, who = hostName(T) || 'The host';
       if (!T.takeOff(pid)) return;
       if (c) { c.table = null; c.pid = -1; send(c, { type: 'gone', code: T.code.toUpperCase(), msg: `${who} took you off the table.` }); sendRooms(c); if (c.me) presenceChanged(c.me); if (c.uid) setTimeout(() => pushAccount(c.uid), 50); }
@@ -812,6 +865,39 @@ async function handle(ws, m) {
       t.log(on ? `${escHtml(members.OWNER_NAME)} made it last one standing: no daily wheel and no buying back in` : `${escHtml(members.OWNER_NAME)} switched the daily wheel and buying back in on again`, 'hi'); t.sync();
       send(ws, { type: 'toast', msg: on ? `Last one standing at ${t.tableName}: no wheel, no buying back in.` : `The wheel and buying back in are on again at ${t.tableName}.` }); pushMembers(); break;
     }
+    case 'table_hist': {
+      if (!ownerOf(ws)) return;
+      const t = byRid.get(String(m.rid || ''));
+      const list = await accounts.kvGet(histKey(String(m.rid || ''))).catch(() => null);
+      send(ws, { type: 'table_hist', rid: String(m.rid || ''), name: t ? t.tableName : '', open: t && !t.closed ? 1 : 0, list: (Array.isArray(list) ? list : []).slice(-60) });
+      break;
+    }
+    case 'table_restore': { // everyone back to what they had at the end of one recorded hand
+      if (!ownerOf(ws)) return;
+      const t = byRid.get(String(m.rid || '')); if (!t || t.closed) return send(ws, { type: 'toast', msg: 'That table has closed.' });
+      const list = await accounts.kvGet(histKey(t.rid)).catch(() => null);
+      const rec = (Array.isArray(list) ? list : []).find(r => r.at === +m.at); if (!rec) return send(ws, { type: 'toast', msg: "That record isn't there any more." });
+      if (t.handStart) { // mid-hand: at the end of it (anything else asked for during this hand is overtaken by it)
+        t.pendingRestore = { rec, by: ws.uid }; t.pendingSets = null; t.pendingResets = null; t.pendingTableReset = null;
+        t.log(`${escHtml(members.OWNER_NAME)} is putting everyone's chips back to the end of hand ${rec.hand} when this hand ends`, 'hi'); t.sync();
+        send(ws, { type: 'toast', msg: `Everyone goes back to hand ${rec.hand} when this hand ends.` }); break;
+      }
+      await restoreHand(t, rec, ws.uid);
+      send(ws, { type: 'toast', msg: `Everyone is back to the end of hand ${rec.hand}.` }); break;
+    }
+    case 'table_host': {
+      if (!ownerOf(ws)) return;
+      const t = byRid.get(String(m.rid || '')); if (!t || t.closed) return send(ws, { type: 'toast', msg: 'That table has closed.' });
+      const mine = t.players.find(x => !x.isBot && !x.gone && x.uid === ws.uid);
+      if (!mine || mine.watch) {
+        if (ws.table && ws.table !== t) leave(ws);
+        const u = accounts.cached(ws.uid), prev = mine && mine.conn && mine.conn !== ws ? mine.conn : null;
+        const r = t.addWatcher(ws, (u && u.display) || members.OWNER_NAME, u && u.av, ws.uid); r.prev = prev;
+        enter(ws, t, r, !!mine);
+        t.takeHost(r.id);
+      } else { if (ws.table !== t) returnAcct(ws, t); t.takeHost(mine.id); }
+      listDirty = true; if (t.persistent) persistAll(); pushMembers(); break;
+    }
     case 'member_reset': { // the owner puts one player's chips back to RESET_TO
       if (!ownerOf(ws) || !isId(m.id)) return;
       const who = await accounts.get(m.id).catch(() => null); if (!who) return;
@@ -844,7 +930,7 @@ async function handle(ws, m) {
       const o = await loadVoice(vk); o.clips[i] = b; o.v++; saveVoice(vk, o); voiceChanged(vk, o); send(ws, { type: 'voice', info: voiceInfo(vk, o) }); break;
     }
     case 'shout_del': { const vk = vkOf(ws.me); if (!vk) return; const i = Math.floor(+m.i); const o = await loadVoice(vk); if (o.clips[i]) { delete o.clips[i]; o.v++; saveVoice(vk, o); voiceChanged(vk, o); } send(ws, { type: 'voice', info: voiceInfo(vk, o) || [vk, 0, o.v] }); break; }
-    case 'act': if (T) { if (m.a && m.a.type === 'settings' && m.a.cfg && typeof m.a.cfg === 'object' && 'gold' in m.a.cfg && !members.canGold(accounts.cached(ws.uid))) delete m.a.cfg.gold; T.action(ws.pid, m.a); if (m.a && m.a.type === 'settings') { listDirty = true; persistAll(); } } break;
+    case 'act': if (T) { if (m.a && m.a.type === 'settings' && m.a.cfg && typeof m.a.cfg === 'object' && 'gold' in m.a.cfg && !members.canGold(accounts.cached(ws.uid))) delete m.a.cfg.gold; T.action(ws.pid, m.a, ownerOf(ws)); if (m.a && m.a.type === 'settings') { listDirty = true; persistAll(); } } break;
     case 'rtc': { // voice/video introductions: {to, data}
       if (!T) return; const to = T.players[+m.to]; if (!to || !to.conn) return;
       send(to.conn, { type: 'rtc', from: ws.pid, sid: ws.sid, data: m.data }); break;

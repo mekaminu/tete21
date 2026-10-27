@@ -199,6 +199,7 @@ function onMessage(m){
   if(m.type==='members_ask'){mbrAsk(m.who);return}
   if(m.type==='invite_link'){MBR_FRESH=m.key;toast('Link ready: tap Share to send it',2600);SND('pop');if($('#m-members').classList.contains('on'))renderMembers();return}
   if(m.type==='members_out'){toGate(m.msg||'Members only',true);return}
+  if(m.type==='table_hist'){if(!HIST||HIST.rid!==m.rid)return;Object.assign(HIST,{list:m.list||[],name:m.name,open:m.open});renderHist();return}
   if(m.type==='account_lite'){if(!ACCT)return;Object.assign(ACCT,{user:m.user,inPlay:m.inPlay,bonus:m.bonus});renderAcct(true);renderRooms();return}
   // the owner topped up your balance: coins rain at the table, and if you'd run out, Rebuy gets you back in
   // the owner put your chips back to a set amount (at your table too)
@@ -333,7 +334,7 @@ function roomHTML(r,i){
   // who's actually there: seats in a room that stays open are held for people who stepped away, so say so
   const who=r.here?`${r.here} here now · ${r.seated} of ${r.seats} seats taken`:r.seated?`Nobody here now · ${r.seated} ${r.seated===1?'seat':'seats'} held`:`${r.seats} seats free`;
   const status=r.asleep?'Asleep. Return to wake it':`${r.host?esc(r.host)+"'s room · ":''}${who} · ${fmt(r.wager)} a hand · ${r.started?(r.here?'Hand '+r.hand:'Paused at hand '+r.hand):'Waiting to start'}`;
-  const btn=r.mine?`<button class="btn btn-gold" data-ret="${esc(r.mine)}">Return</button>`:full?`<button class="btn btn-dark" disabled>Full</button>`:(r.pub||MO.owner)?`<button class="btn btn-gold" data-ask="${esc(r.rid)}">Join</button>`:`<button class="btn btn-ghost" data-ask="${esc(r.rid)}">Ask to join</button>`;
+  const btn=r.mine?`<button class="btn btn-gold" data-ret="${esc(r.mine)}">Return</button>`:full?`<button class="btn btn-dark" disabled>Full</button>`:`<button class="btn btn-gold" data-ask="${esc(r.rid)}">Join</button>`;
   return`<div class="rrow ${r.mine?'mine':''} ${r.asleep?'asleep':''} ${r.gold?'goldrow':''}" style="animation-delay:${i*.04}s"><div class="rico">${r.mine?ICON.home:r.pub?ICON.open:ICON.lock}${r.here?'<span class="live"></span>':''}</div><div style="min-width:0"><div class="rname"><span class="t">${esc(r.name)}</span>${r.gold?'<span class="tag goldtag">Gold</span>':''}${r.mine?'<span class="tag you">Your seat</span>':''}${r.keep?'<span class="tag">Always open</span>':''}${r.pub?'<span class="tag pub">Public</span>':''}</div><div class="rmeta">${status}</div>${fr.length?`<div class="rfr">${esc(nameList(fr))} ${fr.length>1?'are':'is'} here</div>`:''}${r.pub&&r.members&&r.members.length&&!fr.length?`<div class="rmeta">${esc(r.members.join(', '))}</div>`:''}</div>${btn}</div>`}
 function retHTML(r){return`<div class="retcard${r.gold?' goldrow':''}"><div class="rico">${ICON.home}${r.here?'<span class="live"></span>':''}</div><div style="min-width:0"><div class="rname"><span class="t">${esc(r.name)}</span><span class="tag you">Your seat</span></div><div class="rmeta">${r.asleep?'Asleep. Return wakes it up with everyone\'s chips':`${r.here?r.here+' at the table · ':''}${r.started?'Hand '+r.hand:'Waiting to start'}`}</div></div><button class="btn btn-gold" data-ret="${esc(r.mine)}">Return</button></div>`}
 function wireRooms(box){box.querySelectorAll('[data-ret]').forEach(b=>b.onclick=()=>returnTo(b.dataset.ret));box.querySelectorAll('[data-ask]').forEach(b=>b.onclick=()=>askRoom(b.dataset.ask))}
@@ -359,7 +360,7 @@ function friendRows(ctx){
   return friendIds().map((id,i)=>{const f=FR()[id],s=friendState(id),p=PRES[id]||{};let btn='';
     if(ctx==='invite'){const here=S&&IDS.includes(id);btn=here?'<span class="fstat on">At this table</span>':p.on?`<button class="btn btn-gold" data-inv="${id}">Invite</button>`:'<span class="fstat">Offline</span>'}
     else if(FEDIT)btn=`<button class="btn btn-dark" data-rm="${id}">Remove</button>`;
-    else if(p.on&&p.room){const mine=myCodeForRid(p.room.rid);btn=mine?`<button class="btn btn-gold" data-ret="${esc(mine)}">Return</button>`:`<button class="btn ${(p.room.pub||MO.owner)?'btn-gold':'btn-ghost'}" data-ask="${esc(p.room.rid)}">${(p.room.pub||MO.owner)?'Join':'Ask to join'}</button>`}
+    else if(p.on&&p.room){const mine=myCodeForRid(p.room.rid);btn=mine?`<button class="btn btn-gold" data-ret="${esc(mine)}">Return</button>`:`<button class="btn ${(p.room.pub||MO.owner)?'btn-gold':'btn-ghost'}" data-ask="${esc(p.room.rid)}">Join</button>`}
     return`<div class="frow" style="animation-delay:${i*.04}s">${avHTML(f.av,f.name)}<span class="dot ${s.k}"></span></div><div style="min-width:0"><div class="fname">${esc(f.name||'Friend')}</div><div class="fstat ${s.k}">${esc(s.t)}</div></div>${btn}</div>`}).join('');
 }
 function renderFriends(){
@@ -382,7 +383,7 @@ function removeFriend(id){const F=FR(),nm=F[id]&&F[id].name;delete F[id];if(!ACC
 function openFriend(id){const f=FR()[id];if(!f)return;const p=PRES[id]||{};const a=avStyle(f.av,(f.name||'?')[0].toUpperCase());const el=$('#pl-av');el.style.cssText=a.style;el.textContent=a.text;
   $('#pl-name').textContent=f.name||'Friend';
   $('#pl-body').innerHTML=p.on?(p.room?`At <b>${esc(p.room.name)}</b> right now`:'Online now'):esc(f.seen?`Last seen ${ago(f.seen)}`:'Offline');
-  let h='';if(p.on&&p.room){const mine=myCodeForRid(p.room.rid);h=mine?`<button class="btn btn-gold" data-ret="${esc(mine)}">Return to your seat</button>`:`<button class="btn btn-gold" data-ask="${esc(p.room.rid)}">${(p.room.pub||MO.owner)?'Join them':'Ask to join them'}</button>`}
+  let h='';if(p.on&&p.room){const mine=myCodeForRid(p.room.rid);h=mine?`<button class="btn btn-gold" data-ret="${esc(mine)}">Return to your seat</button>`:`<button class="btn btn-gold" data-ask="${esc(p.room.rid)}">Join them</button>`}
   h+=`<button class="btn btn-dark" id="pl-rm">Remove</button><button class="btn btn-ghost" data-close>Close</button>`;
   $('#pl-actions').innerHTML=h;
   $$('#pl-actions [data-ret]').forEach(b=>b.onclick=()=>{closeModal('#m-player');returnTo(b.dataset.ret)});
@@ -426,7 +427,7 @@ function openPlayer(pid){const p=S&&S.players[pid];if(!p||pid===ME||p.gone)retur
   $('#pl-name').textContent=p.name;$('#pl-body').textContent=`${fmt(p.chips)} chips${p.isBot?' · computer player':''}${p.away?' · away':''}`;
   const isF=id&&FR()[id];const canSpray=S.started&&ME>=0&&!p.gone;const broke=canSpray&&p.chips<S.wager,mine0=S.players[ME]?S.players[ME].chips:0,out=broke&&p.noBuy;
   if(broke)$('#pl-body').textContent=out?`${p.name} is out of chips, and buying back in is off for them: they're out for this game.`:`${p.name} is out of chips and sitting out. Give them a buy-in and they're back in from the next hand.`;
-  $('#pl-actions').innerHTML=(broke&&!out&&mine0>=S.buyIn?`<button class="btn btn-gold" id="pl-give">Give a buy-in (${fmt(S.buyIn)})</button>`:'')+(canSpray&&pid!==ME&&!out?`<button class="btn ${broke?'btn-gold':'btn-ghost'}" id="pl-lend">Lend 🤝</button><button class="btn btn-ghost" id="pl-send">Send chips 🪙</button>`:'')+(canSpray&&!out?'<button class="btn '+(broke?'btn-ghost':'btn-gold')+'" id="pl-spray">Spray money 💸</button>':'')+(canSpray?'<button class="btn btn-ghost" id="pl-treat">Send a treat 🍹</button>':'')+(p.isBot?'':(!id?'':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-ghost" id="pl-add">Add as a friend</button>'))+(HOST&&!LOCALT&&!p.isBot&&!p.gone&&!p.away&&pid!==S.hostId?'<button class="btn btn-ghost" id="pl-host">Make host</button>':'')+(HOST&&!LOCALT&&!p.gone&&pid!==S.hostId?'<button class="btn btn-ghost kickbtn" id="pl-kick">Remove from the table</button>':'')+'<button class="btn btn-ghost" data-close>Close</button>';
+  $('#pl-actions').innerHTML=(broke&&!out&&mine0>=S.buyIn?`<button class="btn btn-gold" id="pl-give">Give a buy-in (${fmt(S.buyIn)})</button>`:'')+(canSpray&&pid!==ME&&!out?`<button class="btn ${broke?'btn-gold':'btn-ghost'}" id="pl-lend">Lend 🤝</button><button class="btn btn-ghost" id="pl-send">Send chips 🪙</button>`:'')+(S.players[ME]&&!S.players[ME].watch&&!p.watch&&!p.gone&&pid!==ME&&!LOCALT?'<button class="btn btn-ghost" id="pl-swap">Swap seats 🔄</button>':'')+(canSpray&&!out?'<button class="btn '+(broke?'btn-ghost':'btn-gold')+'" id="pl-spray">Spray money 💸</button>':'')+(canSpray?'<button class="btn btn-ghost" id="pl-treat">Send a treat 🍹</button>':'')+(p.isBot?'':(!id?'':isF?'<span class="tag you">Friends</span>':'<button class="btn btn-ghost" id="pl-add">Add as a friend</button>'))+(HOST&&!LOCALT&&!p.isBot&&!p.gone&&!p.away&&pid!==S.hostId?'<button class="btn btn-ghost" id="pl-host">Make host</button>':'')+(HOST&&!LOCALT&&!p.gone&&pid!==S.hostId?'<button class="btn btn-ghost kickbtn" id="pl-kick">Remove from the table</button>':'')+'<button class="btn btn-ghost" data-close>Close</button>';
   // the host can take someone off the table, after a second tap to be sure
   const kk=$('#pl-kick');if(kk)kk.onclick=()=>{SND('flick');
     $('#pl-body').textContent=`Take ${p.name} off the table? Their seat goes${S.started&&S.phase>0&&S.phase<6?' and they\'re out of this hand':''}.${p.isBot?'':' They can only come back if you let them in.'}`;
@@ -444,6 +445,7 @@ function openPlayer(pid){const p=S&&S.players[pid];if(!p||pid===ME||p.gone)retur
   const gv=$('#pl-give');if(gv)gv.onclick=()=>{closeModal('#m-player');act({type:'spray',to:pid,amt:S.buyIn})};
   const lb=$('#pl-lend');if(lb)lb.onclick=()=>{closeModal('#m-player');setTimeout(()=>openLend(pid,'lend'),180)};
   const sb=$('#pl-send');if(sb)sb.onclick=()=>{closeModal('#m-player');setTimeout(()=>openLend(pid,'send'),180)};
+  const sw=$('#pl-swap');if(sw)sw.onclick=()=>{closeModal('#m-player');act({type:'swap_ask',to:pid});SND('flick')};
   openModal('#m-player');SND('flick')}
 function onPresence(list){const first=!PRES_READY;PRES_READY=true;const lobby=$('#lobby').classList.contains('on');
   for(const p of list){const was=PRES[p.id];PRES[p.id]={on:!!p.on,room:p.room||null};const f=FR()[p.id];if(!f)continue;
@@ -503,7 +505,7 @@ function renderMembers(){
   const tl=m.tables||[],all=m.hosts==='all';
   h+=`<div class="msec"><h3 class="subh">Tables · ${tl.length?tl.length+' open':'none open'}</h3>`
     +`<div class="setrow mswitch"><span>Who can open tables<small>${all?'Any member can open a table':'Only you, for now. Members join the tables you open.'}</small></span><div class="seg sm"><button type="button" id="mbr-host-me" class="${all?'':'on'}">Only me</button><button type="button" id="mbr-host-all" class="${all?'on':''}">Any member</button></div></div>`
-    +tl.map((t,i)=>`<div class="tbl-row" style="animation-delay:${i*.035}s"><span class="tk" aria-hidden="true">${t.keep?'🏠':'♠'}</span><div style="min-width:0"><div class="fname">${esc(t.name)}</div><div class="fstat">${t.host?'host '+esc(t.host)+' · ':''}${t.people} ${t.people===1?'person':'people'}${t.here<t.people?' · '+t.here+' here now':''}${t.keep?' · standing room':''}</div></div>${t.people?`<div class="tacts"><button class="btn btn-ghost" type="button" data-treset="${esc(t.rid||'')}">Reset all to ${fmt(RESET_TO)}</button><button class="btn ${t.lastOne?'btn-gold':'btn-ghost'}" type="button" data-tlast="${esc(t.rid||'')}" data-on="${t.lastOne?1:0}">${t.lastOne?'Last one standing ✓':'Last one standing'}</button></div>`:''}</div>`).join('')
+    +tl.map((t,i)=>`<div class="tbl-row" style="animation-delay:${i*.035}s"><span class="tk" aria-hidden="true">${t.keep?'🏠':'♠'}</span><div style="min-width:0"><div class="fname">${esc(t.name)}</div><div class="fstat">${t.host?'host '+esc(t.host)+' · ':''}${t.people} ${t.people===1?'person':'people'}${t.here<t.people?' · '+t.here+' here now':''}${t.keep?' · standing room':''}</div></div><div class="tacts"><button class="btn btn-ghost" type="button" data-thist="${esc(t.rid||'')}">History</button><button class="btn ${t.ownerHosts?'btn-gold':'btn-ghost'}" type="button" data-thost="${esc(t.rid||'')}">${t.ownerHosts?'You host ✓ · Go':'Host this table'}</button>${t.people?`<button class="btn btn-ghost" type="button" data-treset="${esc(t.rid||'')}">Reset all to ${fmt(RESET_TO)}</button><button class="btn ${t.lastOne?'btn-gold':'btn-ghost'}" type="button" data-tlast="${esc(t.rid||'')}" data-on="${t.lastOne?1:0}">${t.lastOne?'Last one standing ✓':'Last one standing'}</button>`:''}</div></div>`).join('')
     +(tl.length?'<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn btn-ghost" id="mbr-closeall" type="button">Close all tables</button></div>':'')+`</div>`;
   const invs=m.invites.filter(x=>x.live).concat(m.invites.filter(x=>!x.live).slice(0,3));
   h+=`<div class="msec"><h3 class="subh">Invite a friend</h3><p class="note" style="margin-top:0">A link that lets them straight in, no waiting. It works for 3 days.</p><div class="invmake"><div class="seg sm" id="mbr-invn"><button type="button" data-n="1" class="${MBR_INVN===1?'on':''}">1 person</button><button type="button" data-n="5" class="${MBR_INVN===5?'on':''}">Up to 5</button></div><button class="btn btn-gold" id="mbr-invnew" type="button">Make a link</button></div>${invs.map(invRow).join('')}</div>`;
@@ -520,11 +522,11 @@ function renderMembers(){
     const tp=r.querySelector('[data-top]');if(tp)tp.onclick=()=>{const was=MBR_TOP===id;body.querySelectorAll('.topup').forEach(x=>x.remove());MBR_TOP=was?null:id;if(!was)topupStrip(r)}});
   // Top up: chips from the house onto a member's balance (the owner's alone). The strip stays open across refreshes.
   function topupStrip(r){const id=r.dataset.id,self=!!(ACCT&&ACCT.user&&id===ACCT.user.id),name=self?'you':r.querySelector('.fname').firstChild.textContent,s=document.createElement('div');s.className='topup';
-    const mem=[...((MBR&&MBR.yes)||[]),...((MBR&&MBR.owners)||[])].find(x=>x.id===id)||{},off=mem.at?(mem.spare||0):(mem.bal||0),who=self?'You have':esc(name)+' has';
-    s.innerHTML=`<span>${self?'Add chips from the house':`Give ${esc(name)} chips from the house`}${mem.at?`, onto the table at ${esc(mem.at)}`:''}</span><div class="tamt">${TOPUPS.map(a=>`<button class="btn btn-gold" type="button" data-a="${a}">+${fmt(a)}</button>`).join('')}</div>`
+    const mem=[...((MBR&&MBR.yes)||[]),...((MBR&&MBR.owners)||[])].find(x=>x.id===id)||{},off=mem.tbl?(mem.spare||0):(mem.bal||0),who=self?'You have':esc(name)+' has';
+    s.innerHTML=`<span>${self?'Add chips from the house':`Give ${esc(name)} chips from the house`}${mem.tbl?`, onto the table at ${esc(mem.tbl)}`:''}</span><div class="tamt">${TOPUPS.map(a=>`<button class="btn btn-gold" type="button" data-a="${a}">+${fmt(a)}</button>`).join('')}</div>`
       // where their chips are: on the table (their stack) and off it (the rest of their balance)
-      +(mem.at?`<span class="tline">${who} <b>${fmt(mem.stack||0)}</b> on the table at ${esc(mem.at)} and <b>${fmt(off)}</b> off it</span>`:`<span class="tline">${who} <b>${fmt(off)}</b>, and isn't sitting at a table</span>`)
-      +`<div class="tset">${mem.at?`<label>On the table<input type="number" inputmode="numeric" min="0" step="50" data-set="table" value="${mem.stack||0}"></label>`:''}<label>Off the table<input type="number" inputmode="numeric" min="0" step="50" data-set="off" value="${off}"></label><button class="btn btn-ghost" type="button" data-setgo>Set chips</button></div>`
+      +(mem.tbl?`<span class="tline">${who} <b>${fmt(mem.stack||0)}</b> on the table at ${esc(mem.tbl)} and <b>${fmt(off)}</b> off it</span>`:`<span class="tline">${who} <b>${fmt(off)}</b>, and isn't sitting at a table</span>`)
+      +`<div class="tset">${mem.tbl?`<label>On the table<input type="number" inputmode="numeric" min="0" step="50" data-set="table" value="${mem.stack||0}"></label>`:''}<label>Off the table<input type="number" inputmode="numeric" min="0" step="50" data-set="off" value="${off}"></label><button class="btn btn-ghost" type="button" data-setgo>Set chips</button></div>`
       +`<span class="tline">${self?'Or start yourself again at exactly':`Or start ${esc(name)} again at exactly`} ${fmt(RESET_TO)}${self?'':', at their table too'}</span><button class="btn btn-ghost" type="button" data-reset>Reset to ${fmt(RESET_TO)}</button>`
       +(self?'':(()=>{const mem=((MBR&&MBR.yes)||[]).find(x=>x.id===id)||{};const sw=(k,label,off)=>`<div class="tsw"><span>${label}</span><div class="seg sm" data-flag="${k}"><button type="button" data-v="1" class="${off?'':'on'}">On</button><button type="button" data-v="0" class="${off?'on':''}">Off</button></div></div>`;
         return`<span class="tline">Rules for ${esc(name)}</span>`+sw('wheel','Daily wheel',mem.nowheel)+sw('rebuy','Buy back in when their chips run out',mem.norebuy)})());r.after(s);
@@ -547,6 +549,9 @@ function renderMembers(){
   // reset everyone at a table back to RESET_TO (two taps): the table carries on with everyone level
   body.querySelectorAll('[data-treset]').forEach(b=>b.onclick=()=>{if(!b.dataset.arm){b.dataset.arm='1';b.textContent='Sure? Tap again';b.classList.replace('btn-ghost','btn-gold');toast(`Everyone at this table goes back to ${fmt(RESET_TO)} chips, and Tonight's scores start again.`,3500);setTimeout(()=>{if(b.isConnected){delete b.dataset.arm;b.textContent=`Reset all to ${fmt(RESET_TO)}`;b.classList.replace('btn-gold','btn-ghost')}},4000);return}
     $$('.toast').forEach(x=>x.remove());b.disabled=true;b.textContent='♻️ Resetting…';send({type:'table_reset',rid:b.dataset.treset});SND('pop');buzz(30)});
+  body.querySelectorAll('[data-thist]').forEach(b=>b.onclick=()=>{closeModal('#m-members');setTimeout(()=>openHist(b.dataset.thist),200)});
+  // host a table yourself, playing or not: you go there as the host (and can hand it to a player and take it back)
+  body.querySelectorAll('[data-thost]').forEach(b=>b.onclick=()=>{closeModal('#m-members');send({type:'table_host',rid:b.dataset.thost});SND('pop')});
   // last one standing: everyone at the table loses the daily wheel and buying back in (two taps); one tap undoes it
   body.querySelectorAll('[data-tlast]').forEach(b=>b.onclick=()=>{const on=b.dataset.on==='1';
     if(on){b.disabled=true;send({type:'table_flags',rid:b.dataset.tlast,on:0});SND('pop');return}
@@ -671,8 +676,8 @@ function celebrate(amount,title,sub){
 // ---------- state ----------
 function applyState(o,fx){
   const prev=S;const before=prev&&prev.players&&prev.players.length?snapCards():new Map();
-  S={dj:o.dj==null?-1:o.dj,djTitle:o.djt||'',tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,leadBy:o.lb!=null?o.lb:-1,loans:(o.ln||[]).map(a=>({id:a[0],from:a[1],to:a[2],amt:a[3],paid:a[4],fromName:a[5],toName:a[6],out:!!a[7]})),boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,tieSplit:!!o.ts,fill:!!o.fl,pub:!!o.pb,pending:o.pc||null,
-    players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||'',streak:a[17]||0,bought:a[18]!=null?a[18]:null,wins:a[19]||0,best:a[20]||0,voice:a[21]||null,noBuy:!!a[22]})),
+  S={oh:!!o.oh,dj:o.dj==null?-1:o.dj,djTitle:o.djt||'',tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,leadBy:o.lb!=null?o.lb:-1,loans:(o.ln||[]).map(a=>({id:a[0],from:a[1],to:a[2],amt:a[3],paid:a[4],fromName:a[5],toName:a[6],out:!!a[7]})),boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,tieSplit:!!o.ts,fill:!!o.fl,pub:!!o.pb,pending:o.pc||null,
+    players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||'',streak:a[17]||0,bought:a[18]!=null?a[18]:null,wins:a[19]||0,best:a[20]||0,voice:a[21]||null,noBuy:!!a[22],watching:!!a[23],seat:a[24]!=null?a[24]:a[0],watch:!!a[25],sitNext:!!a[26],hid:!!a[27]})),
     sideBets:o.sbs.map(a=>({id:a[0],a:a[1],b:a[2],type:a[3],amt:a[4],mine:a[5],theirs:a[6],status:a[7],result:a[8],winner:a[9],desc:sbDesc(a[3],a[5],a[6])}))};
   ME=o.me;HOST=o.host===ME;S.gold=!!o.gd;goldLook(S.gold);djRefresh();
   $('#t-name').textContent=S.tableName;$('#t-wager').textContent=S.pending&&S.pending.wager!=null&&S.pending.wager!==S.wager?`${fmt(S.wager)} → ${fmt(S.pending.wager)} next hand`:fmt(S.wager);$('#t-decks').textContent=`${S.decks} deck${S.decks>1?'s':''} · ${36*S.decks} cards`;
@@ -707,8 +712,8 @@ function cues(prev){
 }
 function showWait(){
   const w=$('#wait');w.hidden=false;$('#wait-code').textContent=S.code||'—';
-  $('#wait-players').innerHTML=S.players.filter(p=>!p.gone).map(p=>`<span class="wp"><i style="background:${p.isBot?p.color:((p.av&&p.av.color)||'#2b1f25')}"></i>${esc(p.name)}${p.id===ME?' (you)':''}${p.id===S.hostId?' · host':''}${p.isBot?' · computer':''}</span>`).join('');
-  const humans=S.players.filter(p=>!p.isBot&&!p.gone).length;
+  $('#wait-players').innerHTML=S.players.filter(p=>!p.gone).map(p=>`<span class="wp"><i style="background:${p.isBot?p.color:((p.av&&p.av.color)||'#2b1f25')}"></i>${esc(p.name)}${p.id===ME?' (you)':''}${p.id===S.hostId?(p.watch?' · hosting, not playing':' · host'):''}${p.isBot?' · computer':''}</span>`).join('');
+  const humans=S.players.filter(p=>!p.isBot&&!p.gone&&!p.watch).length;
   if(HOST){$('#wait-note').textContent=`${S.keep?'This room stays open until you close it; everyone keeps their chips. ':''}Send the code (or the link) to your friends. ${humans>1?humans+' people seated.':'Waiting for friends…'}`;
     $('#wait-actions').innerHTML=`<button class="btn btn-ghost" id="btn-inv2">Invite</button><button class="btn btn-gold" id="btn-go">Start the game</button>`;
     $('#btn-go').onclick=()=>act({type:'start'});$('#btn-inv2').onclick=openInvite;
@@ -730,6 +735,8 @@ function runFx(e){
     case 'shuffle':shuffleFx();break;
     case 'spray':sprayFx(e.from,e.to,e.amt);break;
     case 'lend':lendFx(e.from,e.to,e.amt,e.back);break;
+    case 'swap_ask':if(e.pid===ME)swapAsk(e);break;
+    case 'seats':toast('🔄 '+e.t,2600);SND('whoosh');break;
     case 'give':{const a=seatEl(e.from),b=seatEl(e.to);if(a&&b&&!RM())flyChip(a,b,'c100',Math.min(6,2+Math.floor(e.amt/Math.max(1,S?S.buyIn:1000))));SND(isGold()?'coin':'chips');setTimeout(()=>bubble(e.to,`+${fmt(e.amt)} 🪙`,2000),350);if(e.to===ME){buzz([30,30,60]);toast(`🪙 ${S&&S.players[e.from]?S.players[e.from].name:'Someone'} sent you ${fmt(e.amt)} chips`,3500)}break}
     case 'treat':treatFx(e.from,e.to,e.item);break;
     case 'react':reactFx(e.pid,e.r);break;
@@ -740,7 +747,7 @@ function runFx(e){
 }
 
 // ---------- rendering ----------
-function renderAll(){const sig=S.players.map(p=>p.id+(p.isBot?'b':'h')+p.name+(p.av?JSON.stringify(p.av):'')).join('|')+'#'+ME;const fresh=sig!==lastSig;lastSig=sig;renderSeats(fresh||lastCount!==S.players.length||lastME!==ME);renderBoard();renderSide();renderMe();renderPhases()}
+function renderAll(){const sig=S.players.map(p=>p.id+(p.isBot?'b':'h')+p.name+(p.av?JSON.stringify(p.av):'')+'@'+p.seat+(p.watch?'w':'')+(p.hid?'x':'')).join('|')+'#'+ME;const fresh=sig!==lastSig;lastSig=sig;renderSeats(fresh||lastCount!==S.players.filter(p=>!p.watch&&!p.hid).length||lastME!==ME);renderBoard();renderSide();renderMe();renderPhases()}
 // seats round the oval; on a tall phone table, seats that would sit level with the board row are lifted
 // (or dropped) out of its way, so a face, a dropped card or a video never hides behind the cards
 function seatLayout(n,tall){
@@ -763,9 +770,11 @@ function seatLayout(n,tall){
 function renderPhases(){$('#phases').innerHTML=PHASES.map((p,i)=>`<span class="phase ${i<S.phase?'done':i===S.phase?'now':''}">${p}</span>`).join('')}
 let TALL=null,BOARD_FRAC=null;
 function renderSeats(fresh){
-  const n=S.players.length, root=$('#seats');const meIdx=Math.max(0,ME);
+  // the seats go round the table in seat order (players can swap, the host can shuffle); a host who isn't playing
+  // has no seat at all
+  const ring=S.players.filter(p=>!p.watch&&!p.hid).sort((a,b)=>(a.seat-b.seat)||(a.id-b.id)),n=ring.length,root=$('#seats');const meIdx=Math.max(0,ring.findIndex(p=>p.id===ME));
   const tb=$('#table'),tall=!!(tb&&tb.clientHeight>tb.clientWidth*1.05);
-  if(fresh||lastCount!==n||lastME!==ME||TALL!==tall){lastCount=n;lastME=ME;TALL=tall;const L=seatLayout(n,tall);sizeBoard();const D=$('.dealer');D.style.left=L.dealer.left+'%';D.style.top=L.dealer.top+'%';D.style.right='auto';D.style.transform=`translate(${L.dealer.tx}%,${L.dealer.ty}%)`;root.innerHTML=S.players.map((p,i)=>{const pos=L.seat((i-meIdx+n)%n);const a=p.isBot?{style:`background:${p.color}`,text:p.name[0].toUpperCase()}:(p.id===ME?avStyle(AV,p.name[0].toUpperCase()):avStyle(p.av,p.name[0].toUpperCase()));
+  if(fresh||lastCount!==n||lastME!==ME||TALL!==tall){lastCount=n;lastME=ME;TALL=tall;const L=seatLayout(n,tall);sizeBoard();const D=$('.dealer');D.style.left=L.dealer.left+'%';D.style.top=L.dealer.top+'%';D.style.right='auto';D.style.transform=`translate(${L.dealer.tx}%,${L.dealer.ty}%)`;root.innerHTML=ring.map((p,i)=>{const pos=L.seat((i-meIdx+n)%n);const a=p.isBot?{style:`background:${p.color}`,text:p.name[0].toUpperCase()}:(p.id===ME?avStyle(AV,p.name[0].toUpperCase()):avStyle(p.av,p.name[0].toUpperCase()));
     return`<div class="seat" id="seat-${p.id}" data-side="${pos.side}" style="left:${pos.left}%;top:${pos.top}%;transform:translate(${pos.tx}%,${pos.ty}%);animation:seatin .6s ${i*.08}s both"><span class="flame"></span><div class="av" style="${a.style}" ${p.id===ME?'title="Change your avatar"':''}>${a.text}<div class="vid"><video autoplay playsinline ${p.id===ME?'muted':''}></video></div><span class="rec"></span><span class="mic"></span><span class="treat"></span><span class="hcrown"></span><div class="ring" hidden></div><div class="tleft" hidden></div></div><div class="nm"></div><div class="chips"><span class="chip s c25"></span><span class="num"></span></div><div class="mini"></div><div class="tot"></div></div>`}).join('');
     if(ME>=0){const me=$('#seat-'+ME+' .av');if(me)me.onclick=openAv}
     S.players.forEach(p=>{if(p.id===ME)return;const el=$('#seat-'+p.id);if(!el)return;el.classList.add('human');el.querySelector('.av').onclick=()=>openPlayer(p.id)});
@@ -827,6 +836,65 @@ let NUDGE=null,SPRAYED=new Set();
 function msg(t){if(NUDGE)return;$('#msg').innerHTML=t}
 function nudge(t){NUDGE=t;$('#msg').innerHTML=`<span class="nudge">${t}</span>`;clearTimeout(nudge.t);nudge.t=setTimeout(()=>{NUDGE=null;renderMe()},2600)}
 function actions(html){$('#actions').innerHTML=html}
+// ---------- hand records (the owner's): how every hand ended at a table, to check, put back, or save as a picture ----------
+let HIST=null,HIST_I=-1;
+const hhmm=t=>new Date(t).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),dday=t=>new Date(t).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+function openHist(rid){HIST={rid,list:[],name:'',open:0};HIST_I=-1;$('#hist-title').textContent='History';$('#hist-body').innerHTML='<p class="mempty">Loading…</p>';openModal('#m-hist');send({type:'table_hist',rid});SND('flick')}
+function renderHist(){const b=$('#hist-body');if(!HIST)return;$('#hist-title').textContent=`${HIST.name||'Table'} · history`;
+  if(HIST_I<0){const L=HIST.list.slice().reverse();
+    b.innerHTML=L.length?L.map((r,i)=>{const w=r.players.filter(p=>p.w);return`<button type="button" class="histrow" data-i="${HIST.list.length-1-i}" style="animation-delay:${Math.min(i,12)*.03}s"><b>Hand ${r.hand}</b><span>${dday(r.at)} · ${hhmm(r.at)}</span><span class="hw">${w.length?'🏆 '+w.map(p=>esc(p.n)+(p.d!=null?` +${fmt(p.d)}`:'')).join(', '):r.pot>0?`Tie · ${fmt(r.pot)} pot stays`:'no winner'}</span></button>`}).join(''):'<p class="mempty">No hands recorded yet. They start with the next hand that ends.</p>';
+    b.querySelectorAll('.histrow').forEach(x=>x.onclick=()=>{HIST_I=+x.dataset.i;renderHist();SND('flick')});return}
+  const r=HIST.list[HIST_I];
+  b.innerHTML=`<button type="button" class="linkbtn" id="hist-back">‹ All hands</button>
+    <div class="histcard"><div class="hh"><b>Hand ${r.hand}</b><span>${dday(r.at)} · ${hhmm(r.at)}</span></div>
+    ${r.board&&r.board.length?`<div class="hb">Board ${r.board.map(c=>`<span class="hc${/[♥♦]/.test(c)?' red':''}">${esc(c)}</span>`).join('')}</div>`:''}
+    <div class="ht"><div class="hr hhd"><span>Player</span><span>On the table</span><span>Balance</span><span>This hand</span></div>
+    ${r.players.map(p=>`<div class="hr${p.w?' won':''}"><span>${p.w?'🏆 ':''}${esc(p.n)}${p.b?' <small>computer</small>':''}${p.h&&p.h.length?`<small class="hcards">${p.h.map(esc).join(' ')}${p.tot!=null?' = '+p.tot:''}</small>`:''}</span><span>${fmt(p.c)}</span><span>${p.bal!=null?fmt(p.bal):'–'}</span><span class="${p.d>0?'up':p.d<0?'down':''}">${p.d==null?'–':(p.d>0?'+':'')+fmt(p.d)}</span></div>`).join('')}</div></div>
+    <div class="actions hist-acts">${HIST.open?'<button class="btn btn-ghost" id="hist-restore" type="button">Put everyone back to this</button>':''}<button class="btn btn-gold" id="hist-pic" type="button">Save as picture</button></div><div id="hist-picbox"></div>`;
+  $('#hist-back').onclick=()=>{HIST_I=-1;renderHist()};
+  const rs=$('#hist-restore');if(rs)rs.onclick=()=>{if(!rs.dataset.arm){rs.dataset.arm='1';rs.textContent='Sure? Tap again';rs.classList.replace('btn-ghost','btn-gold');toast(`Everyone at the table gets exactly what they had at the end of hand ${r.hand}: chips on the table and balance.`,4000);setTimeout(()=>{if(rs.isConnected&&rs.dataset.arm){delete rs.dataset.arm;rs.textContent='Put everyone back to this';rs.classList.replace('btn-gold','btn-ghost')}},4500);return}
+    $$('.toast').forEach(x=>x.remove());delete rs.dataset.arm;rs.disabled=true;rs.textContent='Done ✓';rs.classList.replace('btn-gold','btn-ghost');send({type:'table_restore',rid:HIST.rid,at:r.at});SND('pop');setTimeout(()=>{if(rs.isConnected){rs.disabled=false;rs.textContent='Put everyone back to this'}},4000)};
+  $('#hist-pic').onclick=()=>histPicture(r)}
+// a record as a picture (drawn here, nothing uploaded): to keep, or to post in the group as proof
+function histPicture(r){const cards=r.players.some(p=>p.h&&p.h.length),W=760,rowH=cards?58:40,top=172,H=top+rowH*r.players.length+60,c=document.createElement('canvas'),k=2;c.width=W*k;c.height=H*k;const x=c.getContext('2d');x.scale(k,k);
+  const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#2a1c22');g.addColorStop(1,'#120c0f');x.fillStyle=g;x.fillRect(0,0,W,H);
+  x.strokeStyle='#d4ac55';x.lineWidth=2;x.strokeRect(10,10,W-20,H-20);
+  x.fillStyle='#f0d58c';x.font='bold 30px Georgia, serif';x.fillText(`${r.table||HIST.name||'Tete 21'} · Hand ${r.hand}`,32,58);
+  x.fillStyle='#c9b9a6';x.font='16px system-ui, sans-serif';x.fillText(`${dday(r.at)} ${hhmm(r.at)} · recorded by Tete 21`,32,86);
+  if(r.board&&r.board.length)x.fillText('Board  '+r.board.join('  '),32,118);
+  const cols=[32,340,480,620];x.fillStyle='#d4ac55';x.font='bold 13px system-ui, sans-serif';['PLAYER','ON THE TABLE','BALANCE','THIS HAND'].forEach((h,i)=>x.fillText(h,cols[i],top-14));
+  r.players.forEach((p,i)=>{const y=top+rowH*i+24;if(i%2===0){x.fillStyle='rgba(255,255,255,.045)';x.fillRect(22,y-26,W-44,rowH)}
+    if(p.h&&p.h.length){x.font='14px system-ui, sans-serif';x.fillStyle='#b8a894';x.fillText(p.h.join('  ')+(p.tot!=null?'  = '+p.tot:''),cols[0]+(p.w?30:0),y+22)}
+    x.font=(p.w?'bold ':'')+'18px system-ui, sans-serif';x.fillStyle=p.w?'#f3d990':'#efe7dc';x.fillText((p.w?'🏆 ':'')+p.n+(p.b?' (computer)':''),cols[0],y);
+    x.font='18px system-ui, sans-serif';x.fillStyle='#efe7dc';x.fillText(fmt(p.c),cols[1],y);x.fillText(p.bal!=null?fmt(p.bal):'–',cols[2],y);
+    x.fillStyle=p.d>0?'#7fd8a2':p.d<0?'#f0a08a':'#c9b9a6';x.fillText(p.d==null?'–':(p.d>0?'+':'')+fmt(p.d),cols[3],y)});
+  const url=c.toDataURL('image/png'),box=$('#hist-picbox'),fn=`tete-${String(r.table||'table').replace(/[^a-z0-9]+/gi,'-')}-hand-${r.hand}.png`,app=!!window.TeteAndroid;
+  // sharing straight to WhatsApp etc. where the browser can (Chrome on Android, Safari); the Tete app can't hand files
+  // on yet, so there it's a screenshot
+  box.innerHTML=`<img class="histimg" src="${url}" alt="Hand ${r.hand}">`+(app?`<p class="note">In the Tete app, take a screenshot of this picture to keep or share it (or open Tete in Chrome to save it).</p>`:`<button class="btn btn-gold" id="hist-share" type="button" hidden>Share the picture</button><a class="btn btn-ghost" download="${fn}" href="${url}">Download the picture</a><p class="note">On a phone you can also press and hold the picture to save or share it.</p>`);
+  box.scrollIntoView({block:'nearest',behavior:'smooth'});SND('pop');
+  if(!app&&navigator.canShare)c.toBlob(bl=>{try{const f=new File([bl],fn,{type:'image/png'}),sh=$('#hist-share');if(!sh||!navigator.canShare({files:[f]}))return;sh.hidden=false;
+    sh.onclick=()=>navigator.share({files:[f],title:`${r.table||'Tete 21'} · Hand ${r.hand}`}).catch(()=>{})}catch{}},'image/png')}
+// someone not in this hand: hosting without playing, watching (new, or sitting out by choice), or sat out
+function outMsg(me){return me.watch?"You're hosting this table, not playing.":me.watching||me.sitNext?"You're watching. Tap <b>Deal me in</b> to play from the next hand.":'You sit this hand out.'}
+// Sit out / Deal me in: not for a host who isn't playing; someone out of chips rebuys first
+function renderSitBtn(me){const b=$('#btn-sit');if(!b)return;if(!S||LOCALT||!me||me.watch||me.gone){b.hidden=true;return}
+  const st=me.sitNext?'next':me.sitout?'out':'in';if(st==='out'&&me.chips<S.wager&&!me.watching){b.hidden=true;return}
+  b.hidden=false;b.dataset.st=st;b.textContent=st==='in'?'Sit out':st==='next'?'Stay in':'Deal me in';b.classList.toggle('go',st!=='in')}
+$('#btn-sit').onclick=()=>{const st=$('#btn-sit').dataset.st;act({type:'sit',out:st==='in'});SND('flick');buzz(15)};
+// who hosts (when it's the owner, not playing), and Take host for the owner when someone else has it
+function renderHostBits(){if(!S)return;const hp=S.players[S.hostId],pill=$('#t-hostby'),tk=$('#btn-takehost');
+  pill.hidden=!(hp&&hp.watch&&!hp.gone);if(!pill.hidden)pill.textContent=`👁 ${hp.name} hosts`;
+  tk.hidden=!(MO.owner&&!LOCALT&&S.hostId!==ME)}
+$('#btn-takehost').onclick=()=>{send({type:'host_take'});SND('pop');toast('You run the table again',2200)};
+// swapping seats: someone asks you; you say yes or not now
+let SWAP_FROM=-1,SWAP_T=null;
+function swapAsk(e){SWAP_FROM=e.from;$('#swap-name').textContent=e.name||'Someone';const el=$('#swap-ask');el.classList.remove('out');el.hidden=false;SND('join',{bg:true});buzz([40,30,40]);clearTimeout(SWAP_T);SWAP_T=setTimeout(hideSwap,60000)}
+function hideSwap(){const el=$('#swap-ask');if(el.hidden)return;el.classList.add('out');setTimeout(()=>{el.hidden=true;el.classList.remove('out')},360)}
+$('#swap-yes').onclick=()=>{if(SWAP_FROM>=0)act({type:'swap_ans',from:SWAP_FROM,yes:1});SWAP_FROM=-1;hideSwap();SND('pop')};
+$('#swap-no').onclick=()=>{if(SWAP_FROM>=0)act({type:'swap_ans',from:SWAP_FROM,yes:0});SWAP_FROM=-1;hideSwap()};
+$('#ts-shuffle').onclick=()=>{const b=$('#ts-shuffle');if(!b.dataset.arm){b.dataset.arm='1';b.textContent='Sure? Tap again';setTimeout(()=>{if(b.isConnected){delete b.dataset.arm;b.textContent="🔀 Shuffle everyone's seats"}},3500);return}
+  delete b.dataset.arm;b.textContent="🔀 Shuffle everyone's seats";closeModal('#m-tset');act({type:'shuffle'});SND('whoosh')};
 function renderMe(){
   const me=ME>=0?S.players[ME]:null;
   if(!me){$('#myhand').innerHTML='';$('#mytotal').textContent='–';$('#mychips').textContent='–';$('#mychips')._n=undefined;return}
@@ -834,6 +902,7 @@ function renderMe(){
   $('#myhand').innerHTML=me.hand.map(c=>cardHTML(c,(FLY.has(c.id)?'incoming':'')+(S.phase===3&&myTurn&&S.adasiTurn!==ME?' pickable':''))).join('');
   const tt=total(me);$('#mytotal').textContent=!me.hand.length?'–':(S.phase<=3&&me.hand.length===3?'drop one':tt);$('#mytotal').style.color=tt>21?'var(--bad)':tt===21?'var(--good)':'';
   countTo($('#mychips'),me.chips);
+  $('.me').classList.toggle('hosting',!!me.watch);$('#me-hosting').hidden=!me.watch;renderSitBtn(me);renderHostBits();
   if(!S.started)return;
   const tp=S.turn>=0?S.players[S.turn]:null;const nm=tp?esc(tp.name):'';$$('#myhand .wl').forEach(x=>x.remove());
   const out=!S.participants.includes(ME);
@@ -845,7 +914,7 @@ function renderMe(){
     // called suit makes them drop an Ace (the table decides; this only explains it to the one holding them)
     const L=S.leadSuit,aces=me.hand.filter(c=>c.r==='A').length,lead=L?me.hand.filter(c=>c.s===L):[],ADS=window.TeteEngine&&window.TeteEngine.Table.adasiStands;
     const two=aces>=2&&!me.dropped&&!out,broke=two&&!!L&&!!ADS&&!ADS(me.hand,L),why=lead.length>1?`all your ${L} are Aces`:`your only ${L} is an Ace`;
-    if(out){msg('You sit this hand out.');actions('')}
+    if(out){msg(outMsg(me));actions('')}
     else if(myTurn&&S.adasiTurn===ME){msg('<b>Two Aces!</b> You hold Adasi. Declare it and the pot is yours.');actions('<button class="btn btn-adasi" id="btn-adasi">DECLARE ADASI</button>');$('#btn-adasi').onclick=()=>{actions('');act({type:'adasi'})}}
     else if(myTurn){const must=S.leadSuit&&me.hand.some(c=>c.s===S.leadSuit),ci=callInfo(),tv=ci?ci.tv:-1,beats=c=>!!(c&&S.leadSuit&&c.s===S.leadSuit&&val(c)>tv),anyBeat=me.hand.some(beats);
       msg(broke?`<b>No Adasi this hand.</b> ${L} is called and ${why}, so you have to drop ${lead.length>1?'one':'it'}. Tap ${lead.length>1?'one':'it'}.`:S.leadSuit?(must?`${S.leadSuit} is called: you must drop a ${S.leadSuit}.${anyBeat?' 👑 marks a card that would take the lead.':''} Tap a card.`:`${S.leadSuit} is called. You have none, so drop any card.`):'You make the call: everyone has to follow the suit you drop. Tap a card.');actions('');
@@ -859,7 +928,7 @@ function renderMe(){
   }
   else if(S.phase===4){const w=S.trickWinner>=0?S.players[S.trickWinner]:null;msg(w?`<b>${esc(w.name)}</b> wins the trick and picks first.`:'');actions('')}
   else if(S.phase===5){
-    if(out){msg('You sit this hand out.');actions('')}
+    if(out){msg(outMsg(me));actions('')}
     else if(myTurn){const c=S.board[S.boardTop];const t=total(me);
       if(!c){msg('The board is empty.');actions('');return}
       // you must keep picking while the next card keeps you on 21 or under; when it would take you over, you stay
@@ -876,7 +945,7 @@ function renderMe(){
     else{
       let a='';
       if(me.satOutByTimer)a+='<button class="btn btn-gold" id="btn-rejoin">Rejoin the table</button>';
-      else if(me.chips<S.wager)a+=me.noBuy?`<span class="outnote">You're out for this game: buying back in is off</span>`:`<button class="btn btn-gold" id="btn-rebuy">Rebuy ${fmt(S.buyIn)}</button>`;
+      else if(!me.watch&&me.chips<S.wager)a+=me.noBuy?`<span class="outnote">You're out for this game: buying back in is off</span>`:`<button class="btn btn-gold" id="btn-rebuy">Rebuy ${fmt(S.buyIn)}</button>`;
       if(HOST){if(S.msgHost&&!S.next)a+='<button class="btn btn-gold" id="btn-rebuy-all">Rebuy everyone</button>';else a+=`<button class="btn ${a?'btn-ghost':'btn-gold'}" id="btn-next">${S.tiebreak?'Play for the bigger pot':'Next hand'}</button><span class="note" style="margin:0;align-self:center">auto in 12s</span>`}
       msg(S.msgHost?`${S.msgHost} ${tl}`:`${tl} ${HOST?'Ready when you are.':'Waiting for the host to deal the next hand.'}`);
       actions(a);
@@ -1206,17 +1275,18 @@ function treatFx(from,to,item){const t=TREATS[item];if(!t)return;SND('pour',{bg:
     an.onfinish=()=>{e.remove();if(!landed){landed=true;SND('clink',{bg:true})}const tr=$(`#seat-${pid} .treat`);if(tr)tr.animate([{transform:'scale(2.2)'},{transform:'scale(1)'}],{duration:380,easing:'cubic-bezier(.2,1.4,.4,1)'})};setTimeout(()=>e.remove(),2500)})}
 // ---------- table settings: the host (or anyone seated while the host is away) can change them mid-game ----------
 let TSV={};
-function canEditTable(){if(!S||ME<0)return false;if(HOST||LOCALT)return true;const h=S.players[S.hostId];return!h||h.isBot||h.gone||h.away}
+function canEditTable(){if(!S||ME<0)return false;if(HOST||LOCALT||MO.owner)return true;const h=S.players[S.hostId];if((h&&h.watch&&!h.gone)||S.oh)return false;return!h||h.isBot||h.gone||h.away}
 function openTableSettings(){if(!S)return;const pc=S.pending||{};
   $('#ts-gold-f').hidden=!MO.gold;TSV={gold:+!!S.gold,tie:(pc.tieSplit!=null?pc.tieSplit:S.tieSplit)?'split':'playoff',series:+(pc.series!=null?pc.series:S.series),side:+(pc.side!=null?pc.side:S.side),fill:+(pc.fill!=null?pc.fill:S.fill),pub:+S.pub,keep:+S.keep};
   $('#ts-name').value=S.tableName||'';
   setOpt($('.opts[data-for="ts-wager"]'),pc.wager!=null?pc.wager:S.wager);setOpt($('.opts[data-for="ts-buyin"]'),S.buyIn);setOpt($('.opts[data-for="ts-timer"]'),S.timer);
   $$('#m-tset .seg[data-ts="pub"],#m-tset .seg[data-ts="keep"]').forEach(g=>{g.closest('.field').hidden=!!LOCALT});syncTS();
   const edit=canEditTable(),hp=S.players[S.hostId];$('#m-tset').classList.toggle('readonly',!edit);$('#ts-save').hidden=!edit;
-  $('#ts-note').textContent=edit?'The wager and the rules change from the next hand; the rest at once. Everyone at the table is told.':`Only the host${hp?` (${hp.name})`:''} can change these, or anyone seated while the host is away.`;
+  $('#ts-note').textContent=edit?'The wager and the rules change from the next hand; the rest at once. Everyone at the table is told.':hp&&(hp.watch||S.oh)?`Only the host (${hp.name}) can change these.`:`Only the host${hp?` (${hp.name})`:''} can change these, or anyone seated while the host is away.`;
+  $('#ts-shuffle-f').hidden=!((HOST||MO.owner)&&!LOCALT);
   renderTsPlayers();openModal('#m-tset');SND('flick')}
 // the host can take anyone off the table from Table settings too (tap Remove, then tap again to be sure)
-function renderTsPlayers(){const f=$('#ts-players-f');if(!f||!S)return;const others=S.players.filter(p=>!p.gone&&p.id!==ME&&p.id!==S.hostId);f.hidden=!(HOST&&!LOCALT&&others.length);if(f.hidden)return;
+function renderTsPlayers(){const f=$('#ts-players-f');if(!f||!S)return;const others=S.players.filter(p=>!p.gone&&!p.watch&&p.id!==ME&&p.id!==S.hostId);f.hidden=!((HOST||MO.owner)&&!LOCALT&&others.length);if(f.hidden)return;
   $('#ts-players').innerHTML=others.map(p=>`<div class="tsp"><span class="tsp-n">${esc(p.name)}${p.isBot?'<small>computer</small>':p.away?'<small>away</small>':''}</span>${!p.isBot&&!p.away?`<button type="button" class="btn btn-ghost" data-host="${p.id}">Make host</button>`:''}<button type="button" class="btn btn-ghost kickbtn" data-kick="${p.id}">Remove</button></div>`).join('');
   $$('#ts-players [data-host]').forEach(b=>b.onclick=()=>{const pid=+b.dataset.host,p=S&&S.players[pid];if(!p||p.gone)return;
     if(!b.classList.contains('armed')){$$('#ts-players .armed').forEach(x=>{x.classList.remove('armed');x.textContent=x.dataset.kick?'Remove':'Make host'});b.classList.add('armed');b.textContent=`Yes, make ${p.name} host`;SND('flick');return}

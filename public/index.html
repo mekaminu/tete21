@@ -794,6 +794,37 @@ html[data-felt="midnight"] .felt .ring{border-color:rgba(217,178,95,.32)}
 .mswitch small{display:block;color:var(--fg-dim);font-size:12px;font-weight:400}
 .mbr-ask{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:68;display:flex;align-items:center;gap:10px;width:min(460px,calc(100vw - 20px));background:linear-gradient(180deg,#2e1f26,#1a1114);border:1px solid var(--gold);border-radius:16px;padding:10px 10px 10px 12px;box-shadow:0 16px 40px rgba(0,0,0,.6),0 0 0 4px rgba(217,178,95,.12)}
 .mbr-ask:not([hidden]){animation:mbrin .5s cubic-bezier(.2,1.3,.4,1)}
+.swap-ico{font-size:26px;animation:swapspin 1.4s ease-in-out infinite}
+@keyframes swapspin{50%{transform:rotate(180deg)}}
+#swap-ask .mbr-ask-tx span{display:block;font-size:12.5px;color:var(--fg-dim)}
+#swap-ask{top:calc(70px + env(safe-area-inset-top,0px));z-index:70}
+.sitbtn{margin-left:10px;padding:4px 12px;border-radius:99px;border:1px solid rgba(217,178,95,.55);background:transparent;color:var(--gold-hi);font-weight:700;font-size:12.5px;cursor:pointer;vertical-align:middle;letter-spacing:.02em}
+.sitbtn.go{background:linear-gradient(180deg,#f3d990,#d4ac55);color:#2a1d08;border-color:transparent;animation:sitpulse 1.8s ease-in-out infinite}
+@keyframes sitpulse{50%{box-shadow:0 0 0 6px rgba(217,178,95,.2)}}
+.me.hosting #myhand{display:none}
+.me.hosting .info>div:first-child>:not(.hostingtag){display:none}
+.hostingtag{display:inline-block;padding:5px 12px;border-radius:99px;border:1px solid rgba(217,178,95,.55);color:var(--gold-hi);font-size:13.5px}
+.hostpill{display:inline-flex;align-items:center;margin-left:6px;padding:2px 9px;border-radius:99px;border:1px solid rgba(217,178,95,.5);color:var(--gold-hi);font-size:11.5px;white-space:nowrap}
+.takehost{margin-left:6px;padding:5px 10px;font-size:12px}
+@media (prefers-reduced-motion:reduce){.swap-ico,.sitbtn.go{animation:none}}
+#m-hist .histrow{display:grid;grid-template-columns:auto auto 1fr;gap:4px 12px;align-items:baseline;width:100%;text-align:left;padding:11px 6px;border:0;border-bottom:1px solid #2a1f25;background:none;color:var(--fg);cursor:pointer;font-size:14px;animation:rowin .35s both}
+#m-hist .histrow span{color:var(--fg-dim);font-size:12.5px}
+#m-hist .histrow .hw{justify-self:end;color:var(--gold-hi);font-size:13px;text-align:right}
+.histcard{border:1px solid rgba(217,178,95,.4);border-radius:14px;padding:12px;margin:8px 0;background:linear-gradient(180deg,rgba(217,178,95,.08),rgba(0,0,0,.1));animation:rowin .3s both}
+.histcard .hh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.histcard .hh span{color:var(--fg-dim);font-size:12.5px}
+.histcard .hb{margin:4px 0 8px;font-size:13px;color:var(--fg-dim)}
+.histcard .hc{display:inline-block;margin:0 3px;padding:1px 6px;border-radius:6px;background:#f6efe2;color:#1a1a1a;font-weight:700}
+.histcard .hc.red{color:#b3261e}
+.histcard .ht .hr{display:grid;grid-template-columns:minmax(0,1.6fr) 1fr 1fr 1fr;gap:6px;padding:7px 2px;border-top:1px solid rgba(255,255,255,.06);font-size:13.5px;font-variant-numeric:tabular-nums}
+.histcard .ht .hhd{border-top:0;color:var(--gold-hi);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase}
+.histcard .ht .hr.won{color:var(--gold-hi)}
+.histcard .hcards{display:block;color:var(--fg-dim);font-size:11.5px}
+.histcard .up{color:var(--good)}.histcard .down{color:#f0a08a}
+.hist-acts{flex-direction:column;align-items:stretch}.hist-acts .btn{width:100%}
+.histimg{width:100%;border-radius:12px;margin-top:10px;border:1px solid rgba(217,178,95,.4)}
+#hist-picbox .btn{display:flex;justify-content:center;width:100%;margin-top:10px;text-decoration:none}
+#hist-picbox .note{margin:8px 0 0;text-align:center}
 @keyframes mbrin{from{transform:translate(-50%,-140%)}}
 .mbr-ask.out{animation:mbrout .35s ease-in forwards}
 @keyframes mbrout{to{transform:translate(-50%,-150%);opacity:0}}
@@ -1055,7 +1086,7 @@ html.goldt .drama .card.goldace::before{content:"";position:absolute;inset:0;bor
 <!-- ============ GAME ============ -->
 <section id="game" class="screen">
   <div class="topbar">
-    <button class="tname" id="btn-tset" type="button" title="Table settings"><h1 id="t-name">Table</h1></button><span class="goldbadge" id="t-gold" title="Gold table" hidden><svg viewBox="0 0 26 18" aria-hidden="true"><path d="M2 15 L4 4 L9.5 9.5 L13 2 L16.5 9.5 L22 4 L24 15 Z" fill="#2a1d08"></path></svg><span class="gtx">GOLD</span></span>
+    <button class="tname" id="btn-tset" type="button" title="Table settings"><h1 id="t-name">Table</h1></button><span class="goldbadge" id="t-gold" title="Gold table" hidden><svg viewBox="0 0 26 18" aria-hidden="true"><path d="M2 15 L4 4 L9.5 9.5 L13 2 L16.5 9.5 L22 4 L24 15 Z" fill="#2a1d08"></path></svg><span class="gtx">GOLD</span></span><span class="hostpill" id="t-hostby" hidden></span><button class="btn btn-gold takehost" id="btn-takehost" type="button" hidden>Take host</button>
     <div class="meta"><span>Hand <b class="num" id="t-hand">1</b></span><button class="mwager" id="btn-wager" type="button" title="Change the wager">Wager <b class="num" id="t-wager">50</b></button><span id="t-decks">1 deck · 36 cards</span></div>
     <span class="pill" id="conn" style="display:none"></span>
     <span class="spacer"></span>
@@ -1107,7 +1138,7 @@ html.goldt .drama .card.goldace::before{content:"";position:absolute;inset:0;bor
   <div class="me">
     <div class="hand" id="myhand"></div>
     <div class="info">
-      <div><span class="eyebrow">Your total</span> <span class="big num" id="mytotal">–</span> <span class="eyebrow" style="margin-left:14px">Chips</span> <span class="big num" id="mychips">0</span></div>
+      <div><span class="eyebrow">Your total</span> <span class="big num" id="mytotal">–</span> <span class="eyebrow" style="margin-left:14px">Chips</span> <span class="big num" id="mychips">0</span> <button class="sitbtn" id="btn-sit" type="button" hidden>Sit out</button><span class="hostingtag" id="me-hosting" hidden>👁 You're hosting this table, not playing</span></div>
       <div class="msg" id="msg">Welcome to the table.</div>
       <div class="avbar"><button class="avbtn off" id="btn-mic" title="Microphone">🎤<span class="lbl">Mic</span></button><button class="avbtn off" id="btn-cam" title="Camera">📷<span class="lbl">Camera</span></button><button class="avbtn on" id="btn-spk" title="Hear the other players">🔊<span class="lbl">Voices</span></button><button class="avbtn sndbtn" id="btn-fx" type="button" title="Game sounds"><span class="ico"></span><span class="lbl">Sounds</span></button><button class="avbtn musbtn" id="btn-music" type="button" title="Music" aria-label="Music">🎵<span class="lbl">Music</span></button><button class="avbtn" id="btn-treat" type="button" title="Drinks and small chops">🍹<span class="lbl">Treats</span></button><button class="avbtn" id="btn-lend" type="button" title="Lend chips to someone, and keep a record">🤝<span class="lbl">Lend</span></button><button class="avbtn" id="btn-react" type="button" title="Shout, react or say something">💬<span class="lbl">Chat</span></button><span class="roomav" id="roomav"></span></div>
       <div class="sndpop" id="sndpop" hidden role="dialog" aria-label="Music"><div class="np"><span class="np-k" id="sp-k">Now playing</span><b id="sp-song">Music</b><small id="sp-artist"></small></div><div class="sp-row"><button type="button" class="btn btn-gold" id="sp-next">⏭ Next song</button><div class="seg sm"><button type="button" id="sp-mus-on">On</button><button type="button" id="sp-mus-off">Off</button></div></div><div class="setrow"><label for="sp-mvol">Music volume</label><input type="range" id="sp-mvol" min="0" max="100" step="5"></div><div class="djbox" id="sp-dj"></div><p class="note" style="margin:2px 0 0">Real Afrobeats and highlife, shuffled. It steps back whenever someone talks.</p></div>
@@ -1246,6 +1277,11 @@ html.goldt .drama .card.goldace::before{content:"";position:absolute;inset:0;bor
 <button class="btn btn-gold btn-wide" id="btn-start" type="button">Open the table</button>
 <p class="note">Everyone starts with the same stack of play chips. Your table shows in the Open tables list; private ones need the code or your OK.</p></div></div>
 
+<div class="modal sheet" id="m-hist"><div class="box"><div class="grab"></div>
+<h2 id="hist-title">History</h2>
+<p class="note" style="margin-top:0">The end of every hand at this table, newest first: everyone's chips on the table and their balance. Only you can see this.</p>
+<div id="hist-body"></div>
+<div class="actions"><button class="btn btn-ghost" data-close type="button">Close</button></div></div></div>
 <div class="modal sheet" id="m-tset"><div class="box"><div class="grab"></div>
 <h2>Table settings</h2>
 <p class="note" id="ts-note">The wager and the rules change from the next hand; the rest at once. Everyone at the table is told.</p>
@@ -1261,6 +1297,7 @@ html.goldt .drama .card.goldace::before{content:"";position:absolute;inset:0;bor
 <div class="field"><label>Empty seats</label><div class="seg" data-ts="fill"><button type="button" data-v="1">Computer players</button><button type="button" data-v="0">Leave empty</button></div></div>
 <div class="field"><label>Who can join</label><div class="seg" data-ts="pub"><button type="button" data-v="0">Private</button><button type="button" data-v="1">Public</button></div></div>
 <div class="field"><label>Keep this room open</label><div class="seg" data-ts="keep"><button type="button" data-v="0">Close when empty</button><button type="button" data-v="1">Until I close it</button></div></div>
+<div class="field" id="ts-shuffle-f" hidden><label>Seats</label><button class="btn btn-ghost" id="ts-shuffle" type="button">🔀 Shuffle everyone's seats</button><p class="note" style="margin:6px 0 0">Mixes up who sits where, and so who drops first. In the middle of a hand it waits for the hand to end. Players can also swap with each other: tap someone's seat, then Swap seats.</p></div>
 <div class="actions"><button class="btn btn-ghost" data-close type="button">Close</button><button class="btn btn-gold" id="ts-save" type="button">Save changes</button></div></div></div>
 
 <div class="modal sheet" id="m-leave"><div class="box"><div class="grab"></div>
@@ -1312,6 +1349,7 @@ html.goldt .drama .card.goldace::before{content:"";position:absolute;inset:0;bor
 <div id="mbr-body"></div>
 <div class="actions"><button class="btn btn-gold" data-close type="button">Done</button></div></div></div>
 
+<div class="mbr-ask" id="swap-ask" hidden role="alert"><span class="swap-ico" aria-hidden="true">🔄</span><div class="mbr-ask-tx"><b id="swap-name">Someone</b><span>wants to swap seats with you</span></div><button class="btn btn-gold" id="swap-yes" type="button">Swap</button><button class="btn btn-ghost" id="swap-no" type="button">Not now</button></div>
 <div class="mbr-ask" id="mbr-ask" hidden role="alert"><div class="mbr-ask-av" id="mbr-ask-av"></div><div class="mbr-ask-tx"><b id="mbr-ask-name">Someone</b><small id="mbr-ask-sub">wants to join Tete</small></div><button class="btn btn-gold" id="mbr-ask-yes" type="button">Let in</button><button class="btn btn-ghost" id="mbr-ask-no" type="button">Not now</button><button class="mbr-ask-x" id="mbr-ask-x" type="button" aria-label="Decide later">✕</button></div>
 
 <div class="modal sheet" id="m-friends"><div class="box"><div class="grab"></div>
