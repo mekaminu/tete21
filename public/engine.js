@@ -308,7 +308,8 @@ class Table {
     return new Promise(res => {
       const p = this.players[pid];
       if (!p || p.gone) { res(null); return; }
-      if (!(ms > 0) && !p.isBot && !p.conn) ms = 30000;
+      // someone who isn't there, or a host who isn't playing (Meka hosting from the side), never holds the table up
+      if (!(ms > 0) && !p.isBot && (!p.conn || p.watch)) ms = 30000;
       const P = { pid, kinds, timed: ms > 0, to: null, end: 0, left: null, done: a => { clearTimeout(P.to); if (this.pend === P) this.pend = null; res(a); } };
       P.arm = t => { clearTimeout(P.to); P.left = null; P.end = Date.now() + t; P.to = setTimeout(() => { if (this.pend === P) { this.pend = null; res(null); } }, t); };
       this.pend = P;
