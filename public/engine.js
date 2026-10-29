@@ -88,6 +88,8 @@ class Table {
         this.log(`${esc(name)} sat down and is watching; ${tg.isBot ? esc(tg.name) + "'s" : 'the empty'} seat is theirs from the next hand`, 'hi');
       }
     }
+    // someone who sits down in a game that's going doesn't call (drop first) on their first hand
+    if (this.started) p.fresh = true;
     p.conn = conn; p.av = cleanAv(av); p.mic = !!mic; p.cam = !!cam; p.token = newToken(); p.uid = (typeof uid === 'string' && /^[0-9a-f]{16}$/.test(uid)) ? uid : null;
     // a computer player with the same name as someone sitting down (there's a real Chidi too) takes another name
     const clash = this.players.find(x => x.isBot && !x.gone && x.name.toLowerCase() === p.name.toLowerCase());
@@ -444,6 +446,17 @@ class Table {
   // three of a kind next to each other on the board, in the order they were opened (that one busts by itself)
   static seriesRun(cards) { for (let i = 0; i + 2 < cards.length; i++) if (cards[i] && cards[i + 1] && cards[i + 2] && cards[i].r === cards[i + 1].r && cards[i].r === cards[i + 2].r) return cards.slice(i, i + 3); return null; }
   nextOf(id, ids) { const ring = this.seatRing(); let i = ring.indexOf(id); if (i < 0) i = ring.length - 1; for (let k = 1; k <= ring.length; k++) { const n = ring[(i + k) % ring.length]; if (ids.includes(n)) return n; } return ids[0]; }
+  // The deal moves round every new hand (tie play-offs too), so the first to drop is the next player each time. A
+  // redeal (a series busted, a series on the board, the table voting to redeal) is the same hand again, so the same
+  // person calls. Someone who has just sat down doesn't call on their first hand: the deal moves on past them (they
+  // drop last), and from then on they take their turn like everyone else.
+  moveDeal(participants, redeal) {
+    const S = this; if (redeal) return;
+    S.dealer = S.nextOf(S.dealer, participants);
+    if (participants.some(id => S.players[id] && !S.players[id].fresh))
+      for (let k = 0; k < participants.length; k++) { const c = S.players[S.nextOf(S.dealer, participants)]; if (!c || !c.fresh) break; S.dealer = c.id; }
+    for (const id of participants) if (S.players[id]) S.players[id].fresh = false;
+  }
   orderFrom(start, ids) { const out = [start]; let cur = start; while (out.length < ids.length) { cur = this.nextOf(cur, ids); if (out.includes(cur)) break; out.push(cur); } return out; }
   setPhase(i) { this.phase = i; this.sync(); }
   async playHand(participants, redeal) {
@@ -469,9 +482,8 @@ class Table {
       S.players.forEach(p => { if (p.gone || p.watch || p.watching || (S.noRebuy && S.noRebuy(p))) return; const need = Math.max(0, S.buyIn - p.chips); if (need && S.canBuy && !S.canBuy(p, need)) return; p.chips = Math.max(p.chips, S.buyIn); p.bought = (p.bought || 0) + need; p.sitout = false; p.satOutByTimer = false; });
       return S.playHand(S.players.map(p => p.id));
     }
-    // every hand moves the deal on, tie play-offs and redeals too, so the first to drop is the next player each time
     if (S.tiebreak) S.tiebreak = false;
-    S.dealer = S.nextOf(S.dealer, participants);
+    S.moveDeal(participants, redeal);
     if (!redeal || !S.handStart) S.handStart = new Map(S.players.filter(p => !p.isBot && !p.gone && !p.watch).map(p => [p, p.chips]));
     S.deck = makeDeck(S.decks); S.turn = -1; S.sideBets = S.sideBets.filter(b => b.status !== 'pending').slice(-8);
     S.sideBets.forEach(b => { if (b.status === 'open' && !(participants.includes(b.a) && participants.includes(b.b))) { b.status = 'declined'; S.log(`A carried side bet between ${esc(S.players[b.a].name)} and ${esc(S.players[b.b].name)} is off: one of them is out of this hand`); } });

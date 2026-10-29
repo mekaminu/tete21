@@ -10,6 +10,8 @@ const fmt=n=>(+n||0).toLocaleString('en-GB');
 
 let S=null, ME=-1, WS=null, CONNECTED=false, HOST=false;
 let lastCount=0, lastME=null, lastSig='';
+let SWAPPICK=false,SWAPT=null; // picking a seat to swap with (🔄 Swap seats under your hand)
+function swapCan(p){return !!p&&p.id!==ME&&!p.gone&&!p.watch&&!p.hid}
 let cfg={fill:true,side:true,series:false,tie:'playoff',keep:false,pub:false,soloSeries:false,gold:false,soloGold:false,hostOnly:false};
 let AFTER_NAME=null;
 const AVS={mic:false,cam:false,spk:true};
@@ -782,7 +784,7 @@ function renderSeats(fresh){
   if(fresh||lastCount!==n||lastME!==ME||TALL!==tall){lastCount=n;lastME=ME;TALL=tall;const L=seatLayout(n,tall);sizeBoard();const D=$('.dealer');D.style.left=L.dealer.left+'%';D.style.top=L.dealer.top+'%';D.style.right='auto';D.style.transform=`translate(${L.dealer.tx}%,${L.dealer.ty}%)`;root.innerHTML=ring.map((p,i)=>{const pos=L.seat((i-meIdx+n)%n);const a=p.isBot?{style:`background:${p.color}`,text:p.name[0].toUpperCase()}:(p.id===ME?avStyle(AV,p.name[0].toUpperCase()):avStyle(p.av,p.name[0].toUpperCase()));
     return`<div class="seat" id="seat-${p.id}" data-side="${pos.side}" style="left:${pos.left}%;top:${pos.top}%;transform:translate(${pos.tx}%,${pos.ty}%);animation:seatin .6s ${i*.08}s both"><span class="flame"></span><div class="av" style="${a.style}" ${p.id===ME?'title="Change your avatar"':''}>${a.text}<div class="vid"><video autoplay playsinline ${p.id===ME?'muted':''}></video></div><span class="rec"></span><span class="mic"></span><span class="treat"></span><span class="hcrown"></span><div class="ring" hidden></div><div class="tleft" hidden></div></div><div class="nm"></div><div class="chips"><span class="chip s c25"></span><span class="num"></span></div><div class="mini"></div><div class="tot"></div></div>`}).join('');
     if(ME>=0){const me=$('#seat-'+ME+' .av');if(me)me.onclick=openAv}
-    S.players.forEach(p=>{if(p.id===ME)return;const el=$('#seat-'+p.id);if(!el)return;el.classList.add('human');el.querySelector('.av').onclick=()=>openPlayer(p.id)});
+    S.players.forEach(p=>{if(p.id===ME)return;const el=$('#seat-'+p.id);if(!el)return;el.classList.add('human');el.querySelector('.av').onclick=()=>{if(SWAPPICK&&swapCan(p)){swapPick(false);act({type:'swap_ask',to:p.id});SND('pop');buzz(20);return}openPlayer(p.id)}});
     rtcAttachAll();
   }
   S.players.forEach(p=>{
@@ -794,7 +796,7 @@ function renderSeats(fresh){
     el.querySelector('.nm').textContent=p.gone?'Empty seat':p.name+(p.away?' · reconnecting':'');countTo(el.querySelector('.chips .num'),p.chips);
     el.classList.toggle('friend',!p.isBot&&p.id!==ME&&!!IDS[p.id]&&!!FR()[IDS[p.id]]);el.classList.toggle('turn',S.turn===p.id);el.classList.toggle('host',S.hostId===p.id&&!p.gone);el.classList.toggle('sitout',p.sitout||p.gone||p.away||(S.started&&!S.participants.includes(p.id)));
     const mic=p.id===ME?AVS.mic:p.mic,cam=p.id===ME?AVS.cam:p.cam;el.classList.toggle('video',!!cam&&!p.isBot);el.classList.toggle('mic-on',!!mic);el.classList.toggle('mic-off',!mic);
-    let btn=el.querySelector('.btn-d');if(S.dealer===p.id&&S.started){if(!btn){btn=document.createElement('div');btn.className='btn-d';btn.textContent='D';el.querySelector('.av').appendChild(btn)}}else if(btn)btn.remove();
+    el.classList.toggle('swappick',SWAPPICK&&swapCan(p));let btn=el.querySelector('.btn-d');if(S.dealer===p.id&&S.started){if(!btn){btn=document.createElement('div');btn.className='btn-d';btn.textContent='D';el.querySelector('.av').appendChild(btn)}}else if(btn)btn.remove();
     const tr=el.querySelector('.treat'),te=p.treat&&TREATS[p.treat]?TREATS[p.treat].e:'';if(tr&&tr.textContent!==te)tr.textContent=te;
     const fl=el.querySelector('.flame'),sk=p.streak>=2&&!p.gone?p.streak:0;if(fl&&fl.dataset.n!==String(sk)){fl.dataset.n=sk;fl.innerHTML=sk?`<i>🔥</i><b>${sk}</b>`:''}el.classList.toggle('hot',sk>=2);el.classList.toggle('blaze',sk>=4);
     const mini=el.querySelector('.mini');
@@ -911,6 +913,13 @@ function renderSitBtn(me){const b=$('#btn-sit');if(!b)return;if(!S||LOCALT||!me|
   const st=me.sitNext?'next':me.sitout?'out':'in';if(st==='out'&&me.chips<S.wager&&!me.watching){b.hidden=true;return}
   b.hidden=false;b.dataset.st=st;b.textContent=st==='in'?'Sit out':st==='next'?'Stay in':'Deal me in';b.classList.toggle('go',st!=='in')}
 $('#btn-sit').onclick=()=>{const st=$('#btn-sit').dataset.st;act({type:'sit',out:st==='in'});SND('flick');buzz(15)};
+// Swap seats from your own row: tap it, then tap the player you want to swap with. People are asked (yes or no);
+// computer players always say yes. In the middle of a hand the swap happens when it ends.
+function renderSwapBtn(me){const b=$('#btn-swap');if(!b)return;const show=!!S&&!LOCALT&&!!me&&!me.watch&&!me.gone&&S.players.some(swapCan);b.hidden=!show;if(!show&&SWAPPICK)swapPick(false)}
+function swapPick(on){SWAPPICK=!!on;clearTimeout(SWAPT);document.body.classList.toggle('swappicking',SWAPPICK);const b=$('#btn-swap');if(b){b.classList.toggle('go',SWAPPICK);b.textContent=SWAPPICK?'Tap a player… (cancel)':'🔄 Swap seats'}
+  if(S)S.players.forEach(p=>{const el=$('#seat-'+p.id);if(el)el.classList.toggle('swappick',SWAPPICK&&swapCan(p))});
+  if(SWAPPICK){toast('Tap the player you want to swap seats with',3000);SWAPT=setTimeout(()=>swapPick(false),20000)}}
+$('#btn-swap').onclick=()=>{swapPick(!SWAPPICK);SND('flick');buzz(15)};
 // ---------- the table decides together: a redeal (anyone in the hand asks, everyone has to say yes), busting a series
 // on the board that isn't in a row, and your own series (bust it or play it: only you see that) ----------
 const secs=u=>{const s=Math.max(0,Math.ceil((u-Date.now())/1000));return s+'s'};
@@ -969,7 +978,7 @@ function renderMe(){
   $('#myhand').innerHTML=me.hand.map(c=>cardHTML(c,(FLY.has(c.id)?'incoming':'')+(S.phase===3&&myTurn&&S.adasiTurn!==ME?' pickable':''))).join('');
   const tt=total(me);$('#mytotal').textContent=!me.hand.length?'–':(S.phase<=3&&me.hand.length===3?'drop one':tt);$('#mytotal').style.color=tt>21?'var(--bad)':tt===21?'var(--good)':'';
   countTo($('#mychips'),me.chips);
-  $('.me').classList.toggle('hosting',!!me.watch);$('#me-hosting').hidden=!me.watch;renderSitBtn(me);renderHostBits();
+  $('.me').classList.toggle('hosting',!!me.watch);$('#me-hosting').hidden=!me.watch;renderSitBtn(me);renderSwapBtn(me);renderHostBits();
   if(!S.started)return;
   const tp=S.turn>=0?S.players[S.turn]:null;const nm=tp?esc(tp.name):'';$$('#myhand .wl').forEach(x=>x.remove());
   const out=!S.participants.includes(ME);
