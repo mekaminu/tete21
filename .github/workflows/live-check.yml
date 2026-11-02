@@ -1,6 +1,7 @@
 name: Check the live site
 # Push anything to the live-check branch: this looks at https://tete21.onrender.com from GitHub's machines and saves
 # what it saw to the live-check-results branch (result.txt), so a deploy can be checked without a browser.
+# expect.txt: a commit (its first 7 characters) to wait for, or "quick" for a fast look (headers and timings only).
 on:
   push:
     branches: [live-check]
@@ -19,11 +20,32 @@ jobs:
           # expect.txt names the commit that should be live (its first 7 characters): wait up to 12 minutes for /version to say so
           W=$(head -c 7 expect.txt 2>/dev/null)
           [ -z "$W" ] && exit 0
+          [ "$W" = "quick" ] && exit 0
           for i in $(seq 1 72); do v=$(curl -s --max-time 30 https://tete21.onrender.com/version || true); echo "$(date -u +%T) live: $v"; [ "$v" = "$W" ] && exit 0; sleep 10; done
           echo "still not live after 12 minutes"
+      - name: Quick look (headers and timings)
+        if: ${{ hashFiles('expect.txt') != '' }}
+        run: |
+          set +e
+          [ "$(head -c 5 expect.txt)" = "quick" ] || exit 0
+          {
+            echo "checked: $(date -u +%FT%TZ) (quick)"
+            for U in https://tete21.onrender.com https://tete21-store.onrender.com; do
+              for p in /health /version /; do
+                echo "== $U$p"
+                curl -s -o /tmp/b -D /tmp/h -w 'code=%{http_code} connect=%{time_connect}s first-byte=%{time_starttransfer}s total=%{time_total}s exit=' --max-time 45 "$U$p"; echo "$?"
+                grep -i -E '^(HTTP|x-render|rndr|server|content-type|retry-after|location)' /tmp/h | tr -d '\r'
+                echo "body: $(head -c 240 /tmp/b | tr '\n' ' ')"
+              done
+            done
+            npm i --no-save --silent ws@8 >/dev/null 2>&1
+            node ws-probe.mjs
+          } > /tmp/result.txt 2>&1
+          cat /tmp/result.txt
       - name: Look at the live site
         run: |
           set +e
+          [ "$(head -c 5 expect.txt)" = "quick" ] && exit 0
           U=https://tete21.onrender.com
           npm i --no-save --silent ws@8 >/dev/null 2>&1
           {
@@ -41,9 +63,10 @@ jobs:
           } > /tmp/result.txt 2>&1
           cat /tmp/result.txt
       - name: Save what it saw
+        if: always()
         run: |
           mkdir out && cd out && git init -q && git checkout -q -b live-check-results
-          cp /tmp/result.txt result.txt
+          cp /tmp/result.txt result.txt 2>/dev/null || echo "no result (the check itself failed)" > result.txt
           git config user.name "live-check" && git config user.email "live-check@users.noreply.github.com"
           git add result.txt && git commit -q -m "live check $(date -u +%FT%TZ)"
           git push -f -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" live-check-results
