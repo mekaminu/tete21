@@ -9,6 +9,9 @@ const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 const { Table, cleanName, cleanAv } = require('./public/engine');
 const store = require('./store');
+// if anything ever keeps the server's thread busy without letting go, the watchdog writes where it's stuck to the log
+// and restarts it, instead of the game sitting frozen while the host shows it as live (Meka, 2026-11-02)
+if (process.env.WATCHDOG !== 'off') require('./watchdog')({ limit: 25000 });
 // Closed for now: a file called CLOSED next to this one shuts the game. Every page shows a short "closed for now"
 // notice, nobody can connect, and the standing rooms stay saved, untouched, until the file is removed and the game
 // opens again (/health still answers, so the host keeps the service running).

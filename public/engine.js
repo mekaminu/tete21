@@ -215,7 +215,7 @@ class Table {
     if (this.handStart && this.handStart.has(p)) { const start = this.handStart.get(p); this.handStart.delete(p); if (this.onLeave) try { this.onLeave(p, p.chips - start); } catch (e) { console.error('leave hook', e); } }
     if (this.pend && this.pend.pid === p.id) this.pend.done(null);
     if (this.vote) this.checkVote();
-    if (id === this.hostId) { const h = this.players.find(x => !x.isBot && !x.gone && x.conn) || this.players.find(x => !x.isBot && !x.gone); if (h) { this.hostId = h.id; this.log(`${esc(h.name)} is now the host`, 'hi'); } }
+    if (id === this.hostId) this.ensureHost();
     if (!this.started) this.compact();
     if (this.onSave) this.onSave();
     this.sync();
@@ -270,6 +270,16 @@ class Table {
   humansPresent() { return this.players.filter(p => !p.isBot && !p.gone && !p.watch).length; }
   humansConnected() { return this.players.filter(p => !p.isBot && !p.gone && !p.watch && p.conn).length; }
   hostConnected() { const h = this.players[this.hostId]; return !!(h && !h.isBot && !h.gone && h.conn); }
+  // a host who has left the table (or a seat that isn't a person's) can't run it: the next person at the table takes
+  // over, someone connected first, the way it goes when a host leaves. Then nothing waits on someone who isn't there
+  ensureHost() {
+    const h = this.players[this.hostId];
+    if (h && !h.isBot && !h.gone) return h;
+    const n = this.players.find(x => !x.isBot && !x.gone && x.conn) || this.players.find(x => !x.isBot && !x.gone);
+    if (!n) return null;
+    this.hostId = n.id; this.log(`${esc(n.name)} is now the host`, 'hi'); if (this.onSave) this.onSave();
+    return n;
+  }
 
   // ----- persistence (between hands) -----
   toJSON(hashFn) {
@@ -478,7 +488,13 @@ class Table {
     if (S.humansPresent() === 0) { S.busy = false; return; }
     if (participants.length < 2) {
       S.busy = false; S.phase = 6; S.msgHost = 'Not enough players with chips for a hand. Rebuy, or wait for someone to join.'; S.sync();
-      await S.waitFor(S.hostId, ['rebuy_all', 'next'], 0);
+      S.ensureHost();
+      const t0 = Date.now(), a = await S.waitFor(S.hostId, ['rebuy_all', 'next'], 0);
+      // nobody tapped and the wait was over at once (no host there to wait for): pause the way the table does for a host
+      // who isn't there, rather than go straight round again. Going round with no pause at all froze the whole server,
+      // every table and the sign-in page with it (Meka, 2026-11-02)
+      if (!a && Date.now() - t0 < 1000) await sleep(30000);
+      if (S.closed) return;
       S.players.forEach(p => { if (p.gone || p.watch || p.watching || (S.noRebuy && S.noRebuy(p))) return; const need = Math.max(0, S.buyIn - p.chips); if (need && S.canBuy && !S.canBuy(p, need)) return; p.chips = Math.max(p.chips, S.buyIn); p.bought = (p.bought || 0) + need; p.sitout = false; p.satOutByTimer = false; });
       return S.playHand(S.players.map(p => p.id));
     }
@@ -496,7 +512,7 @@ class Table {
       for (const id of participants) { const p = S.players[id]; p.chips -= S.wager; S.pot += S.wager; S.fx({ k: 'chip', from: id, to: 'pot', cls: 'c25' }); await sleep(140); }
       S.msgHost = 'Side bets are open before the deal. Propose one from the top bar.'; S.sync();
       setTimeout(() => S.maybeBotProposes(), 900);
-      await S.waitFor(S.hostId, ['deal'], 8000);
+      S.ensureHost(); await S.waitFor(S.hostId, ['deal'], 8000);
     }
     // 1 deal
     S.setPhase(1); S.fx({ k: 'shuffle' }); await sleep(1150); // the dealer riffles the deck on the felt first
@@ -611,7 +627,7 @@ class Table {
     await S.settleSideBets('reveal');
     S.endHand(winners, false);
     S.busy = false; S.next = next; S.msgHost = ''; S.sync(); if (S.onSave) S.onSave();
-    await S.waitFor(S.hostId, ['next'], 12000);
+    S.ensureHost(); await S.waitFor(S.hostId, ['next'], 12000);
     return S.playHand(next);
   }
   async adasiWin(p, participants) {
@@ -639,7 +655,7 @@ class Table {
     }
     S.streaks(winners, null); S.endHand(winners, true); S.botReact(p.id, [1, 3, 11, 2]);
     S.msgHost = winners.length > 1 ? `<b>${esc(names)}</b> both hold Adasi and share the pot${rem ? ` (${fmt(rem)} stays on the table)` : ''}.` : `<b>${esc(p.name)}</b> wins by Adasi.`; S.busy = false; S.next = S.players.map(x => x.id); S.sync();
-    await S.waitFor(S.hostId, ['next'], 12000);
+    S.ensureHost(); await S.waitFor(S.hostId, ['next'], 12000);
     return S.playHand(S.next);
   }
   // the hand is over: tell the host app who won and lost what (play chips move to accounts here)
