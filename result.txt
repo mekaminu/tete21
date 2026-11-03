@@ -1,0 +1,51 @@
+checked: 2026-11-03T17:58:13Z (quick)
+== https://tete21.onrender.com/health
+code=200 connect=0.077824s first-byte=0.230237s total=0.230383s exit=0
+HTTP/2 200 
+content-type: text/plain
+rndr-id: a0f35458-ab76-47cb
+server: cloudflare
+x-render-origin-server: Render
+body: ok
+== https://tete21.onrender.com/version
+code=200 connect=0.012979s first-byte=0.198605s total=0.198735s exit=0
+HTTP/2 200 
+content-type: text/plain
+rndr-id: e4d8dbf1-7e28-4366
+server: cloudflare
+x-render-origin-server: Render
+body: ac4db69
+== https://tete21.onrender.com/
+code=200 connect=0.008818s first-byte=0.176417s total=0.176661s exit=0
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+rndr-id: a5751904-a0e9-4121
+server: cloudflare
+x-render-origin-server: Render
+body: <!doctype html> <html lang="en"> <head> <meta charset="utf-8"> <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"> <meta name="theme-color" content="#140d12"> <meta name="robots" content="noindex"> <title>
+== https://tete21-store.onrender.com/health
+code=200 connect=0.024843s first-byte=0.204127s total=0.204406s exit=0
+HTTP/2 200 
+content-type: text/plain
+rndr-id: 7e3c69a3-62be-4156
+server: cloudflare
+x-render-origin-server: Render
+body: ok
+== https://tete21-store.onrender.com/version
+code=200 connect=0.005131s first-byte=0.181973s total=0.182259s exit=0
+HTTP/2 200 
+content-type: text/plain
+rndr-id: 956be269-fd9f-4959
+server: cloudflare
+x-render-origin-server: Render
+body: f119183
+== https://tete21-store.onrender.com/
+code=200 connect=0.005424s first-byte=0.192714s total=0.220290s exit=0
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+rndr-id: c9461e89-8106-41a8
+server: cloudflare
+x-render-origin-server: Render
+body: <!doctype html> <html lang="en"> <head> <meta charset="utf-8"> <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"> <meta name="theme-color" content="#140d12"> <link rel="manifest" href="manifest.webmanifes
+no cookie: open@405ms msg:{"type":"members_out","msg":"Members onl@406ms state:1@15013ms
+made-up cookie: open@336ms msg:{"type":"members_out","msg":"Members onl@1060ms state:1@15015ms
