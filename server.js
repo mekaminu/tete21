@@ -1044,9 +1044,24 @@ function startMembers() {
   const go = () => { if (membersStarted || !accounts.isReady()) return membersStarted; membersStarted = true; members.init({ get: k => accounts.kvGet(k), set: (k, v) => accounts.kvSet(k, v) }); return true; };
   if (!go()) { const iv = setInterval(() => { if (go()) clearInterval(iv); }, 5000); }
 }
+// A snapshot of everyone's chips every time the server starts (so, at every deploy), taken before anything else: each
+// account's balance and the chips sitting at saved tables, kept in the database as chips_snapshot:<time>, with the
+// last 30 listed in chips_snapshots. Read-only: it never changes a balance. To put chips back from one, Meka's
+// Members screen sets a balance by hand.
+async function chipsSnapshot() {
+  try {
+    const at = new Date().toISOString(), users = (await accounts.listUsers(2000)).map(u => ({ id: u.id, username: u.username, balance: u.balance || 0 }));
+    const saved = await accounts.kvGet('rooms').catch(() => null), tablesNow = [];
+    for (const [code, r] of Object.entries((saved && saved.rooms) || {})) { const room = r && r.room; if (room && Array.isArray(room.players)) tablesNow.push({ code, players: room.players.filter(p => p && !p.isBot).map(p => ({ name: p.name, uid: p.uid || null, chips: p.chips || 0 })) }); }
+    await accounts.kvSet('chips_snapshot:' + at, { at, commit: String(process.env.RENDER_GIT_COMMIT || '').slice(0, 7), total: users.reduce((n, u) => n + u.balance, 0), users, tables: tablesNow });
+    const list = ((await accounts.kvGet('chips_snapshots').catch(() => null)) || []).concat(at).slice(-30); await accounts.kvSet('chips_snapshots', list);
+    console.log(`chips snapshot: ${users.length} accounts, ${users.reduce((n, u) => n + u.balance, 0)} chips, ${tablesNow.length} saved tables (${at})`);
+  } catch (e) { console.error('chips snapshot:', e.message); }
+}
 accounts.init().then(async () => {
   startMembers();
   if (!accounts.isReady() || CLOSED) return;
+  await chipsSnapshot(); // everyone's chips as this version found them, before it does anything
   try { const saved = await accounts.kvGet('rooms'); if (saved) restoreSaved(saved, 'the database'); } catch (e) { console.error('rooms load:', e.message); }
   await closeAllOnce();
 });

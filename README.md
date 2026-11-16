@@ -129,3 +129,12 @@ Accounts need a Postgres database: set `DATABASE_URL` (Neon's free tier works). 
 - **Which version is live:** `/version` shows the first 7 characters of the commit Render is running (`dev` locally). Like `/health`, it's open to anyone, so a deploy can be checked from outside the members' gate. The live-check action waits for the commit named in `expect.txt` on the `live-check` branch.
 - Ordinary tables live in memory: a redeploy ends them, and players' seats are held for two minutes if their connection drops.
 - **The watchdog:** `watchdog.js` runs in a thread of its own and checks every second that the server is still answering. If it has been stuck for 25 seconds (something keeping its one thread busy without letting go), it writes `WATCHDOG: stuck at …` to the log with where it's stuck, then stops the process so Render starts it again. Balances are saved after every hand and standing rooms are in the database, so a restart brings them back. `WATCHDOG=off` turns it off. It was added after 2 November 2026, when a table whose host had left, with too few players for a hand, went round without a pause and froze the whole game while Render showed it as live. Now the next person at the table takes over as host and nothing waits on someone who isn't there.
+
+## Shuffling, and a reshuffle before the deal
+
+- Every hand starts with a fresh, newly shuffled deck (`makeDeck`), drawn from the system's strong random source
+  (`rnd`). The dealer riffles it twice on the felt, with the sound, before dealing.
+- Before the deal, anyone in the hand can tap **Reshuffle first**, once each a hand: the deck is shuffled again there
+  and then, everyone sees and hears it and who asked, and the deal waits for it.
+- **Chips snapshot:** every time the server starts (so at every deploy) it saves everyone's balance and the chips at
+  saved tables to the database as `chips_snapshot:<time>` (the last 30 are listed in `chips_snapshots`). It only reads.
