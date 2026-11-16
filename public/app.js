@@ -682,7 +682,7 @@ function celebrate(amount,title,sub){
 function applyState(o,fx){
   const prev=S;const before=prev&&prev.players&&prev.players.length?snapCards():new Map();
   const tz=t=>t+(Date.now()-o.now);
-  S={oh:!!o.oh,playoff:!!o.po,vote:o.vt?{n:o.vt[0],kind:o.vt[1],from:o.vt[2],until:tz(o.vt[3]),yes:o.vt[4],need:o.vt[5],cards:(o.vt[6]||[]).map(dec)}:null,boardAsk:o.ba?{until:tz(o.ba[0]),cards:o.ba[1].map(dec)}:null,seriesAsk:o.sa?{until:tz(o.sa[0]),cards:o.sa[1].map(dec)}:null,canVote:!!o.cv,dj:o.dj==null?-1:o.dj,djTitle:o.djt||'',tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,leadBy:o.lb!=null?o.lb:-1,loans:(o.ln||[]).map(a=>({id:a[0],from:a[1],to:a[2],amt:a[3],paid:a[4],fromName:a[5],toName:a[6],out:!!a[7]})),boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,tieSplit:!!o.ts,fill:!!o.fl,pub:!!o.pb,pending:o.pc||null,
+  S={oh:!!o.oh,playoff:!!o.po,vote:o.vt?{n:o.vt[0],kind:o.vt[1],from:o.vt[2],until:tz(o.vt[3]),yes:o.vt[4],need:o.vt[5],cards:(o.vt[6]||[]).map(dec)}:null,boardAsk:o.ba?{until:tz(o.ba[0]),cards:o.ba[1].map(dec)}:null,seriesAsk:o.sa?{until:tz(o.sa[0]),cards:o.sa[1].map(dec)}:null,canVote:!!o.cv,rs:o.rs||0,dj:o.dj==null?-1:o.dj,djTitle:o.djt||'',tableName:o.tn,wager:o.w,buyIn:o.bi,decks:o.dk,timer:o.tm,side:!!o.sd,handNo:o.hn,pot:o.pot,phase:o.ph,turn:o.turn,deadline:o.dl?o.dl+(Date.now()-o.now):0,dealer:o.dlr,trickWinner:o.tw,leadSuit:o.ls,leadBy:o.lb!=null?o.lb:-1,loans:(o.ln||[]).map(a=>({id:a[0],from:a[1],to:a[2],amt:a[3],paid:a[4],fromName:a[5],toName:a[6],out:!!a[7]})),boardSize:o.bs,boardTop:o.bt,board:o.bd.map(dec),boardBy:o.bw||[],participants:o.pa||[],tiebreak:!!o.tb,started:!!o.st,busy:!!o.bz,code:o.cd,keep:!!o.kp,msgHost:o.mh||'',hostId:o.host,next:o.nx,series:!!o.sr,adasiTurn:o.ad,tieSplit:!!o.ts,fill:!!o.fl,pub:!!o.pb,pending:o.pc||null,
     players:o.pl.map(a=>({id:a[0],name:a[1],isBot:!!a[2],chips:a[3],hand:a[4].map(dec),dropped:dec(a[5]),sitout:!!a[6],strikes:a[7],av:a[8]?(a[8][0]==='e'?{kind:'emoji',emoji:a[8][1]}:{kind:'initial',color:a[8][1]}):null,revealed:!!a[9],gone:!!a[10],mic:!!a[11],cam:!!a[12],satOutByTimer:!!a[13],away:!!a[14],color:a[15]||'#555',treat:a[16]||'',streak:a[17]||0,bought:a[18]!=null?a[18]:null,wins:a[19]||0,best:a[20]||0,voice:a[21]||null,noBuy:!!a[22],watching:!!a[23],seat:a[24]!=null?a[24]:a[0],watch:!!a[25],sitNext:!!a[26],hid:!!a[27]})),
     sideBets:o.sbs.map(a=>({id:a[0],a:a[1],b:a[2],type:a[3],amt:a[4],mine:a[5],theirs:a[6],status:a[7],result:a[8],winner:a[9],desc:sbDesc(a[3],a[5],a[6])}))};
   ME=o.me;HOST=o.host===ME;S.gold=!!o.gd;goldLook(S.gold);djRefresh();
@@ -739,7 +739,7 @@ function runFx(e){
     case 'series':drama('series',e);break;
     case 'salute':saluteFx(e);break;
     case 'sel':if(e.pid===ME){const el=$(`#myhand .card[data-id="${e.id}"]`);el&&el.classList.add('pop')}break;
-    case 'shuffle':shuffleFx();break;
+    case 'shuffle':shuffleFx();if(e.who)toast(e.pid===ME?'🔀 The deck is being shuffled again':`🔀 ${e.who} asked for a reshuffle`,2600);break;
     case 'spray':sprayFx(e.from,e.to,e.amt);break;
     case 'lend':lendFx(e.from,e.to,e.amt,e.back);break;
     case 'swap_ask':if(e.pid===ME)swapAsk(e);break;
@@ -982,8 +982,8 @@ function renderMe(){
   if(!S.started)return;
   const tp=S.turn>=0?S.players[S.turn]:null;const nm=tp?esc(tp.name):'';$$('#myhand .wl').forEach(x=>x.remove());
   const out=!S.participants.includes(ME);
-  if(S.phase===0){msg(S.msgHost||`Hand ${S.handNo}. Everyone puts ${fmt(S.wager)} into the pot.`);actions(HOST?'<button class="btn btn-gold" id="btn-deal">Deal now</button><span class="note" style="margin:0;align-self:center">auto-deals in 8s</span>':'');const b=$('#btn-deal');if(b)b.onclick=()=>act({type:'deal'})}
-  else if(S.phase===1){msg('The dealer shuffles and deals three cards each…');actions('')}
+  if(S.phase===0){msg(S.msgHost||`Hand ${S.handNo}. Everyone puts ${fmt(S.wager)} into the pot.`);actions((HOST?'<button class="btn btn-gold" id="btn-deal">Deal now</button>':'')+(S.rs===1?'<button class="btn btn-ghost" id="btn-reshuffle">🔀 Reshuffle first</button>':S.rs===2?'<span class="note" style="margin:0;align-self:center">🔀 Reshuffled for you</span>':'')+(HOST?'<span class="note" style="margin:0;align-self:center">auto-deals in 8s</span>':''));const b=$('#btn-deal');if(b)b.onclick=()=>act({type:'deal'});const r=$('#btn-reshuffle');if(r)r.onclick=()=>{r.disabled=true;act({type:'reshuffle'})}}
+  else if(S.phase===1){msg('A fresh deck: the dealer shuffles, then deals three cards each…');actions('')}
   else if(S.phase===2){msg(`Dealer flushes ${S.boardSize} cards onto the board before anyone drops.`);actions('')}
   else if(S.phase===3){
     // two Aces: the caller declares Adasi straight away; anyone else waits for the call, which breaks it when the
@@ -1512,18 +1512,21 @@ function renderFelts(){const box=$('#felt-opts');if(!box)return;box.innerHTML=FE
 function setFelt(f){applyFelt(f);try{localStorage.setItem('tete.felt',FELT)}catch{}renderFelts();SND('flick');const t=$('.felt');if(t&&!RM())t.animate([{filter:'brightness(1.7) saturate(1.3)'},{filter:'none'}],{duration:600,easing:'ease-out'})}
 applyFelt(FELT);
 // the dealer riffles the deck in the middle of the felt before each deal
+// a fresh deck every hand: two riffles on the felt (seen and heard), then the deck goes to the shoe
 function shuffleFx(){
-  if(document.hidden||matchMedia('(prefers-reduced-motion: reduce)').matches){SND('shuffle');return}
+  if(document.hidden||matchMedia('(prefers-reduced-motion: reduce)').matches){SND('shuffle');SND('shuffle',{delay:.75});return}
+  riffleFx(false);setTimeout(()=>riffleFx(true),760)}
+function riffleFx(fly){
   const tr=rectOf($('#table'));if(!tr)return;const sh=shoeRect();SND('shuffle',{delay:.25});
   const cx=tr.left+tr.width/2,cy=tr.top+tr.height*.5,w=Math.round(Math.min(64,Math.max(40,tr.width*.06))),h=Math.round(w*1.4),n=12;
   const box=document.createElement('div');box.className='riffle';box.style.cssText=`left:${cx-w/2}px;top:${cy-h/2}px;width:${w}px;height:${h}px;--card-w:${w}px`;
   for(let i=0;i<n;i++){const c=document.createElement('div');c.className='card back';c.style.cssText=`position:absolute;left:0;top:0;width:${w}px;height:${h}px`;box.appendChild(c)}
   layer().appendChild(box);
-  const tx=sh?sh.left+sh.width/2-cx:0,ty=sh?sh.top+sh.height/2-cy:-120;
-  box.animate([{opacity:0,transform:'translate(0px,0px) scale(.6)'},{offset:.12,opacity:1,transform:'translate(0px,0px) scale(1)'},{offset:.82,opacity:1,transform:'translate(0px,0px) scale(1)'},{opacity:0,transform:`translate(${tx.toFixed(0)}px,${ty.toFixed(0)}px) scale(.3)`}],{duration:1150,easing:'ease-in-out',fill:'both'});
+  const tx=!fly?0:sh?sh.left+sh.width/2-cx:0,ty=!fly?0:sh?sh.top+sh.height/2-cy:-120;
+  box.animate([{opacity:0,transform:'translate(0px,0px) scale(.6)'},{offset:.12,opacity:1,transform:'translate(0px,0px) scale(1)'},{offset:.82,opacity:1,transform:'translate(0px,0px) scale(1)'},{opacity:fly?0:1,transform:`translate(${tx.toFixed(0)}px,${ty.toFixed(0)}px) scale(${fly?.3:1})`}],{duration:1150,easing:'ease-in-out',fill:'both'});
   [...box.children].forEach((c,i)=>{const L=i<n/2,j=L?i:i-n/2,order=L?j*2:j*2+1,sx=L?-w*.78:w*.78,rot=L?-14:14;c.style.zIndex=String(order);
     c.animate([{offset:0,transform:`translate(0px,${(-i*.6).toFixed(1)}px) rotate(0deg)`},{offset:.12,transform:`translate(0px,${(-i*.6).toFixed(1)}px) rotate(0deg)`},{offset:.32,transform:`translate(${sx.toFixed(1)}px,${(-j*1.2-6).toFixed(1)}px) rotate(${rot}deg)`},{offset:.38+order*.022,transform:`translate(${sx.toFixed(1)}px,${(-j*1.2-6).toFixed(1)}px) rotate(${rot}deg)`},{offset:.44+order*.022,transform:`translate(0px,${(-order*.6).toFixed(1)}px) rotate(0deg)`},{offset:1,transform:`translate(0px,${(-order*.6).toFixed(1)}px) rotate(0deg)`}],{duration:1150,easing:'ease-in-out',fill:'both'})});
-  setTimeout(()=>box.remove(),1250);
+  setTimeout(()=>box.remove(),fly?1250:770);
 }
 // chips arc through the air and clink when they land
 async function flyChip(fromEl,toEl,cls='c25',count=1){if(!fromEl||!toEl)return;

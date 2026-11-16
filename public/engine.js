@@ -12,7 +12,14 @@ const cname = c => `${c.r}${c.s}`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = n => (+n || 0).toLocaleString('en-GB');
-function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+// a whole number from 0 to n-1, every one as likely as the next: from the system's own strong random source (the one
+// used for passwords and keys), with no leaning towards any number; Math.random only where that isn't there
+function rnd(n) {
+  const c = typeof globalThis !== 'undefined' && globalThis.crypto;
+  if (c && c.getRandomValues) { const lim = Math.floor(0x100000000 / n) * n, b = new Uint32Array(1); do { c.getRandomValues(b); } while (b[0] >= lim); return b[0] % n; }
+  return Math.floor(Math.random() * n);
+}
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function makeDeck(n) { const d = []; for (let k = 0; k < n; k++) for (const s of SUITS) for (const r of RANKS) d.push({ s, r, k, id: `${r}${s}${k}` }); return shuffle(d); }
 const enc = c => (c ? c.r + c.s + c.k + (c.taken ? 't' : '') : null);
 function cleanName(n) { return String(n || '').replace(/[^\p{L}\p{N} '._-]/gu, '').trim().slice(0, 14); }
@@ -310,13 +317,23 @@ class Table {
       vt: S.vote ? [S.vote.n, S.vote.kind, S.vote.from, S.vote.until, [...S.vote.yes], S.voters().map(p => p.id), (S.vote.cards || []).map(enc)] : null,
       ba: S.boardAsk ? [S.boardAsk.until, S.boardAsk.cards.map(enc)] : null,
       sa: S.seriesAsk && S.seriesAsk.pid === forId ? [S.seriesAsk.until, S.seriesAsk.cards.map(enc)] : null,
-      cv: S.canVote() && !S.vote && (S.participants || []).includes(forId) ? 1 : 0, dj: S.dj, djt: S.dj >= 0 ? S.djTitle : '', tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, lb: S.leadBy, ln: S.loans.map(l => [l.id, l.from, l.to, l.amt, l.paid, l.fromName, l.toName, l.out ? 1 : 0]), bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), bw: S.board.map(c => (c && c.taken && c.by != null ? c.by : -1)), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0, fl: S.fill ? 1 : 0, pb: S.pub ? 1 : 0, pc: S.pendingCfg || null,
+      cv: S.canVote() && !S.vote && (S.participants || []).includes(forId) ? 1 : 0, rs: S.canReshuffle(forId) ? 1 : S.reshuf && S.reshuf.has(forId) ? 2 : 0, dj: S.dj, djt: S.dj >= 0 ? S.djTitle : '', tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, lb: S.leadBy, ln: S.loans.map(l => [l.id, l.from, l.to, l.amt, l.paid, l.fromName, l.toName, l.out ? 1 : 0]), bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), bw: S.board.map(c => (c && c.taken && c.by != null ? c.by : -1)), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0, fl: S.fill ? 1 : 0, pb: S.pub ? 1 : 0, pc: S.pendingCfg || null,
       pl: S.players.map(p => { const show = p.id === forId || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0, p.away ? 1 : 0, p.color, p.treat || '', p.streak || 0, p.bought || 0, p.wins || 0, p.best || 0, p.voice || null, !p.isBot && S.noRebuy && S.noRebuy(p) ? 1 : 0, p.watching ? 1 : 0, p.seat != null ? p.seat : p.id, p.watch ? 1 : 0, p.sitNext ? 1 : 0, p.hid ? 1 : 0]; }),
       sbs: S.sideBets.slice(-8).map(b => [b.id, b.a, b.b, b.type, b.amt, b.mine, b.theirs, b.status, b.result || '', b.winner ?? -1]),
     };
   }
 
   // ----- actions from clients -----
+  // before the deal, anyone in the hand can ask for the deck to be shuffled again, once each a hand: a fresh shuffle
+  // there and then, which everyone sees and hears, and the deal waits for it
+  canReshuffle(pid) { const P = this.pend; return this.phase === 0 && !!P && P.kinds.includes('deal') && (this.participants || []).includes(pid) && !(this.reshuf && this.reshuf.has(pid)); }
+  reshuffle(pid) {
+    if (!this.canReshuffle(pid)) return; const p = this.players[pid], P = this.pend;
+    (this.reshuf || (this.reshuf = new Set())).add(pid); this.deck = makeDeck(this.decks); this.reshufAt = Date.now();
+    this.log(`🔀 ${esc(p.name)} asked for a reshuffle: the deck was shuffled again`, 'hi'); this.fx({ k: 'shuffle', who: p.name, pid });
+    if (P.timed && P.end - Date.now() < 3500) P.arm(3500); // time to watch it before the deal
+    this.sync();
+  }
   waitFor(pid, kinds, ms) {
     return new Promise(res => {
       const p = this.players[pid];
@@ -411,6 +428,7 @@ class Table {
       case 'board_ask': this.askVote(pid, 'board'); break;
       case 'vote': this.answerVote(pid, a); break;
       case 'deal': case 'next': if (pid === this.hostId && P && P.kinds.includes(a.type)) P.done(a); break;
+      case 'reshuffle': this.reshuffle(pid); break;
       case 'rejoin': this.sit(p, false); break;
       case 'sit': this.sit(p, !!a.out); break;
       case 'swap_ask': this.askSwap(pid, a); break;
@@ -501,7 +519,7 @@ class Table {
     if (S.tiebreak) S.tiebreak = false;
     S.moveDeal(participants, redeal);
     if (!redeal || !S.handStart) S.handStart = new Map(S.players.filter(p => !p.isBot && !p.gone && !p.watch).map(p => [p, p.chips]));
-    S.deck = makeDeck(S.decks); S.turn = -1; S.sideBets = S.sideBets.filter(b => b.status !== 'pending').slice(-8);
+    S.deck = makeDeck(S.decks); S.reshuf = new Set(); S.reshufAt = 0; S.turn = -1; S.sideBets = S.sideBets.filter(b => b.status !== 'pending').slice(-8);
     S.sideBets.forEach(b => { if (b.status === 'open' && !(participants.includes(b.a) && participants.includes(b.b))) { b.status = 'declined'; S.log(`A carried side bet between ${esc(S.players[b.a].name)} and ${esc(S.players[b.b].name)} is off: one of them is out of this hand`); } });
     // 0 wager
     S.setPhase(0);
@@ -513,9 +531,10 @@ class Table {
       S.msgHost = 'Side bets are open before the deal. Propose one from the top bar.'; S.sync();
       setTimeout(() => S.maybeBotProposes(), 900);
       S.ensureHost(); await S.waitFor(S.hostId, ['deal'], 8000);
+      const w = 1400 - (Date.now() - (S.reshufAt || 0)); if (w > 0) await sleep(w); // a reshuffle just asked for finishes first
     }
     // 1 deal
-    S.setPhase(1); S.fx({ k: 'shuffle' }); await sleep(1150); // the dealer riffles the deck on the felt first
+    S.setPhase(1); S.fx({ k: 'shuffle' }); await sleep(1900); // a fresh deck every hand: the dealer riffles it twice on the felt first
     for (let r = 0; r < 3; r++) for (const id of participants) { S.players[id].hand.push(S.deck.pop()); S.sync(); await sleep(140); }
     await sleep(400);
     if (S.abortHand) return S.restartHand(participants);
