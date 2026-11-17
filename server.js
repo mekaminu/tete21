@@ -123,7 +123,43 @@ function sitError(ws, t) {
   const free = freeChips(ws.uid);
   return free >= t.buyIn ? '' : `You need ${fmt(t.buyIn)} free chips to sit at this table and you have ${fmt(Math.max(0, free))}. ${members.isOwner(u) ? 'Top yourself up in 👥 Members' : 'Spin the daily wheel in your profile'}, or pick a table with a smaller buy-in.`;
 }
+// ----- Records (the owner's): every table's log kept for good, and chips between players -----
+const db = require('./db');
+const LOGQ = [];
+function flushLogs() { if (!LOGQ.length || !accounts.isReady()) return; const rows = LOGQ.splice(0, 400); db.addTableLog(rows).catch(e => { console.error('table log save:', e.message); if (LOGQ.length < 5000) LOGQ.unshift(...rows); }); }
+setInterval(flushLogs, 1500);
+// the lines saved the old way (the last 400 a table) go in once, so the record starts with what there was
+async function importOldLogs() {
+  try {
+    if (await accounts.kvGet('tablelog_imported')) return; let n = 0;
+    for (const [, t] of tables) { if (!t.rid) continue; const old = await accounts.kvGet('log:' + t.rid).catch(() => null); if (!Array.isArray(old) || !old.length) continue;
+      const rows = old.filter(x => x && x.at && x.t).map(x => ({ at: x.at, rid: t.rid, tname: t.tableName, t: String(x.t), cls: x.cls || '' })); for (let i = 0; i < rows.length; i += 200) await db.addTableLog(rows.slice(i, i + 200)); n += rows.length; }
+    await accounts.kvSet('tablelog_imported', { at: Date.now(), n }); console.log(`table logs: ${n} earlier lines kept`);
+  } catch (e) { console.error('table log import:', e.message); }
+}
+// what a line in a player's history says about chips to or from someone: { kind, dir, other }
+function moveOf(label, delta) {
+  const L = String(label || ''); let m;
+  if ((m = /^Spray from (.+)$/.exec(L))) return { kind: 'spray', dir: 'in', other: m[1] };
+  if ((m = /^You sprayed (.+)$/.exec(L))) return { kind: 'spray', dir: 'out', other: m[1] };
+  if ((m = /^Loan from (.+)$/.exec(L))) return { kind: 'loan', dir: 'in', other: m[1] };
+  if ((m = /^You lent (.+)$/.exec(L))) return { kind: 'loan', dir: 'out', other: m[1] };
+  if ((m = /^Chips from (.+)$/.exec(L))) return { kind: 'sent', dir: 'in', other: m[1] };
+  if ((m = /^You sent (.+) chips$/.exec(L))) return { kind: 'sent', dir: 'out', other: m[1] };
+  if ((m = /^(.+) paid you back$/.exec(L))) return { kind: 'paid back', dir: 'in', other: m[1] };
+  if ((m = /^You paid (.+) back$/.exec(L))) return { kind: 'paid back', dir: 'out', other: m[1] };
+  return null;
+}
+async function chipsBetween(aId, bId, days) {
+  const A = await accounts.get(aId); if (!A) return null; const B = bId ? await accounts.get(bId) : null;
+  const d = Math.max(1, Math.min(365, days | 0 || 15)), since = Date.now() - d * 864e5, same = (x, u) => { const n = String(x || '').trim().toLowerCase(); return n === String(u.display || '').trim().toLowerCase() || n === String(u.username || '').trim().toLowerCase(); };
+  const rows = [];
+  for (const r of await db.transfers(A.id, since)) { const m = moveOf(r.label, r.delta); if (!m || (B && !same(m.other, B))) continue; rows.push({ at: r.at, kind: m.kind, dir: m.dir, other: m.other, amt: Math.abs(r.delta) }); }
+  const sum = f => rows.filter(f).reduce((n, r) => n + r.amt, 0);
+  return { type: 'chips_between', a: A.id, aName: A.display, b: B ? B.id : '', bName: B ? B.display : '', days: d, rows, gave: sum(r => r.dir === 'out'), got: sum(r => r.dir === 'in') };
+}
 function hookTable(t) {
+  t.onLog = e => { if (t.rid && LOGQ.length < 20000) LOGQ.push({ at: e.at, rid: t.rid, tname: t.tableName, t: String(e.t), cls: e.cls || '' }); };
   t.isOwner = p => !p.isBot && !!p.uid && members.isOwner(accounts.cached(p.uid));
   t.canBuy = (p, amount) => !p.uid || freeChips(p.uid) >= amount;
   t.noRebuy = p => !p.isBot && !!p.uid && members.rebuyOff(p.uid); // the owner switched buying back in off for them
@@ -899,6 +935,18 @@ async function handle(ws, m) {
       } else if (m.uid === null) { t.hostFor = null; t.sync(); }
       if (t.persistent) saveRoom(t); listDirty = true; pushMembers(); break;
     }
+    case 'records': { // the owner's Records: who there is, and the tables with a log
+      if (!ownerOf(ws)) return;
+      const people = (await accounts.listUsers(2000)).map(u => ({ id: u.id, name: u.display, username: u.username })).sort((a, b) => a.name.localeCompare(b.name));
+      flushLogs(); const open = new Set([...tables.values()].filter(t => !t.closed).map(t => t.rid));
+      send(ws, { type: 'records', people, tables: (await db.logTables()).map(t => Object.assign(t, { open: open.has(t.rid) ? 1 : 0 })) }); break;
+    }
+    case 'chips_between': { if (!ownerOf(ws)) return; const r = await chipsBetween(String(m.a || ''), String(m.b || ''), +m.days); if (r) send(ws, r); break; }
+    case 'tlog_page': { // a page of a table's kept log, older than `before`
+      if (!ownerOf(ws)) return; flushLogs(); await new Promise(r => setTimeout(r, 150));
+      const rid = String(m.rid || ''), lines = await db.tableLog(rid, +m.before || 0, 200);
+      send(ws, { type: 'tlog_page', rid, before: +m.before || 0, lines, more: lines.length === 200 ? 1 : 0 }); break;
+    }
     case 'table_log': { // the table's log, for the owner, from outside the table
       if (!ownerOf(ws)) return;
       const t = byRid.get(String(m.rid || '')); if (!t) return send(ws, { type: 'toast', msg: 'That table has closed.' });
@@ -1063,6 +1111,7 @@ accounts.init().then(async () => {
   if (!accounts.isReady() || CLOSED) return;
   await chipsSnapshot(); // everyone's chips as this version found them, before it does anything
   try { const saved = await accounts.kvGet('rooms'); if (saved) restoreSaved(saved, 'the database'); } catch (e) { console.error('rooms load:', e.message); }
+  importOldLogs();
   await closeAllOnce();
 });
 

@@ -23,6 +23,8 @@ create index if not exists t21_hands_user_at on t21_hands(user_id, at desc);
 create table if not exists t21_ledger(id bigserial primary key, user_id text not null, at timestamptz not null default now(),
   delta bigint not null, kind text not null, meta jsonb);
 create table if not exists t21_kv(k text primary key, v jsonb not null, at timestamptz not null default now());
+create table if not exists t21_tablelog(id bigserial primary key, at timestamptz not null default now(), rid text not null, tname text, t text not null, cls text);
+create index if not exists t21_tablelog_rid_at on t21_tablelog(rid, at desc);
 `;
 
 // Neon hands out URLs with libpq-only options (channel_binding); keep TLS on and verified, drop the rest
@@ -46,7 +48,7 @@ async function init() {
   } else {
     memFile = path.join(process.env.DATA_DIR || path.join(__dirname, 'data'), 'accounts.json');
     try { mem = JSON.parse(fs.readFileSync(memFile, 'utf8')); } catch { mem = null; }
-    mem = Object.assign({ users: {}, sessions: {}, devices: {}, friends: {}, hands: [], ledger: [], kv: {}, seq: 0 }, mem || {});
+    mem = Object.assign({ users: {}, sessions: {}, devices: {}, friends: {}, hands: [], ledger: [], kv: {}, tlog: [], seq: 0 }, mem || {});
     console.log('accounts: local file store (set DATABASE_URL to use Postgres)');
   }
 }
@@ -156,8 +158,36 @@ async function recent(uid, n) {
   return mem.hands.filter(h => h.uid === uid).slice(-n).reverse().map(h => ({ at: h.at, table: h.table, delta: h.delta, won: h.won, total: h.total, adasi: h.adasi }));
 }
 
+// ----- every table's log, kept for good (the owner's Records): one row a line -----
+async function addTableLog(rows) {
+  if (!rows || !rows.length) return;
+  if (pool) { const v = [], args = []; rows.forEach((r, i) => { const k = i * 5; v.push(`(to_timestamp($${k + 1}::double precision / 1000), $${k + 2}, $${k + 3}, $${k + 4}, $${k + 5})`); args.push(r.at, r.rid, r.tname || null, r.t, r.cls || null); });
+    await q('insert into t21_tablelog(at, rid, tname, t, cls) values ' + v.join(','), args); return; }
+  for (const r of rows) mem.tlog.push({ at: r.at, rid: r.rid, tname: r.tname || '', t: r.t, cls: r.cls || '' }); if (mem.tlog.length > 60000) mem.tlog.splice(0, mem.tlog.length - 60000); memSave();
+}
+// a page of one table's log, newest first, older than `before` (ms)
+async function tableLog(rid, before, limit) {
+  const n = Math.max(1, Math.min(500, limit | 0 || 200)), b = +before > 0 ? +before : Date.now() + 60000;
+  if (pool) { const r = await q('select at, t, cls from t21_tablelog where rid=$1 and at < to_timestamp($2::double precision / 1000) order by at desc, id desc limit $3', [rid, b, n]); return r.rows.map(x => ({ at: new Date(x.at).getTime(), t: x.t, cls: x.cls || '' })); }
+  return mem.tlog.filter(x => x.rid === rid && x.at < b).slice(-n).reverse().map(x => ({ at: x.at, t: x.t, cls: x.cls || '' }));
+}
+// the tables that have a log: [{ rid, name, last, n }], the latest first
+async function logTables() {
+  if (pool) { const r = await q('select rid, (array_agg(tname order by at desc))[1] as name, max(at) as last, count(*) as n from t21_tablelog group by rid order by max(at) desc limit 200'); return r.rows.map(x => ({ rid: x.rid, name: x.name || 'Table', last: new Date(x.last).getTime(), n: +x.n })); }
+  const m = new Map(); for (const x of mem.tlog) { const o = m.get(x.rid) || { rid: x.rid, name: x.tname || 'Table', last: 0, n: 0 }; o.n++; if (x.at >= o.last) { o.last = x.at; o.name = x.tname || o.name; } m.set(x.rid, o); }
+  return [...m.values()].sort((a, b) => b.last - a.last).slice(0, 200);
+}
+// chips one player gave to or got from others at the table (sprays, loans, paying back, sent chips): each is already
+// written in their history with the other player's name, so this reads back as far as the history goes
+const MOVE_SQL = "(table_name like 'Spray from %' or table_name like 'You sprayed %' or table_name like 'Loan from %' or table_name like 'You lent %' or table_name like 'Chips from %' or (table_name like 'You sent %' and table_name like '% chips') or (table_name like 'You paid %' and table_name like '% back') or table_name like '% paid you back')";
+const MOVE_RE = /^(Spray from |You sprayed |Loan from |You lent |Chips from |You sent .+ chips$|You paid .+ back$)|( paid you back)$/;
+async function transfers(uid, since) {
+  if (pool) { const r = await q('select at, table_name, delta from t21_hands where user_id=$1 and at >= to_timestamp($2::double precision / 1000) and total is null and ' + MOVE_SQL + ' order by at desc, id desc limit 3000', [uid, +since || 0]); return r.rows.map(x => ({ at: new Date(x.at).getTime(), label: x.table_name, delta: +x.delta })); }
+  return mem.hands.filter(h => h.uid === uid && h.at >= (+since || 0) && h.total == null && MOVE_RE.test(h.table || '')).reverse().slice(0, 3000).map(h => ({ at: h.at, label: h.table, delta: h.delta }));
+}
+
 // ----- small key/value store (standing rooms) -----
 async function kvGet(k) { if (pool) { const r = await q('select v from t21_kv where k=$1', [k]); return r.rows[0] ? r.rows[0].v : null; } return mem.kv[k] ?? null; }
 async function kvSet(k, v) { if (pool) { await q('insert into t21_kv(k, v) values($1,$2) on conflict(k) do update set v=excluded.v, at=now()', [k, JSON.stringify(v)]); return; } mem.kv[k] = v; memSave(); }
 
-module.exports = { init, isPg, createUser, userByName, userById, usersByIds, listUsers, saveUser, setPassword, addSession, sessionUser, dropSession, dropSessionsOf, linkDevice, deviceUsers, devicesOf, friendsOf, getFriend, setFriend, dropFriend, addHand, addLedger, daily, recent, kvGet, kvSet };
+module.exports = { addTableLog, tableLog, logTables, transfers, init, isPg, createUser, userByName, userById, usersByIds, listUsers, saveUser, setPassword, addSession, sessionUser, dropSession, dropSessionsOf, linkDevice, deviceUsers, devicesOf, friendsOf, getFriend, setFriend, dropFriend, addHand, addLedger, daily, recent, kvGet, kvSet };

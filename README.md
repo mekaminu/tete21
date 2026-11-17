@@ -138,3 +138,10 @@ Accounts need a Postgres database: set `DATABASE_URL` (Neon's free tier works). 
   and then, everyone sees and hears it and who asked, and the deal waits for it.
 - **Chips snapshot:** every time the server starts (so at every deploy) it saves everyone's balance and the chips at
   saved tables to the database as `chips_snapshot:<time>` (the last 30 are listed in `chips_snapshots`). It only reads.
+
+## Records (Meka only)
+
+Members › 📒 Records. **Chips between players:** pick a player (and another, or everyone) and 7 to 365 days: every
+spray, loan, repayment and sent chips with its time, and the totals each way. It reads each player's own history
+(`t21_hands`), so it goes back as far as that does. **Table logs:** every line of every table's log is kept for good
+in `t21_tablelog` (written every 1.5 seconds; the lines saved the old way are brought in once), read page by page.

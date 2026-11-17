@@ -202,6 +202,9 @@ function onMessage(m){
   if(m.type==='invite_link'){MBR_FRESH=m.key;toast('Link ready: tap Share to send it',2600);SND('pop');if($('#m-members').classList.contains('on'))renderMembers();return}
   if(m.type==='members_out'){toGate(m.msg||'Members only',true);return}
   if(m.type==='table_log'){if(!LOGV||LOGV.rid!==m.rid)return;renderLog(m);return}
+  if(m.type==='records'){recData(m);return}
+  if(m.type==='chips_between'){recChips(m);return}
+  if(m.type==='tlog_page'){recLog(m);return}
   if(m.type==='table_hist'){if(!HIST||HIST.rid!==m.rid)return;Object.assign(HIST,{list:m.list||[],name:m.name,open:m.open});renderHist();return}
   if(m.type==='account_lite'){if(!ACCT)return;Object.assign(ACCT,{user:m.user,inPlay:m.inPlay,bonus:m.bonus});renderAcct(true);renderRooms();return}
   // the owner topped up your balance: coins rain at the table, and if you'd run out, Rebuy gets you back in
@@ -860,6 +863,30 @@ function openHandTo(rid){const t=((MBR&&MBR.tables)||[]).find(x=>x.rid===rid);if
 let LOGV=null;
 function openLog(rid){LOGV={rid,seen:0};$('#log-title').textContent='Log';$('#log-body').innerHTML='<p class="mempty">Loading…</p>';openModal('#m-log');send({type:'table_log',rid});SND('flick');
   clearInterval(openLog.iv);openLog.iv=setInterval(()=>{if(!$('#m-log').classList.contains('on')||!LOGV){clearInterval(openLog.iv);LOGV=null;return}send({type:'table_log',rid:LOGV.rid})},5000)}
+// Records (the owner's): chips between two players over the last days, and every table's log, kept for good
+let RECS={days:15,tab:'chips',rid:'',last:0};
+function openRecords(){openModal('#m-records');send({type:'records'});SND('flick')}
+function recData(m){const pa=$('#rec-a'),pb=$('#rec-b'),a0=pa.value,b0=pb.value,opt=p=>`<option value="${esc(p.id)}">${esc(p.name)}${p.username&&p.username.toLowerCase()!==String(p.name).toLowerCase()?' (@'+esc(p.username)+')':''}</option>`;
+  pa.innerHTML='<option value="">Choose…</option>'+m.people.map(opt).join('');pb.innerHTML='<option value="">Everyone</option>'+m.people.map(opt).join('');pa.value=a0;pb.value=b0;
+  const tb=$('#rec-table'),t0=tb.value;tb.innerHTML='<option value="">Choose…</option>'+(m.tables||[]).map(t=>`<option value="${esc(t.rid)}">${esc(t.name)}${t.open?'':' (closed)'} · ${dday(t.last)}</option>`).join('');tb.value=t0}
+function recAsk(){const a=$('#rec-a').value;if(!a){$('#rec-sum').innerHTML='';$('#rec-rows').innerHTML='<p class="mempty">Pick a player.</p>';return}$('#rec-rows').innerHTML='<p class="mempty">Loading…</p>';send({type:'chips_between',a,b:$('#rec-b').value,days:RECS.days})}
+function recChips(m){if(m.a!==$('#rec-a').value||m.b!==$('#rec-b').value)return;const A=esc(m.aName),B=m.bName?esc(m.bName):'others',net=m.gave-m.got;
+  $('#rec-sum').innerHTML=`<div><small>${A} gave ${B}</small><b>${fmt(m.gave)}</b></div><div><small>${B} gave ${A}</small><b>${fmt(m.got)}</b></div><div><small>${net>0?A+' is up on giving by':net<0?B+' gave more by':'Level'}</small><b>${fmt(Math.abs(net))}</b></div>`;
+  if(!m.rows.length){$('#rec-rows').innerHTML=`<p class="mempty">No chips between them in the last ${m.days} days.</p>`;return}
+  const word={spray:['sprayed',''],loan:['lent',''],sent:['sent',''],'paid back':['paid','back']};let day='',h='';
+  m.rows.forEach((r,i)=>{const d=dday(r.at);if(d!==day){day=d;h+=`<div class="rday">${d}</div>`}const o=esc(r.other),w=word[r.kind]||['gave',''],from=r.dir==='out'?A:o,to=r.dir==='out'?o:A;
+    h+=`<div class="ll ${r.dir}" style="animation-delay:${Math.min(i,12)*25}ms"><time>${hhmm(r.at)}</time><span>${from} ${w[0]} ${to} ${w[1]}<i class="kd">${r.kind}</i></span><b>${fmt(r.amt)}</b></div>`});
+  $('#rec-rows').innerHTML=h}
+function recLogAsk(more){const rid=$('#rec-table').value;RECS.rid=rid;if(!rid){$('#rec-log').innerHTML='<p class="mempty">Pick a table.</p>';$('#rec-more').hidden=true;return}
+  if(!more){RECS.last=0;$('#rec-log').innerHTML='<p class="mempty">Loading…</p>'}send({type:'tlog_page',rid,before:more?RECS.last:0})}
+function recLog(m){if(m.rid!==RECS.rid)return;const b=$('#rec-log'),today=new Date().toDateString();if(!m.before)b.innerHTML='';
+  if(!m.lines.length&&!m.before){b.innerHTML='<p class="mempty">Nothing kept for this table yet.</p>';$('#rec-more').hidden=true;return}
+  b.insertAdjacentHTML('beforeend',m.lines.map(x=>`<div class="ll ${x.cls||''}"><time>${new Date(x.at).toDateString()!==today?dday(x.at)+' ':''}${hhmm(x.at)}</time><span>${x.t}</span></div>`).join(''));
+  if(m.lines.length)RECS.last=m.lines[m.lines.length-1].at;$('#rec-more').hidden=!m.more}
+$('#mbr-records').onclick=()=>openRecords();
+$$('#m-records [data-rtab]').forEach(b=>b.onclick=()=>{RECS.tab=b.dataset.rtab;$$('#m-records [data-rtab]').forEach(x=>x.classList.toggle('on',x===b));$('#rec-chips').hidden=RECS.tab!=='chips';$('#rec-logs').hidden=RECS.tab!=='logs';SND('flick')});
+$$('#rec-days button').forEach(b=>b.onclick=()=>{RECS.days=+b.dataset.d;$$('#rec-days button').forEach(x=>x.classList.toggle('on',x===b));recAsk()});
+$('#rec-a').onchange=recAsk;$('#rec-b').onchange=recAsk;$('#rec-table').onchange=()=>recLogAsk(false);$('#rec-more').onclick=()=>recLogAsk(true);
 function renderLog(m){const b=$('#log-body');$('#log-title').textContent=`${m.name||'Table'} · log`;const L=(m.lines||[]).slice().reverse();
   if(!L.length){b.innerHTML='<p class="mempty">Nothing yet.</p>';return}
   const last=L[0].at,isNew=x=>LOGV.seen&&x.at>LOGV.seen,day=t=>new Date(t).toDateString()!==new Date().toDateString();

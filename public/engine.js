@@ -66,7 +66,7 @@ class Table {
     this.djTitle = '';        // what they're playing, when it has a name (a song file's name)
     this.createdAt = Date.now(); this.lastActivity = Date.now();
   }
-  log(t, cls = '') { const b = this.logBuf || (this.logBuf = []); b.push({ at: Date.now(), t, cls }); if (b.length > 600) b.splice(0, b.length - 500); this.logDirty = true; this.fx({ k: 'log', t, cls }); }
+  log(t, cls = '') { const b = this.logBuf || (this.logBuf = []); const e = { at: Date.now(), t, cls }; b.push(e); if (b.length > 600) b.splice(0, b.length - 500); this.logDirty = true; if (this.onLog) this.onLog(e); this.fx({ k: 'log', t, cls }); }
   fx(e) { e.n = ++this.fxn; this.fxq.push(e); if (this.fxq.length > 40) this.fxq.shift(); this.sync(); }
   sync() { this.lastActivity = Date.now(); if (this._syncT) return; this._syncT = setTimeout(() => { this._syncT = null; this.send(this); }, 40); }
 
