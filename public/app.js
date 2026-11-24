@@ -883,7 +883,7 @@ function recLog(m){if(m.rid!==RECS.rid)return;const b=$('#rec-log'),today=new Da
   if(!m.lines.length&&!m.before){b.innerHTML='<p class="mempty">Nothing kept for this table yet.</p>';$('#rec-more').hidden=true;return}
   b.insertAdjacentHTML('beforeend',m.lines.map(x=>`<div class="ll ${x.cls||''}"><time>${new Date(x.at).toDateString()!==today?dday(x.at)+' ':''}${hhmm(x.at)}</time><span>${x.t}</span></div>`).join(''));
   if(m.lines.length)RECS.last=m.lines[m.lines.length-1].at;$('#rec-more').hidden=!m.more}
-$('#mbr-records').onclick=()=>openRecords();
+$('#mbr-records').onclick=()=>{closeModal('#m-members');setTimeout(openRecords,200)};
 $$('#m-records [data-rtab]').forEach(b=>b.onclick=()=>{RECS.tab=b.dataset.rtab;$$('#m-records [data-rtab]').forEach(x=>x.classList.toggle('on',x===b));$('#rec-chips').hidden=RECS.tab!=='chips';$('#rec-logs').hidden=RECS.tab!=='logs';SND('flick')});
 $$('#rec-days button').forEach(b=>b.onclick=()=>{RECS.days=+b.dataset.d;$$('#rec-days button').forEach(x=>x.classList.toggle('on',x===b));recAsk()});
 $('#rec-a').onchange=recAsk;$('#rec-b').onchange=recAsk;$('#rec-table').onchange=()=>recLogAsk(false);$('#rec-more').onclick=()=>recLogAsk(true);
