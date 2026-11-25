@@ -418,7 +418,7 @@ function leave(ws, dropped, forGood) {
   if (ws.uid) setTimeout(() => pushAccount(ws.uid), 50);
   // the last person leaves a standing room for good: the room goes with them
   // (not while only the owner opens tables: his stay open until he ends them in the Control Room)
-  if (forGood && T.persistent && !T.closed && T.humansPresent() === 0 && members.hostsAll()) { closedCodes.add(T.code); unregister(T); persistAll(); return; }
+  if (forGood && T.persistent && !T.closed && T.humansPresent() === 0 && members.hostsAll() && !ownerOf(ws)) { closedCodes.add(T.code); unregister(T); persistAll(); return; }
   if (T.persistent || T.closed) return;
   if (T.humansPresent() === 0) unregister(T);
   else if (T.humansConnected() === 0) { clearTimeout(T.emptyT); T.emptyT = setTimeout(() => { if (!T.closed && T.humansConnected() === 0) unregister(T); }, 120000); }
