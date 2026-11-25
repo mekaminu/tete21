@@ -170,7 +170,7 @@ function connect(){
   if(WS&&WS.readyState<=1){try{WS.onclose=null;WS.close()}catch{}}
   const proto=location.protocol==='https:'?'wss':'ws';
   WS=new WebSocket(`${proto}://${location.host}`);
-  WS.onopen=()=>{CONNECTED=true;identify();setStatus('ok','Connected.');renderRooms();$('#conn').style.display='';$('#conn').textContent='live';if(!LOCALT&&CURRENT&&SEATS[CURRENT]){const s=SEATS[CURRENT];WS.send(JSON.stringify({type:'resume',code:CURRENT,token:s.token,seal:s.seal}))}};
+  WS.onopen=()=>{CONNECTED=true;identify();setStatus('ok','Connected.');renderRooms();$('#conn').style.display='';$('#conn').textContent='live';const lk=JOIN_LINK?joinCode():null;if(lk&&lk.toUpperCase()!==CURRENT&&!LINK_DONE){LINK_GO=true}/* opened from another table's link: go to that table, not back to the last one */else if(!LOCALT&&CURRENT&&SEATS[CURRENT]){const s=SEATS[CURRENT];WS.send(JSON.stringify({type:'resume',code:CURRENT,token:s.token,seal:s.seal}))}};
   WS.onclose=function(ev){if(WS!==this&&WS&&WS.readyState<=1)return;if(ev&&ev.code===4003){CONNECTED=false;toGate();return}gateCheck();CONNECTED=false;PRES_READY=false;hideReqbar();if(navigator.onLine===false)setStatus('off','Offline. Practice against the computer still works; hosting and joining need a connection.');else setStatus('warn','Connection lost. Reconnecting… (the free server can take up to a minute to wake)');$('#conn').textContent='reconnecting…';setTimeout(connect,1500)};
   WS.onerror=()=>{};
   WS.onmessage=ev=>{let m;try{m=JSON.parse(ev.data)}catch{return}onMessage(m)};
@@ -179,7 +179,7 @@ function setStatus(kind,text){const l=$('#live');if(l){l.className='livest '+(ki
 const send=m=>{if(WS&&WS.readyState===1)WS.send(JSON.stringify(m))};
 const act=a=>{if(LOCALT)LOCALT.action(ME,a);else send({type:'act',a})};
 function hello(){if(LOCALT)return;send({type:'hello',name:myName(),av:publicAv(),mic:AVS.mic,cam:AVS.cam})}
-let SEATS={},CURRENT=null;
+let SEATS={},CURRENT=null;let LINK_GO=false,LINK_DONE=false;
 try{SEATS=JSON.parse(localStorage.getItem('tete.seats')||'{}')||{}}catch{SEATS={}}
 try{CURRENT=localStorage.getItem('tete.current')}catch{}
 for(const k of Object.keys(SEATS)){const s=SEATS[k];if(!s||!s.token||(!s.keep&&Date.now()-(s.t||0)>6*3600e3))delete SEATS[k]}
@@ -190,6 +190,7 @@ function backToLobby(){goldLook(false);rtcLeaveAll();S=null;ME=-1;$('#series-ask
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches)$$('.tiles .tile').forEach((el,i)=>el.animate([{transform:'translateY(-40px) rotate(-8deg) scale(.9)',opacity:0},{transform:'translateY(0px) rotate(0deg) scale(1)',opacity:1}],{duration:520,delay:i*70,easing:'cubic-bezier(.2,1.25,.35,1)',fill:'backwards'}))}
 function onMessage(m){
   if(m.type==='joined'){hideReqbar();PENDING_JOIN=null;ME=m.id;if(m.token&&m.code!=='PRACTICE'){SEATS[m.code]=Object.assign({},SEATS[m.code],{token:m.token,rid:m.rid,keep:!!m.keep,t:Date.now()});saveSeats();setCurrent(m.code)}if(!S||$('#lobby').classList.contains('on')){S={code:m.code,players:[],sideBets:[],board:[],participants:[]};enterGame()}if(m.resumed)toast('Back at your seat');return}
+  if(m.type==='you'&&LINK_GO){LINK_GO=false;LINK_DONE=true;setTimeout(()=>{if(!S||!S.cd||S.cd!==(joinCode()||'').toUpperCase())$('#btn-join').click()},250)}
   if(m.type==='gone'){if(PENDING_JOIN&&m.code===PENDING_JOIN.code){const pj=PENDING_JOIN;PENDING_JOIN=null;if(SEATS[m.code]){delete SEATS[m.code];saveSeats()}send(pj.msg);return}if(m.code&&SEATS[m.code]){delete SEATS[m.code];saveSeats()}if(!m.code||CURRENT===m.code)setCurrent(null);if(!LOCALT){if(m.final&&m.final.length){if($('#game').classList.contains('on'))backToLobby();setTimeout(()=>showResults(m.final,m.tn,m.owed),350)}else{toast(m.msg,3500);if($('#game').classList.contains('on'))backToLobby()}}renderRooms();return}
   if(m.type==='seal'){const s=SEATS[m.code];if(s){s.seal=m.seal;s.rid=m.rid;s.keep=true;if(S&&S.tableName)s.name=S.tableName;saveSeats()}return}
   if(m.type==='you'){MYID=m.id;if(!m.acct)try{localStorage.setItem('tete.myid',m.id)}catch{}handlePendingFriend();return}

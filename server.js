@@ -775,6 +775,8 @@ async function handle(ws, m) {
       // nobody's there, ready to hand to someone (Members > Tables > Hand to)
       const hostOnly = !!(m.cfg && m.cfg.hostOnly) && ownerOf(ws);
       const cfg = Object.assign({}, m.cfg || {}); delete cfg.rid; delete cfg.hostOnly; if (hostOnly) cfg.keep = true;
+      // every table the owner opens stays open (through him leaving it, and through restarts) until he ends it
+      if (ownerOf(ws)) cfg.keep = true;
       if (cfg.gold && !members.canGold(accounts.cached(ws.uid))) delete cfg.gold; // a Gold table is the owner's to open, for now
       const t = new Table(newCode(), cfg, broadcast);
       if (!hostOnly) { const err = sitError(ws, t); if (err) return send(ws, { type: 'error', msg: err, need: 'chips' }); }
