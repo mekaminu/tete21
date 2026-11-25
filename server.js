@@ -433,7 +433,7 @@ function broadcast(table) {
     const c = p.conn; if (!c || c.readyState !== 1) continue;
     const fresh = table.fxq.filter(e => e.n > (c.lastFx || 0));
     if (fresh.length) c.lastFx = fresh[fresh.length - 1].n;
-    send(c, { type: 'state', st: table.snapshot(p.id), fx: fresh, rq: p.id === table.hostId ? rq : undefined, ids });
+    send(c, { type: 'state', st: table.snapshot(p.id), fx: fresh, rq: table.runs(p.id) ? rq : undefined, ids });
   }
   listDirty = true;
   if (table.humansPresent() === 0 && !table.persistent) unregister(table);
@@ -815,7 +815,7 @@ async function handle(ws, m) {
     }
     case 'request_cancel': cancelRequest(ws, true); break;
     case 'admit': {
-      if (!T || ws.pid !== T.hostId) return;
+      if (!T || !T.runs(ws.pid)) return;
       const r = T.requests.get(String(m.id || '')); if (!r) return;
       T.requests.delete(r.id); if (r.ws.request && r.ws.request.id === r.id) r.ws.request = null; T.sync();
       if (r.ws.readyState !== 1) return;
@@ -859,8 +859,8 @@ async function handle(ws, m) {
       if (T.makeHost(Math.floor(+m.pid))) { listDirty = true; if (T.persistent) persistAll(); }
       break;
     }
-    case 'remove': { // the host takes someone off the table; a person can only come back if the host lets them in
-      if (!T || (ws.pid !== T.hostId && !ownerOf(ws))) return;
+    case 'remove': { // the host (or a co-host) takes someone off the table; a person can only come back if the host lets them in
+      if (!T || (!T.runs(ws.pid) && !ownerOf(ws))) return;
       const pid = Math.floor(+m.pid), p = T.players[pid]; if (!p || p.gone || pid === T.hostId || p.watch || (p.uid && members.isOwner(accounts.cached(p.uid)))) return;
       const c = p.conn, who = hostName(T) || 'The host';
       if (!T.takeOff(pid)) return;
@@ -876,6 +876,32 @@ async function handle(ws, m) {
       if (!ownerOf(ws) || !isId(m.id)) return;
       const who = await accounts.get(m.id).catch(() => null); if (!who || members.isOwner(who)) return;
       if (!members.set(m.id, m.s === 'yes' ? 'yes' : 'no', ws.uid)) pushMembers();
+      break;
+    }
+    // ----- the Control Room: the owner's page of every open table (join, co-hosts, end) -----
+    case 'control': { if (!ownerOf(ws)) return; send(ws, controlView()); break; }
+    case 'table_cohost': { // the owner makes someone at a table a co-host, or takes it back
+      if (!ownerOf(ws)) return; const t = byRid.get(String(m.rid || '')); if (!t || t.closed || !isId(m.uid)) return;
+      const p = t.players.find(x => !x.isBot && !x.gone && x.uid === m.uid); const who = await accounts.get(m.uid).catch(() => null);
+      if (!who || members.isOwner(who)) return;
+      if (m.on) { if (!p || t.cohosts.size >= 6) return; t.cohosts.add(m.uid); t.log(`${escHtml(members.OWNER_NAME)} made ${escHtml(p.name)} a co-host`, 'hi'); if (p.conn) send(p.conn, { type: 'toast', msg: `${members.OWNER_NAME} made you a co-host: you can let people in, deal and move the game on.` }); }
+      else if (t.cohosts.delete(m.uid)) { t.log(`${escHtml((p && p.name) || who.display || 'Someone')} is no longer a co-host`, 'hi'); }
+      t.sync(); if (t.persistent) saveRoom(t); send(ws, controlView()); break;
+    }
+    case 'table_end': { // the owner ends one table: at once (a hand in play is undone, its chips go back) or when this hand is over
+      if (!ownerOf(ws)) return; const t = byRid.get(String(m.rid || '')); if (!t || t.closed) return;
+      if (m.mode === 'after' && t.handStart) { t.endAfter = true; t.log(`${escHtml(members.OWNER_NAME)} is closing this table when the hand is over`, 'hi'); t.sync(); }
+      else if (m.mode === 'cancel') { t.endAfter = false; }
+      else endTable(t, `${members.OWNER_NAME} closed the table.`);
+      send(ws, controlView()); pushMembers(); break;
+    }
+    case 'member_delete': { // the owner removes, for good, the account of someone who is not let in (never a member's)
+      if (!ownerOf(ws) || !isId(m.id)) return;
+      const who = await accounts.get(m.id).catch(() => null); if (!who || members.isOwner(who) || members.status(who) !== 'no') return;
+      const o = online.get(m.id); if (o) for (const k of [...o.socks]) { try { k.close(); } catch {} }
+      members.forget(m.id);
+      try { await accounts.remove(m.id); console.log('owner removed account', who.username); } catch (e) { console.error('remove account:', e.message); }
+      pushMembers();
       break;
     }
     case 'member_topup': { // the owner gives a member chips from the house, straight onto their balance (his alone, for now)
@@ -1052,6 +1078,23 @@ setInterval(() => {
 
 // Close every table (standing rooms too, for good): everyone at one goes back to the lobby with the final scores.
 // Chips are safe: each hand's result is already on everyone's account.
+function controlView() {
+  return { type: 'control', tables: [...tables.values()].filter(t => !t.closed).map(t => { const ppl = t.players.filter(p => !p.isBot && !p.gone);
+    return { rid: t.rid, code: t.code.toUpperCase(), name: t.tableName, hand: t.handNo, live: t.handStart ? 1 : 0, started: t.started ? 1 : 0, pot: t.pot || 0, host: hostName(t), hostUid: (t.players[t.hostId] || {}).uid || '', ownerHosts: t.ownerIsHost() ? 1 : 0, endAfter: t.endAfter ? 1 : 0, keep: t.persistent ? 1 : 0,
+      here: ppl.filter(p => p.conn).length, people: ppl.map(p => ({ uid: p.uid || '', name: p.name, av: p.av || '', here: p.conn ? 1 : 0, watch: p.watch ? 1 : 0, host: p.id === t.hostId ? 1 : 0, co: p.uid && t.cohosts.has(p.uid) ? 1 : 0, owner: p.uid && members.isOwner(accounts.cached(p.uid)) ? 1 : 0 })) }; }) };
+}
+// close one table now: a hand in play is undone first (everyone's chips back to where the hand began)
+function endTable(t, msg) {
+  if (t.closed) return;
+  const conns = t.players.map(p => p.conn).filter(Boolean);
+  if (t.handStart) { for (const [p, c0] of t.handStart) p.chips = c0; t.handStart = null; }
+  let final = null, owed = null; try { final = t.started ? t.standings() : null; owed = t.openLoans(); } catch {}
+  if (t.persistent) closedCodes.add(t.code);
+  unregister(t);
+  for (const c of conns) { c.table = null; c.pid = -1; send(c, { type: 'gone', code: t.code.toUpperCase(), msg, final, owed, tn: t.tableName }); sendRooms(c); if (c.me) presenceChanged(c.me); }
+  persistAll(); listDirty = true;
+}
+setInterval(() => { for (const t of [...tables.values()]) if (t.endAfter && !t.closed && !t.handStart) { endTable(t, `${members.OWNER_NAME} closed the table.`); pushMembers(); } }, 1000);
 function closeAllTables(msg) {
   let n = 0;
   for (const t of [...tables.values()]) {

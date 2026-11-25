@@ -60,7 +60,7 @@ class Table {
     this.leadSuit = null; this.leadBy = -1; this.loans = []; this.loanN = 0; this.phase = -1; this.turn = -1; this.deadline = 0;
     this.sideBets = []; this.participants = []; this.busy = false; this.started = false;
     this.trickWinner = null; this.boardSize = 0; this.boardTop = 0; this.tiebreak = false; this.next = null; this.msgHost = '';
-    this.fxq = []; this.fxn = 0; this.sbid = 0; this.pend = null; this.closed = false; this.hostId = 0;
+    this.fxq = []; this.fxn = 0; this.sbid = 0; this.pend = null; this.closed = false; this.hostId = 0; this.cohosts = new Set();
     this.removed = new Set(); // people the host took off the table: they can only come back if the host lets them in
     this.dj = -1;             // who is playing their own music for the table (-1: nobody; the songs play)
     this.djTitle = '';        // what they're playing, when it has a name (a song file's name)
@@ -118,6 +118,8 @@ class Table {
     if (this.hostId !== id) { this.hostId = id; this.log(`${esc(p.name)} is the host${p.watch ? ' (hosting, not playing)' : ''}`, 'hi'); }
     if (this.onSave) this.onSave(); this.sync(); return true;
   }
+  // co-hosts (the owner picks them, by account): they can start, deal and move the game on like the host
+  runs(pid) { if (pid === this.hostId) return true; const p = this.players[pid]; return !!(p && !p.gone && !p.isBot && p.uid && this.cohosts.has(p.uid)); }
   ownerHost() { const h = this.players[this.hostId]; return !!(h && h.watch && !h.gone); }
   // the owner runs this table, hosting without playing or from his seat: then only he changes the settings
   ownerIsHost() { const h = this.players[this.hostId]; return !!(h && !h.gone && (h.watch || (this.isOwner && this.isOwner(h)))); }
@@ -291,11 +293,11 @@ class Table {
   // ----- persistence (between hands) -----
   toJSON(hashFn) {
     const S = this;
-    return { code: S.code, cfg: { buyIn: S.buyIn, wager: S.wager, tableName: S.tableName, timer: S.timer, seats: S.seats, fill: S.fill, side: S.side, series: S.series, tie: S.tieSplit ? 'split' : 'playoff', keep: true, pub: S.pub, gold: S.gold, rid: S.rid }, pending: S.pendingCfg || null, loans: S.loans, removed: [...S.removed].slice(-100), hostFor: S.hostFor || null, pot: S.pot, handNo: S.handNo, dealer: S.dealer, hostId: S.hostId, createdAt: S.createdAt,
+    return { code: S.code, cfg: { buyIn: S.buyIn, wager: S.wager, tableName: S.tableName, timer: S.timer, seats: S.seats, fill: S.fill, side: S.side, series: S.series, tie: S.tieSplit ? 'split' : 'playoff', keep: true, pub: S.pub, gold: S.gold, rid: S.rid }, pending: S.pendingCfg || null, loans: S.loans, removed: [...S.removed].slice(-100), hostFor: S.hostFor || null, cohosts: [...S.cohosts], pot: S.pot, handNo: S.handNo, dealer: S.dealer, hostId: S.hostId, createdAt: S.createdAt,
       players: S.players.filter(p => !p.isBot && !p.gone).map(p => ({ id: p.id, name: p.name, chips: p.chips, av: p.av, color: p.color, uid: p.uid || null, streak: p.streak || 0, bought: p.bought || 0, wins: p.wins || 0, best: p.best || 0, seat: p.seat, watch: p.watch ? 1 : 0, tokenHash: p.tokenHash || (p.token && hashFn ? hashFn(p.token) : null) })) };
   }
   static fromJSON(o, send) {
-    const t = new Table(o.code, o.cfg, send); t.pendingCfg = o.pending && typeof o.pending === 'object' ? o.pending : null; t.pot = o.pot || 0; t.handNo = o.handNo || 0; t.createdAt = o.createdAt || Date.now(); t.persistent = true;
+    const t = new Table(o.code, o.cfg, send); t.pendingCfg = o.pending && typeof o.pending === 'object' ? o.pending : null; t.pot = o.pot || 0; t.cohosts = new Set(Array.isArray(o.cohosts) ? o.cohosts.filter(x => typeof x === 'string').slice(0, 12) : []); t.handNo = o.handNo || 0; t.createdAt = o.createdAt || Date.now(); t.persistent = true;
     t.removed = new Set(Array.isArray(o.removed) ? o.removed.filter(x => typeof x === 'string' && x.length <= 80).slice(-100) : []);
     t.hostFor = typeof o.hostFor === 'string' && /^[0-9a-f]{16}$/.test(o.hostFor) ? o.hostFor : null;
     // compact ids so seats are contiguous; everyone is away until they resume
@@ -317,7 +319,7 @@ class Table {
       vt: S.vote ? [S.vote.n, S.vote.kind, S.vote.from, S.vote.until, [...S.vote.yes], S.voters().map(p => p.id), (S.vote.cards || []).map(enc)] : null,
       ba: S.boardAsk ? [S.boardAsk.until, S.boardAsk.cards.map(enc)] : null,
       sa: S.seriesAsk && S.seriesAsk.pid === forId ? [S.seriesAsk.until, S.seriesAsk.cards.map(enc)] : null,
-      cv: S.canVote() && !S.vote && (S.participants || []).includes(forId) ? 1 : 0, rs: S.canReshuffle(forId) ? 1 : S.reshuf && S.reshuf.has(forId) ? 2 : 0, dj: S.dj, djt: S.dj >= 0 ? S.djTitle : '', tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, lb: S.leadBy, ln: S.loans.map(l => [l.id, l.from, l.to, l.amt, l.paid, l.fromName, l.toName, l.out ? 1 : 0]), bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), bw: S.board.map(c => (c && c.taken && c.by != null ? c.by : -1)), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.hostId, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0, fl: S.fill ? 1 : 0, pb: S.pub ? 1 : 0, pc: S.pendingCfg || null,
+      cv: S.canVote() && !S.vote && (S.participants || []).includes(forId) ? 1 : 0, rs: S.canReshuffle(forId) ? 1 : S.reshuf && S.reshuf.has(forId) ? 2 : 0, dj: S.dj, djt: S.dj >= 0 ? S.djTitle : '', tn: S.tableName, w: S.wager, bi: S.buyIn, dk: S.decks, tm: S.timer, sd: S.side ? 1 : 0, hn: S.handNo, pot: S.pot, ph: S.phase, turn: S.turn, dl: S.deadline, dlr: S.dealer, tw: S.trickWinner, ls: S.leadSuit, lb: S.leadBy, ln: S.loans.map(l => [l.id, l.from, l.to, l.amt, l.paid, l.fromName, l.toName, l.out ? 1 : 0]), bs: S.boardSize, bt: S.boardTop, bd: S.board.map(enc), bw: S.board.map(c => (c && c.taken && c.by != null ? c.by : -1)), pa: S.participants, tb: S.tiebreak ? 1 : 0, st: S.started ? 1 : 0, bz: S.busy ? 1 : 0, cd: S.code.toUpperCase(), kp: S.persistent ? 1 : 0, mh: S.msgHost, host: S.runs(forId) ? forId : S.hostId, rh: S.hostId, co: forId !== S.hostId && S.runs(forId) ? 1 : 0, nx: S.next, me: forId, sr: S.series ? 1 : 0, ad: S.adasiTurn ?? -1, ts: S.tieSplit ? 1 : 0, fl: S.fill ? 1 : 0, pb: S.pub ? 1 : 0, pc: S.pendingCfg || null,
       pl: S.players.map(p => { const show = p.id === forId || p.revealed; return [p.id, p.name, p.isBot ? 1 : 0, p.chips, show ? p.hand.map(enc) : p.hand.map((c, i) => 'x' + p.id + '_' + i), enc(p.dropped), p.sitout ? 1 : 0, p.strikes, p.av ? [p.av.kind[0], p.av.color || p.av.emoji || ''] : null, show ? 1 : 0, p.gone ? 1 : 0, p.mic ? 1 : 0, p.cam ? 1 : 0, p.satOutByTimer ? 1 : 0, p.away ? 1 : 0, p.color, p.treat || '', p.streak || 0, p.bought || 0, p.wins || 0, p.best || 0, p.voice || null, !p.isBot && S.noRebuy && S.noRebuy(p) ? 1 : 0, p.watching ? 1 : 0, p.seat != null ? p.seat : p.id, p.watch ? 1 : 0, p.sitNext ? 1 : 0, p.hid ? 1 : 0]; }),
       sbs: S.sideBets.slice(-8).map(b => [b.id, b.a, b.b, b.type, b.amt, b.mine, b.theirs, b.status, b.result || '', b.winner ?? -1]),
     };
@@ -422,22 +424,22 @@ class Table {
     // the owner hosting without playing runs the table, but never plays or holds chips
     if (p.watch && !['start', 'deal', 'next', 'rebuy_all', 'settings', 'shuffle', 'chat', 'react'].includes(a.type)) return;
     switch (a.type) {
-      case 'start': if ((pid === this.hostId || !this.hostConnected()) && !this.started) this.start(); break;
+      case 'start': if ((this.runs(pid) || !this.hostConnected()) && !this.started) this.start(); break;
       case 'drop': case 'take': case 'stay': case 'adasi': case 'series_ans': if (P && P.pid === pid && P.kinds.includes(a.type)) P.done(a); break;
       case 'redeal_ask': this.askVote(pid, 'redeal'); break;
       case 'board_ask': this.askVote(pid, 'board'); break;
       case 'vote': this.answerVote(pid, a); break;
-      case 'deal': case 'next': if (pid === this.hostId && P && P.kinds.includes(a.type)) P.done(a); break;
+      case 'deal': case 'next': if (this.runs(pid) && P && P.kinds.includes(a.type)) P.done(a); break;
       case 'reshuffle': this.reshuffle(pid); break;
       case 'rejoin': this.sit(p, false); break;
       case 'sit': this.sit(p, !!a.out); break;
       case 'swap_ask': this.askSwap(pid, a); break;
       case 'swap_ans': this.answerSwap(pid, a); break;
-      case 'shuffle': if (pid === this.hostId || owner) this.shuffleAll(); break;
+      case 'shuffle': if (this.runs(pid) || owner) this.shuffleAll(); break;
       case 'rebuy': if (p.chips < this.wager) { if (this.noRebuy && this.noRebuy(p)) { this.fx({ k: 'toast', pid, t: "Buying back in is off for you, so you're out for this game.", ms: 4000 }); break; } if (this.canBuy && !this.canBuy(p, this.buyIn)) { this.fx({ k: 'toast', pid, t: 'Not enough free chips in your balance to rebuy. Spin the daily wheel in your profile.', ms: 4000 }); break; } p.chips += this.buyIn; p.bought = (p.bought || 0) + this.buyIn; p.sitout = false; p.broke = false; this.log(`${esc(p.name)} rebuys ${fmt(this.buyIn)}`, 'hi'); if (this.onSave) this.onSave(); } break;
       case 'sb': this.proposeSB(pid, a); break;
       case 'sb_ans': this.answerSB(pid, a); break;
-      case 'rebuy_all': if (pid === this.hostId && P && P.kinds.includes('rebuy_all')) P.done(a); break;
+      case 'rebuy_all': if (this.runs(pid) && P && P.kinds.includes('rebuy_all')) P.done(a); break;
       case 'spray': this.spray(pid, a); break;
       case 'lend': this.lend(pid, a); break;
       case 'give': this.give(pid, a); break;

@@ -65,6 +65,9 @@ function set(id, s, by) {
   save(); emit('set', id, s); return true;
 }
 
+// the owner removes someone who was never let in: they drop off every list
+function forget(id) { if (!ready || !state.people[id] || state.people[id].s === 'yes') return false; delete state.people[id]; save(); emit('set', id, 'gone'); return true; }
+
 // ----- invite links: whoever opens one makes an account (or signs in) and is straight in -----
 function tidy() { const now = Date.now(); let ch = false; for (const [k, i] of Object.entries(state.invites)) if (i.exp < now - DAY) { delete state.invites[k]; ch = true; } if (ch) save(); }
 function newInvite(by, max) {
@@ -114,4 +117,4 @@ const rebuyOff = uid => !!(uid && state.people[uid] && state.people[uid].norebuy
 function setHosts(all) { const h = all ? 'all' : 'owner'; if (!ready || state.hosts === h) return false; state.hosts = h; save(); emit('hosts', all); return true; }
 
 const people = () => state.people;
-module.exports = { init, onEvent, on, forcedOff, isOwner, status, allowed, ask, set, newInvite, cancelInvite, liveInvite, redeem, invites, setOpen, hostsAll, canHost, setHosts, canGold, setFlags, wheelOff, rebuyOff, people, waitingCount, OWNER_NAME, OWNERS };
+module.exports = { forget, init, onEvent, on, forcedOff, isOwner, status, allowed, ask, set, newInvite, cancelInvite, liveInvite, redeem, invites, setOpen, hostsAll, canHost, setHosts, canGold, setFlags, wheelOff, rebuyOff, people, waitingCount, OWNER_NAME, OWNERS };

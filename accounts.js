@@ -51,6 +51,8 @@ async function get(uid) {
   loading.set(uid, p); return p;
 }
 const cached = uid => cache.get(uid) || null;
+// remove an account for good (the owner, for someone never let in)
+async function remove(uid) { clearTimeout(saveT.get(uid)); saveT.delete(uid); cache.delete(uid); loading.delete(uid); await db.deleteUser(uid); }
 function persist(u) { clearTimeout(saveT.get(u.id)); saveT.set(u.id, setTimeout(() => { saveT.delete(u.id); db.saveUser(u).catch(e => console.error('save user:', e.message)); }, 250)); }
 
 // ----- sign-up, sign-in, sessions -----
@@ -187,5 +189,5 @@ async function adoptDeviceFriends(u, devIds) {
 }
 async function accountOf(id) { try { const u = await get(id); if (u) return u; const m = await db.deviceUsers([id]); return m.has(id) ? await get(m.get(id)) : null; } catch { return null; } }
 
-module.exports = { init, isReady, get, cached, friendData, signup, signin, fromSession, signout, changePassword, payload, pub, setLook, spin, grant, setBalance, bonusInfo, settle, request, answer, cancel, unfriend, link, friendIds, adoptDeviceFriends, accountOf, level, WHEEL, kvGet: (...a) => db.kvGet(...a), kvSet: (...a) => db.kvSet(...a),
+module.exports = { remove, init, isReady, get, cached, friendData, signup, signin, fromSession, signout, changePassword, payload, pub, setLook, spin, grant, setBalance, bonusInfo, settle, request, answer, cancel, unfriend, link, friendIds, adoptDeviceFriends, accountOf, level, WHEEL, kvGet: (...a) => db.kvGet(...a), kvSet: (...a) => db.kvSet(...a),
   listUsers: n => db.listUsers(n), usersByIds: ids => db.usersByIds(ids).then(l => l.map(u => ({ id: u.id, username: u.username, display: u.display, av: u.av || null, stats: u.stats || {}, created_at: u.created_at }))) };

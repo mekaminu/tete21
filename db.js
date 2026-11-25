@@ -72,6 +72,13 @@ async function userByName(username) {
   if (pool) { const r = await q('select * from t21_users where username = $1', [username]); return row2user(r.rows[0]) || null; }
   const u = Object.values(mem.users).find(x => x.username === username); return u ? Object.assign({}, u) : null;
 }
+// the owner removes an account that was never let in: the account, its sign-ins, devices and friend links go; the
+// records of hands and chips stay as they are
+async function deleteUser(id) {
+  if (pool) { await q('delete from t21_sessions where user_id=$1', [id]); await q('delete from t21_devices where user_id=$1', [id]); await q('delete from t21_friends where a=$1 or b=$1', [id]); await q('delete from t21_users where id=$1', [id]); return; }
+  delete mem.users[id]; for (const k of ['sessions', 'devices']) if (mem[k]) for (const [h, v] of Object.entries(mem[k])) if (v === id || (v && (v.user_id === id || v.uid === id))) delete mem[k][h];
+  if (Array.isArray(mem.friends)) mem.friends = mem.friends.filter(f => f.a !== id && f.b !== id); memSave();
+}
 async function userById(id) {
   if (pool) { const r = await q('select * from t21_users where id = $1', [id]); return row2user(r.rows[0]) || null; }
   return mem.users[id] ? Object.assign({}, mem.users[id]) : null;
@@ -190,4 +197,4 @@ async function transfers(uid, since) {
 async function kvGet(k) { if (pool) { const r = await q('select v from t21_kv where k=$1', [k]); return r.rows[0] ? r.rows[0].v : null; } return mem.kv[k] ?? null; }
 async function kvSet(k, v) { if (pool) { await q('insert into t21_kv(k, v) values($1,$2) on conflict(k) do update set v=excluded.v, at=now()', [k, JSON.stringify(v)]); return; } mem.kv[k] = v; memSave(); }
 
-module.exports = { addTableLog, tableLog, logTables, transfers, init, isPg, createUser, userByName, userById, usersByIds, listUsers, saveUser, setPassword, addSession, sessionUser, dropSession, dropSessionsOf, linkDevice, deviceUsers, devicesOf, friendsOf, getFriend, setFriend, dropFriend, addHand, addLedger, daily, recent, kvGet, kvSet };
+module.exports = { deleteUser, addTableLog, tableLog, logTables, transfers, init, isPg, createUser, userByName, userById, usersByIds, listUsers, saveUser, setPassword, addSession, sessionUser, dropSession, dropSessionsOf, linkDevice, deviceUsers, devicesOf, friendsOf, getFriend, setFriend, dropFriend, addHand, addLedger, daily, recent, kvGet, kvSet };
