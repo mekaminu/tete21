@@ -893,6 +893,7 @@ function renderControl(){
   const box=$('#ctl-list');if(!box)return;const ts=(CTRL&&CTRL.tables)||[];
   $('#ctl-stats').innerHTML=`<div><b>${ts.length}</b><span>Tables open</span></div><div><b>${ts.reduce((n,t)=>n+t.here,0)}</b><span>Here now</span></div><div><b>${ts.filter(t=>t.live).length}</b><span>Hands in play</span></div>`;
   if(!CTRL){box.innerHTML='<p class="empty">Loading the tables…</p>';return}
+  {const vb=$('#ctl-ver');if(vb&&CTRL.ver)vb.textContent=`Version ${CTRL.ver} · running since ${new Date(CTRL.up).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`}
   if(!ts.length){box.innerHTML='<p class="empty">No tables are open. Open one below.</p>';return}
   const sig=JSON.stringify([ts,CTRL_OPEN]);if(box.dataset.sig===sig)return;const first=!box.dataset.sig;box.dataset.sig=sig;
   box.innerHTML=ts.map(t=>{const op=CTRL_OPEN[t.rid]||'',ppl=t.people||[],cos=ppl.filter(p=>p.co),can=ppl.filter(p=>p.uid&&!p.owner&&!p.host);

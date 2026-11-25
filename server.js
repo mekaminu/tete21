@@ -417,7 +417,8 @@ function leave(ws, dropped, forGood) {
   listDirty = true; if (ws.me) presenceChanged(ws.me);
   if (ws.uid) setTimeout(() => pushAccount(ws.uid), 50);
   // the last person leaves a standing room for good: the room goes with them
-  if (forGood && T.persistent && !T.closed && T.humansPresent() === 0) { closedCodes.add(T.code); unregister(T); persistAll(); return; }
+  // (not while only the owner opens tables: his stay open until he ends them in the Control Room)
+  if (forGood && T.persistent && !T.closed && T.humansPresent() === 0 && members.hostsAll()) { closedCodes.add(T.code); unregister(T); persistAll(); return; }
   if (T.persistent || T.closed) return;
   if (T.humansPresent() === 0) unregister(T);
   else if (T.humansConnected() === 0) { clearTimeout(T.emptyT); T.emptyT = setTimeout(() => { if (!T.closed && T.humansConnected() === 0) unregister(T); }, 120000); }
@@ -1080,8 +1081,9 @@ setInterval(() => {
 
 // Close every table (standing rooms too, for good): everyone at one goes back to the lobby with the final scores.
 // Chips are safe: each hand's result is already on everyone's account.
+const BOOT_AT = Date.now();
 function controlView() {
-  return { type: 'control', tables: [...tables.values()].filter(t => !t.closed).map(t => { const ppl = t.players.filter(p => !p.isBot && !p.gone);
+  return { type: 'control', ver: String(process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7), up: BOOT_AT, tables: [...tables.values()].filter(t => !t.closed).map(t => { const ppl = t.players.filter(p => !p.isBot && !p.gone);
     return { rid: t.rid, code: t.code.toUpperCase(), name: t.tableName, hand: t.handNo, live: t.handStart ? 1 : 0, started: t.started ? 1 : 0, pot: t.pot || 0, host: hostName(t), hostUid: (t.players[t.hostId] || {}).uid || '', ownerHosts: t.ownerIsHost() ? 1 : 0, endAfter: t.endAfter ? 1 : 0, keep: t.persistent ? 1 : 0,
       here: ppl.filter(p => p.conn).length, people: ppl.map(p => ({ uid: p.uid || '', name: p.name, av: p.av || '', here: p.conn ? 1 : 0, watch: p.watch ? 1 : 0, host: p.id === t.hostId ? 1 : 0, co: p.uid && t.cohosts.has(p.uid) ? 1 : 0, owner: p.uid && members.isOwner(accounts.cached(p.uid)) ? 1 : 0 })) }; }) };
 }
